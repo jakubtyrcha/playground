@@ -2,7 +2,6 @@
 
 #include <debug_assert/debug_assert.hpp>
 #include "types.h"
-#include <type_traits>
 
 namespace Container
 {
@@ -21,7 +20,6 @@ namespace Container
 
 		Array()
 		{
-			static_assert(std::is_trivial_v<T> == true);
 		}
 
 		~Array()
@@ -93,16 +91,34 @@ namespace Container
 			}
 		}
 
-		void Resize(i64 size)
+		void _Resize(i64 size, bool initialise)
 		{
 			Reserve(size);
+
+			if (initialise)
+			{
+				for (int i = size_; i < size; i++)
+				{
+					new (data_[i]) T;
+				}
+			}
 
 			size_ = size;
 		}
 
+		void ResizeUninitialised(i64 size)
+		{
+			_Resize(size, false);
+		}
+
+		void Resize(i64 size)
+		{
+			_Resize(size, true);
+		}
+
 		void Clear()
 		{
-			Resize(0);
+			ResizeUninitialised(0);
 		}
 
 		i64 Size() const
