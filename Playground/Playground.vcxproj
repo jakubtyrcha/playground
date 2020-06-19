@@ -173,6 +173,7 @@
   <ItemGroup>
     <ClInclude Include="assertions.h" />
     <ClInclude Include="com.h" />
+    <ClInclude Include="copy_move.h" />
     <ClInclude Include="files.h" />
     <ClInclude Include="gfx.h" />
     <ClInclude Include="array.h" />

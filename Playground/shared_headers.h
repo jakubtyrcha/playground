@@ -42,3 +42,5 @@
 #define NOMCX
 
 #include <Windows.h>
+
+#undef assert

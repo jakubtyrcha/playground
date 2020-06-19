@@ -3,6 +3,7 @@
 #include <debug_assert/debug_assert.hpp>
 #include "types.h"
 #include <stdio.h>
+#include <type_traits>
 
 namespace Containers
 {
@@ -30,14 +31,14 @@ namespace Containers
 
 		Array(Array const& rhs)
 		{
-			Resize(rhs.Size());
+			ResizeUninitialised(rhs.Size());
 			memcpy(data_, rhs.data_, Size());
 		}
 
 		Array& operator =(Array const& rhs)
 		{
 			Release();
-			Resize(rhs.Size());
+			ResizeUninitialised(rhs.Size());
 			memcpy(data_, rhs.data_, Size());
 			return *this;
 		}
@@ -104,6 +105,14 @@ namespace Containers
 				}
 			}
 
+			if constexpr (!std::is_trivial_v<T>)
+			{
+				for (i64 i = size_ - 1; i >= size; i--)
+				{
+					(data_ + i)->T::~T();
+				}
+			}
+
 			size_ = size;
 		}
 
@@ -119,7 +128,7 @@ namespace Containers
 
 		void Clear()
 		{
-			ResizeUninitialised(0);
+			Resize(0);
 		}
 
 		i64 Size() const
@@ -129,6 +138,7 @@ namespace Containers
 
 		void Append(T const* src, i64 num)
 		{
+			static_assert(std::is_trivial_v<T>);
 			Reserve(size_ + num);
 			memcpy(data_ + size_, src, num * sizeof(T));
 			size_ += num;
@@ -153,6 +163,7 @@ namespace Containers
 
 		void Release()
 		{
+			Resize(0);
 			free(data_);
 			data_ = nullptr;
 			max_size_ = 0;
@@ -194,13 +205,29 @@ namespace Containers
 		{
 			DEBUG_ASSERT(size_ > 0, containers_module{});
 			size_ -= 1;
-			return data_[size_];
+			if constexpr (std::is_trivial_v<T>)
+			{
+				return data_[size_];
+			}
+
+			static_assert(std::is_move_constructible_v<T>);
+			return std::move(data_[size_]);
 		}
 
 		void PushBack(T t)
 		{
+			static_assert(std::is_trivial_v<T>);
+
 			ResizeUninitialised(size_ + 1);
 			data_[size_ - 1] = t;
+		}
+
+		void PushBackRvalueRef(T&& t)
+		{
+			static_assert(std::is_move_assignable_v<T>);
+
+			Resize(size_ + 1);
+			data_[size_ - 1] = std::move(t);
 		}
 	};
 

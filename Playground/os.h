@@ -1,10 +1,7 @@
 #pragma once
 
 #include "shared_headers.h"
-
-#include <magnum/MagnumMath.hpp>
-
-using namespace Magnum;
+#include "types.h"
 
 namespace Os
 {

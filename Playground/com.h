@@ -40,7 +40,7 @@ namespace Com
 			}
 		}
 
-		T** PtrAddress()
+		T** InitAddress()
 		{
 			return &ptr_;
 		}
@@ -53,6 +53,11 @@ namespace Com
 		T* Get()
 		{
 			return ptr_;
+		}
+
+		T* operator*()
+		{
+			return Get();
 		}
 	};
 }
