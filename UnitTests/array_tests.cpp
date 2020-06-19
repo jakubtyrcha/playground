@@ -2,7 +2,7 @@
 
 #include "array.h"
 
-using namespace Container;
+using namespace Containers;
 
 TEST_CASE("arrays can be resized and accessed", "[array]") {
 	Array<int> array;

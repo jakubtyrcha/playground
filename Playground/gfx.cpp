@@ -1,17 +1,43 @@
 #include "gfx.h"
 #include <dxgi1_6.h>
 #include <dxgidebug.h>
-#include <debug_assert/debug_assert.hpp>
-
-struct gfx_module
-	: debug_assert::default_handler, // use the default handler
-	debug_assert::set_level<-1> // level -1, i.e. all assertions, 0 would mean none, 1 would be level 1, 2 level 2 or lower,...
-{};
+#include "assertions.h"
 
 namespace Gfx
 {
+	IDXGIAdapter1* FindAdapter(IDXGIFactory4* dxgi_factory)
+	{
+		IDXGIAdapter1* adapter = nullptr;
+		int adapter_index = 0;
+		bool adapter_found = false;
+		while (dxgi_factory->EnumAdapters1(adapter_index, &adapter) != DXGI_ERROR_NOT_FOUND)
+		{
+			DXGI_ADAPTER_DESC1 desc;
+			adapter->GetDesc1(&desc);
+
+			if ((desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) == 0)
+			{
+				HRESULT hr = D3D12CreateDevice(adapter, D3D_FEATURE_LEVEL_12_1, _uuidof(ID3D12Device), nullptr);
+				if (SUCCEEDED(hr))
+				{
+					adapter_found = true;
+					break;
+				}
+			}
+			adapter->Release();
+			adapter_index++;
+		}
+		assert(adapter_found);
+
+		return adapter;
+	}
+
 	Device::Device()
 	{
+		verify_hr(CreateDXGIFactory1(IID_PPV_ARGS(dxgi_factory_.PtrAddress())));
+
+		*adapter_.PtrAddress() = FindAdapter(dxgi_factory_.Get());
+
 #ifdef DX12_ENABLE_DEBUG_LAYER
 		ID3D12Debug* d3d12_debug = NULL;
 		if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&d3d12_debug))))
@@ -22,7 +48,7 @@ namespace Gfx
 #endif
 
 		D3D_FEATURE_LEVEL feature_level = D3D_FEATURE_LEVEL_12_1;
-		HRESULT hr = D3D12CreateDevice(nullptr, feature_level, IID_PPV_ARGS(device_.PtrAddress()));
+		HRESULT hr = D3D12CreateDevice(adapter_.Get(), feature_level, IID_PPV_ARGS(device_.PtrAddress()));
 		DEBUG_ASSERT(hr == S_OK, gfx_module{});
 
 		D3D12_FEATURE_DATA_D3D12_OPTIONS options;

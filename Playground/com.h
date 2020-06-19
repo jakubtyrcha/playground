@@ -49,5 +49,10 @@ namespace Com
 		{
 			return ptr_;
 		}
+
+		T* Get()
+		{
+			return ptr_;
+		}
 	};
 }

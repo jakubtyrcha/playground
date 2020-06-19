@@ -71,19 +71,31 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>../external/imgui;../external;../external/fmt/include;$(IncludePath)</IncludePath>
+    <IncludePath>../external;../external/imgui;../external/fmt/include;../external/d3d12memoryallocator;$(IncludePath)</IncludePath>
+    <ReferencePath>
+    </ReferencePath>
+    <ExecutablePath>$(ExecutablePath)</ExecutablePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>../external/imgui;../external;../external/fmt/include;$(IncludePath)</IncludePath>
+    <IncludePath>../external;../external/imgui;../external/fmt/include;../external/d3d12memoryallocator;$(IncludePath)</IncludePath>
+    <ReferencePath>
+    </ReferencePath>
+    <ExecutablePath>$(ExecutablePath)</ExecutablePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>../external/imgui;../external;../external/fmt/include;$(IncludePath)</IncludePath>
+    <IncludePath>../external;../external/imgui;../external/fmt/include;../external/d3d12memoryallocator;$(IncludePath)</IncludePath>
+    <ReferencePath>
+    </ReferencePath>
+    <ExecutablePath>$(ExecutablePath)</ExecutablePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>../external/imgui;../external;../external/fmt/include;$(IncludePath)</IncludePath>
+    <IncludePath>../external;../external/imgui;../external/fmt/include;../external/d3d12memoryallocator;$(IncludePath)</IncludePath>
+    <ReferencePath>
+    </ReferencePath>
+    <ExecutablePath>$(ExecutablePath)</ExecutablePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -150,14 +162,22 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\external\d3d12memoryallocator\Common.cpp" />
+    <ClCompile Include="..\external\d3d12memoryallocator\D3D12MemAlloc.cpp" />
     <ClCompile Include="..\external\fmt\src\format.cc" />
+    <ClCompile Include="files.cpp" />
     <ClCompile Include="gfx.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="os.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="assertions.h" />
     <ClInclude Include="com.h" />
+    <ClInclude Include="files.h" />
     <ClInclude Include="gfx.h" />
     <ClInclude Include="array.h" />
+    <ClInclude Include="os.h" />
+    <ClInclude Include="shared_headers.h" />
     <ClInclude Include="types.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

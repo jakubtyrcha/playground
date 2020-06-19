@@ -2,10 +2,11 @@
 
 #include <debug_assert/debug_assert.hpp>
 #include "types.h"
+#include <stdio.h>
 
-namespace Container
+namespace Containers
 {
-	struct container_module
+	struct containers_module
 		: debug_assert::default_handler, // use the default handler
 		debug_assert::set_level<-1> // level -1, i.e. all assertions, 0 would mean none, 1 would be level 1, 2 level 2 or lower,...
 	{};
@@ -97,9 +98,9 @@ namespace Container
 
 			if (initialise)
 			{
-				for (int i = size_; i < size; i++)
+				for (i64 i = size_; i < size; i++)
 				{
-					new (data_[i]) T;
+					new (data_ + i) T;
 				}
 			}
 
@@ -157,26 +158,49 @@ namespace Container
 			max_size_ = 0;
 		}
 
-		T* Data()
-		{
-			return data_;
-		}
-
 		const T* Data()  const
 		{
 			return data_;
 		}
 
-		T& At(i64 index)
+		T* Data()
 		{
-			DEBUG_ASSERT(0 <= index && index < size_, container_module{});
-			return data_[index];
+			return data_;
 		}
 
 		const T& At(i64 index) const
 		{
-			DEBUG_ASSERT(0 <= index && index < size_, container_module{});
+			DEBUG_ASSERT(0 <= index && index < size_, containers_module{});
 			return data_[index];
+		}
+
+		T& At(i64 index)
+		{
+			DEBUG_ASSERT(0 <= index && index < size_, containers_module{});
+			return data_[index];
+		}
+
+		const T& operator [](i64 index) const
+		{
+			return At(index);
+		}
+
+		T& operator [](i64 index)
+		{
+			return At(index);
+		}
+
+		T PopBack()
+		{
+			DEBUG_ASSERT(size_ > 0, containers_module{});
+			size_ -= 1;
+			return data_[size_];
+		}
+
+		void PushBack(T t)
+		{
+			ResizeUninitialised(size_ + 1);
+			data_[size_ - 1] = t;
 		}
 	};
 
