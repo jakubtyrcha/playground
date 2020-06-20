@@ -103,7 +103,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -117,7 +117,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -133,7 +133,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -151,7 +151,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -165,18 +165,26 @@
     <ClCompile Include="..\external\d3d12memoryallocator\Common.cpp" />
     <ClCompile Include="..\external\d3d12memoryallocator\D3D12MemAlloc.cpp" />
     <ClCompile Include="..\external\fmt\src\format.cc" />
+    <ClCompile Include="bitarray.cpp" />
     <ClCompile Include="files.cpp" />
     <ClCompile Include="gfx.cpp" />
+    <ClCompile Include="hash.cpp" />
+    <ClCompile Include="hashmap.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="os.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="algorithms.h" />
     <ClInclude Include="assertions.h" />
+    <ClInclude Include="bitarray.h" />
     <ClInclude Include="com.h" />
+    <ClInclude Include="containers_shared.h" />
     <ClInclude Include="copy_move.h" />
     <ClInclude Include="files.h" />
     <ClInclude Include="gfx.h" />
     <ClInclude Include="array.h" />
+    <ClInclude Include="hash.h" />
+    <ClInclude Include="hashmap.h" />
     <ClInclude Include="os.h" />
     <ClInclude Include="shared_headers.h" />
     <ClInclude Include="types.h" />

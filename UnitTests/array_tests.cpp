@@ -1,6 +1,7 @@
 #include "catch/catch.hpp"
 
 #include "array.h"
+#include "copy_move.h"
 
 using namespace Containers;
 
@@ -35,4 +36,36 @@ TEST_CASE("arrays can be shrinked", "[array]")
 	REQUIRE(array.Size() == 512);
 	array.ResizeUninitialised(0);
 	array.Shrink();
+}
+
+TEST_CASE("arrays can be store moveable objects", "[array]")
+{
+	struct MoveMe : private MoveableNonCopyable<MoveMe>
+	{
+		int* ptr = nullptr;
+
+		MoveMe() = default;
+		MoveMe(int* x) : ptr(x) { if (ptr) { (*ptr)++; } }
+		~MoveMe() { if (ptr) { (*ptr)--; } }
+
+		MoveMe(MoveMe&& other) { ptr = other.ptr; other.ptr = nullptr; }
+		MoveMe& operator=(MoveMe&& other) { ptr = other.ptr; other.ptr = nullptr; return *this; }
+	};
+
+	int x = 0;
+
+	Array<MoveMe> array;
+	for (int i = 0; i < 1000; i++)
+	{
+		array.PushBackRvalueRef(MoveMe(&x));
+	}
+
+	REQUIRE(x == 1000);
+
+	while (array.Size())
+	{
+		array.PopBack();
+	}
+
+	REQUIRE(x == 0);
 }

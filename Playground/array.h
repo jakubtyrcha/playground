@@ -1,18 +1,9 @@
 #pragma once
 
-#include <debug_assert/debug_assert.hpp>
-#include "types.h"
-#include <stdio.h>
-#include <type_traits>
+#include "containers_shared.h"
 
 namespace Containers
 {
-	struct containers_module
-		: debug_assert::default_handler, // use the default handler
-		debug_assert::set_level<-1> // level -1, i.e. all assertions, 0 would mean none, 1 would be level 1, 2 level 2 or lower,...
-	{};
-
-
 	template<typename T>
 	struct Array
 	{
@@ -101,7 +92,7 @@ namespace Containers
 			{
 				for (i64 i = size_; i < size; i++)
 				{
-					new (data_ + i) T;
+					new (data_ + i) T();
 				}
 			}
 
@@ -138,7 +129,7 @@ namespace Containers
 
 		void Append(T const* src, i64 num)
 		{
-			static_assert(std::is_trivial_v<T>);
+			static_assert(std::is_trivially_copyable_v<T>);
 			Reserve(size_ + num);
 			memcpy(data_ + size_, src, num * sizeof(T));
 			size_ += num;
@@ -205,7 +196,7 @@ namespace Containers
 		{
 			DEBUG_ASSERT(size_ > 0, containers_module{});
 			size_ -= 1;
-			if constexpr (std::is_trivial_v<T>)
+			if constexpr (std::is_trivially_copyable_v<T>)
 			{
 				return data_[size_];
 			}
@@ -216,7 +207,7 @@ namespace Containers
 
 		void PushBack(T t)
 		{
-			static_assert(std::is_trivial_v<T>);
+			static_assert(std::is_trivially_copyable_v<T>);
 
 			ResizeUninitialised(size_ + 1);
 			data_[size_ - 1] = t;
