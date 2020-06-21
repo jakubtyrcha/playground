@@ -1,6 +1,7 @@
 #pragma once
 
 #include "containers_shared.h"
+#include <string.h>
 
 namespace Containers
 {

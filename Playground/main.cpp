@@ -1,3 +1,5 @@
+#include "pch.h"
+
 #include "gfx.h"
 #include <fmt/format.h>
 #include "array.h"

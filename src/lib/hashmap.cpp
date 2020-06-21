@@ -1,3 +1,5 @@
+#include "pch.h"
+
 #include "hashmap.h"
 #include "algorithms.h"
 

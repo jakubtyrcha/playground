@@ -1,17 +1,10 @@
 #pragma once
 
-#include "types.h"
-#include "shared_headers.h"
-#include "com.h"
-#include "assertions.h"
 #include "array.h"
 #include "hashmap.h"
+#include "com.h"
+#include "assertions.h"
 #include "copy_move.h"
-#include <magnum/CorradePointer.h>
-
-#include <d3d12.h>
-#include <dxgi1_6.h>
-#include <d3d12memoryallocator/D3D12MemAlloc.h>
 
 #define DX12_ENABLE_DEBUG_LAYER _DEBUG
 

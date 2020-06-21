@@ -1,9 +1,7 @@
+#include "pch.h"
+
 #include "gfx.h"
 #include "os.h"
-#include <dxgi1_6.h>
-#include <dxgidebug.h>
-#include "assertions.h"
-#include <fmt/format.h>
 
 namespace Gfx
 {

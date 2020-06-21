@@ -1,3 +1,5 @@
+#include "pch.h"
+
 #include "bitarray.h"
 
 #include <intrin.h>

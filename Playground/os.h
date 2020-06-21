@@ -1,6 +1,5 @@
 #pragma once
 
-#include "shared_headers.h"
 #include "types.h"
 
 namespace Os

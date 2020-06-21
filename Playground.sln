@@ -7,6 +7,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Playground", "Playground\Pl
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "UnitTests", "UnitTests\UnitTests.vcxproj", "{B017A009-55BE-4386-AF28-5CFC1A5375F6}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PlaygroundLib", "PlaygroundLib\PlaygroundLib.vcxproj", "{763DC853-F8AB-4566-A796-BBEC1785F0E9}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -31,6 +33,14 @@ Global
 		{B017A009-55BE-4386-AF28-5CFC1A5375F6}.Release|x64.Build.0 = Release|x64
 		{B017A009-55BE-4386-AF28-5CFC1A5375F6}.Release|x86.ActiveCfg = Release|Win32
 		{B017A009-55BE-4386-AF28-5CFC1A5375F6}.Release|x86.Build.0 = Release|Win32
+		{763DC853-F8AB-4566-A796-BBEC1785F0E9}.Debug|x64.ActiveCfg = Debug|x64
+		{763DC853-F8AB-4566-A796-BBEC1785F0E9}.Debug|x64.Build.0 = Debug|x64
+		{763DC853-F8AB-4566-A796-BBEC1785F0E9}.Debug|x86.ActiveCfg = Debug|Win32
+		{763DC853-F8AB-4566-A796-BBEC1785F0E9}.Debug|x86.Build.0 = Debug|Win32
+		{763DC853-F8AB-4566-A796-BBEC1785F0E9}.Release|x64.ActiveCfg = Release|x64
+		{763DC853-F8AB-4566-A796-BBEC1785F0E9}.Release|x64.Build.0 = Release|x64
+		{763DC853-F8AB-4566-A796-BBEC1785F0E9}.Release|x86.ActiveCfg = Release|Win32
+		{763DC853-F8AB-4566-A796-BBEC1785F0E9}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -1,3 +1,5 @@
+#include "pch.h"
+
 #include "hash.h"
 #include <xxhash/xxh3.h>
 
