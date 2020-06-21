@@ -5,12 +5,14 @@
 #include "bitarray.h"
 #include "hash.h"
 
+// heavily inspired by https://probablydance.com/2017/02/26/i-wrote-the-fastest-hashtable/
+
 namespace Containers
 {
 	template<typename T>
 	constexpr bool HashKeysByValue()
 	{
-		return (sizeof(T) < 16) && std::is_trivial_v<T>;
+		return (sizeof(T) <= 32) && std::is_trivial_v<T>;
 	}
 
 	i64 GetHashmapSize(i64 slots);

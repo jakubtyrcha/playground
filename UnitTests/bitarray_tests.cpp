@@ -57,3 +57,20 @@ TEST_CASE("bitarray can give next set bit", "[bitarray]") {
 	REQUIRE(b.GetNextBitSet(999) == 999);
 }
 
+TEST_CASE("bitarray can test if any bit is set", "[bitarray]") {
+	Bitarray b;
+	b.Resize(63);
+	REQUIRE(b.AnyBitSet() == false);
+	b.SetBit(0, true);
+	REQUIRE(b.AnyBitSet() == true);
+	b.SetBit(0, false);
+	REQUIRE(b.AnyBitSet() == false);
+	b.SetBit(62, true);
+	REQUIRE(b.AnyBitSet() == true);
+	b.Resize(62);
+	REQUIRE(b.AnyBitSet() == false);
+	b.Resize(1000);
+	REQUIRE(b.AnyBitSet() == false);
+	b.SetBit(999, true);
+	REQUIRE(b.AnyBitSet() == true);
+}

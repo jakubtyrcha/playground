@@ -11,9 +11,37 @@ namespace Containers
 		i64 max_size_ = 0;
 		T* data_ = nullptr;
 
-		Array()
-		{
-		}
+		struct Iterator {
+			Array* const array_;
+			i64 index_ = 0;
+
+			Iterator(Array* const array, i64 index) : array_(array), index_(index) {}
+
+			Iterator operator++(int) {
+				index_++;
+				return *this;
+			}
+
+			Iterator& operator++() {
+				index_++;
+				return *this;
+			}
+
+			bool operator ==(Iterator other) const {
+				return array_ == other.array_ && index_ == other.index_;
+			}
+
+			bool operator !=(Iterator other) const
+			{
+				return !((*this) == other);
+			}
+
+			T operator *() const {
+				return array_->At(index_);
+			}
+		};
+
+		Array() = default;
 
 		~Array()
 		{
@@ -23,14 +51,14 @@ namespace Containers
 		Array(Array const& rhs)
 		{
 			ResizeUninitialised(rhs.Size());
-			memcpy(data_, rhs.data_, Size());
+			memcpy(data_, rhs.data_, sizeof(T) * Size());
 		}
 
 		Array& operator =(Array const& rhs)
 		{
 			Release();
 			ResizeUninitialised(rhs.Size());
-			memcpy(data_, rhs.data_, Size());
+			memcpy(data_, rhs.data_, sizeof(T) * Size());
 			return *this;
 		}
 
@@ -46,6 +74,7 @@ namespace Containers
 
 		Array& operator =(Array&& rhs)
 		{
+			Release();
 			data_ = rhs.data_;
 			size_ = rhs.size_;
 			max_size_ = rhs.max_size_;
@@ -54,6 +83,14 @@ namespace Containers
 			rhs.max_size_ = rhs.size_ = 0;
 
 			return *this;
+		}
+
+		Iterator begin() {
+			return Iterator{ this, 0 };
+		}
+
+		Iterator end() {
+			return Iterator{ this, size_ };
 		}
 
 		void Reserve(i64 min_size)
@@ -172,28 +209,31 @@ namespace Containers
 
 		const T& At(i64 index) const
 		{
+			static_assert(std::is_trivially_copyable_v<T>);
 			DEBUG_ASSERT(0 <= index && index < size_, containers_module{});
 			return data_[index];
 		}
 
 		T& At(i64 index)
 		{
+			static_assert(std::is_trivially_copyable_v<T>);
 			DEBUG_ASSERT(0 <= index && index < size_, containers_module{});
 			return data_[index];
 		}
 
 		const T& operator [](i64 index) const
 		{
-			return At(index);
+			DEBUG_ASSERT(0 <= index && index < size_, containers_module{});
+			return data_[index];
 		}
 
 		T& operator [](i64 index)
 		{
-			return At(index);
+			DEBUG_ASSERT(0 <= index && index < size_, containers_module{});
+			return data_[index];
 		}
 
-		T PopBack()
-		{
+		T PopBack() {
 			DEBUG_ASSERT(size_ > 0, containers_module{});
 			size_ -= 1;
 			if constexpr (std::is_trivially_copyable_v<T>)
@@ -205,20 +245,29 @@ namespace Containers
 			return std::move(data_[size_]);
 		}
 
-		void PushBack(T t)
-		{
+		void PushBack(T t) {
 			static_assert(std::is_trivially_copyable_v<T>);
 
 			ResizeUninitialised(size_ + 1);
 			data_[size_ - 1] = t;
 		}
 
-		void PushBackRvalueRef(T&& t)
-		{
+		void PushBackRvalueRef(T&& t) {
 			static_assert(std::is_move_assignable_v<T>);
 
 			Resize(size_ + 1);
 			data_[size_ - 1] = std::move(t);
+		}
+
+		T RemoveAt(i64 index) {
+			static_assert(std::is_trivially_copyable_v<T>);
+
+			T obj = At(index);
+
+			memmove(data_ + index, data_ + index + 1, (size_ - index - 1) * sizeof(T));
+			size_--;
+
+			return obj;
 		}
 	};
 

@@ -72,3 +72,9 @@ TEST_CASE("hashtable can handle pow2", "[hashtable]") {
 		REQUIRE(h.At(i * 256) == i);
 	}
 }
+
+TEST_CASE("hashtable can store ptrs", "[hashtable]") {
+	Hashmap<i32*, i32> h;
+
+	h.Insert(nullptr, 0);
+}

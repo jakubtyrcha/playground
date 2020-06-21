@@ -1,12 +1,23 @@
 #include "bitarray.h"
 
 #include <intrin.h>
+#include <string.h>
 
 namespace Containers
 {
 	void Bitarray::Resize(i64 size)
 	{
 		i64 block_num = (size + 63) / 64;
+
+		if (size_ < size) {
+			i64 block_index = size_ / 64;
+			i64 bit_index = size_ % 64;
+
+			if (bit_index) {
+				data_[block_index] &= ~((-1) << bit_index);
+			}
+		}
+
 		data_.Resize(block_num);
 
 		size_ = size;
@@ -37,6 +48,17 @@ namespace Containers
 		i64 bit_index = index % 64;
 
 		return _bittest64(&data_[block_index], bit_index);
+	}
+
+	bool Bitarray::AnyBitSet() const {
+		for (i64 i = 0, N = data_.Size() - 1; i < N; i++) {
+			if (__popcnt64(data_[i])) {
+				return true;
+			}
+		}
+
+		i64 value = data_[data_.Size() - 1] << (64 - (size_ % 64));
+		return __popcnt64(value);
 	}
 
 	i64 Bitarray::GetNextBitSet(i64 start_index) const
@@ -71,8 +93,11 @@ namespace Containers
 		return size_;
 	}
 
-	void Bitarray::Shrink()
-	{
+	void Bitarray::ClearAll() {
+		memset(data_.Data(), 0, data_.Size() * sizeof(i64));
+	}
+
+	void Bitarray::Shrink() {
 		data_.Shrink();
 	}
 }
