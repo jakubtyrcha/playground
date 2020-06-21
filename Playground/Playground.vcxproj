@@ -205,11 +205,13 @@
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">pch.h</PrecompiledHeaderFile>
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">pch.h</PrecompiledHeaderFile>
     </ClCompile>
+    <ClCompile Include="shader.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="gfx.h" />
     <ClInclude Include="os.h" />
     <ClInclude Include="pch.h" />
+    <ClInclude Include="shader.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\PlaygroundLib\PlaygroundLib.vcxproj">

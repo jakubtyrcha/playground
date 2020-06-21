@@ -55,4 +55,6 @@
 
 #undef assert
 
+#include <type_traits>
+
 #endif //PCH_H

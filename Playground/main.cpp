@@ -6,11 +6,9 @@
 #include "assertions.h"
 #include "os.h"
 #include "files.h"
-//#include <dxcapi.h>
 
-//#include <magnum/CorradeOptional.h>
-//template<typename T>
-//using Optional = Corrade::Containers::Optional<T>;
+#include "shader.h"
+#include <dxcapi.h>
 
 using namespace Containers;
 using namespace IO;
@@ -48,11 +46,17 @@ int main(int argc, char** argv)
 {
 	Gfx::Device device;
 
-	Array<char> shader = IO::GetFileContent(L"../data/shader.dxil");
+	Gfx::ShaderBlob* compiled_shader = Gfx::CompileShaderFromFile(
+		L"../data/shader.hlsl",
+		L"../data/shader.hlsl",
+		L"main",
+		L"cs_6_0"
+	);
 
 	D3D12_SHADER_BYTECODE CS;
-	CS.pShaderBytecode = shader.Data();
-	CS.BytecodeLength = shader.Size();
+	CS.pShaderBytecode = compiled_shader->GetBufferPointer();
+	CS.BytecodeLength = compiled_shader->GetBufferSize();
+	compiled_shader->Release();
 
 	Gfx::Pipeline cs = device.CreateComputePipeline(CS);
 
@@ -112,7 +116,8 @@ int main(int argc, char** argv)
 		cmd_list->SetPipelineState(*cs.pipeline_);
 		D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc{
 			.Format = DXGI_FORMAT_R8G8B8A8_UNORM,
-			.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D
+			.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D,
+			.Texture2D = {}
 		};
 		device.device_->CreateUnorderedAccessView(*random_access_texture.resource_, nullptr, &uav_desc, encoder.ReserveComputeSlot(Gfx::DescriptorType::UAV, 0));
 		encoder.SetComputeDescriptors();

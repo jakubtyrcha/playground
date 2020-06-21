@@ -4,6 +4,7 @@
 #include "array.h"
 #include "bitarray.h"
 #include "hash.h"
+#include "algorithms.h"
 
 // heavily inspired by https://probablydance.com/2017/02/26/i-wrote-the-fastest-hashtable/
 
@@ -17,14 +18,6 @@ namespace Containers
 
 	i64 GetHashmapSize(i64 slots);
 	i64 HashmapSlot(u64 hash, i64 mod);
-
-	template<typename T>
-	T min(T l, T r) {
-		if (r < l) {
-			return r;
-		}
-		return l;
-	}
 
 	u32 FastLog2(u32 v);
 
@@ -149,7 +142,7 @@ namespace Containers
 		}
 
 		i64 MaxProbeCount() const {
-			return min(static_cast<i64>(FastLog2(static_cast<u32>(capacity_))), capacity_ - 1);
+			return Algorithms::min(static_cast<i64>(FastLog2(static_cast<u32>(capacity_))), capacity_ - 1);
 		}
 
 		Iterator begin() const {
