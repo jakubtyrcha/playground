@@ -186,6 +186,7 @@
     <ClInclude Include="hash.h" />
     <ClInclude Include="hashmap.h" />
     <ClInclude Include="os.h" />
+    <ClInclude Include="queue.h" />
     <ClInclude Include="shared_headers.h" />
     <ClInclude Include="types.h" />
   </ItemGroup>

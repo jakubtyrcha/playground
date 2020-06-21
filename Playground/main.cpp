@@ -46,80 +46,98 @@ int main(int argc, char** argv)
 {
 	Gfx::Device device;
 
-	D3D12_VERSIONED_ROOT_SIGNATURE_DESC root_signature_desc{};
-	root_signature_desc.Version = D3D_ROOT_SIGNATURE_VERSION_1_1;
-	root_signature_desc.Desc_1_1.NumParameters = 1;
-	D3D12_ROOT_PARAMETER1 params[1] = {};
-	params[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	D3D12_DESCRIPTOR_RANGE1 ranges[1] = {};
-	ranges[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
-	ranges[0].NumDescriptors = 1;
-	ranges[0].OffsetInDescriptorsFromTableStart = 0;
-	params[0].DescriptorTable.NumDescriptorRanges = 1;
-	params[0].DescriptorTable.pDescriptorRanges = ranges;
-	params[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-	root_signature_desc.Desc_1_1.pParameters = params;
-
-	ID3DBlob* serialized_root_sig = nullptr;
-	ID3DBlob* root_sig_errors = nullptr;
-	HRESULT hr = D3D12SerializeVersionedRootSignature(&root_signature_desc, &serialized_root_sig, &root_sig_errors);
-	if (root_sig_errors)
-	{
-		fmt::print("RootSignature serialisation errors: {}", static_cast<const char*>(root_sig_errors->GetBufferPointer()));
-	}
-	assert_hr(hr);
-
-	ID3D12RootSignature* root_signature = nullptr;
-	verify_hr(device.device_->CreateRootSignature(0, serialized_root_sig->GetBufferPointer(), serialized_root_sig->GetBufferSize(), IID_PPV_ARGS(&root_signature)));
-
 	Array<char> shader = IO::GetFileContent(L"../data/shader.dxil");
 
-	D3D12_COMPUTE_PIPELINE_STATE_DESC pipeline_desc{};
-	pipeline_desc.pRootSignature = root_signature;
-	pipeline_desc.CS.pShaderBytecode = shader.Data();
-	pipeline_desc.CS.BytecodeLength = shader.Size();
+	D3D12_SHADER_BYTECODE CS;
+	CS.pShaderBytecode = shader.Data();
+	CS.BytecodeLength = shader.Size();
 
-	ID3D12PipelineState* pso = nullptr;
-	verify_hr(device.device_->CreateComputePipelineState(&pipeline_desc, IID_PPV_ARGS(&pso)));
+	Gfx::Pipeline cs = device.CreateComputePipeline(CS);
 
-	Gfx::Resource random_access_texture = device.CreateTexture2D(D3D12_HEAP_TYPE_DEFAULT, { 1024, 1024 }, DXGI_FORMAT_R8G8B8A8_UNORM, 1, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+	Gfx::Resource random_access_texture = device.CreateTexture2D(D3D12_HEAP_TYPE_DEFAULT, { 1920, 1080 }, DXGI_FORMAT_R8G8B8A8_UNORM, 1, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
 
-	Gfx::Encoder encoder = device.CreateEncoder();
-
-	ID3D12DescriptorHeap* descriptor_heap = nullptr;
-	D3D12_DESCRIPTOR_HEAP_DESC heap_desc{};
-	heap_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-	heap_desc.NumDescriptors = 128;
-	heap_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-	verify_hr(device.device_->CreateDescriptorHeap(&heap_desc, IID_PPV_ARGS(&descriptor_heap)));
-
-	D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc{};
-	uav_desc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
-	uav_desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	uav_desc.Texture2D.MipSlice = 0;
-	uav_desc.Texture2D.PlaneSlice = 0;
-	device.device_->CreateUnorderedAccessView(*random_access_texture.resource_, nullptr, &uav_desc, descriptor_heap->GetCPUDescriptorHandleForHeapStart());
-
-	ID3D12GraphicsCommandList* cmd_list = encoder.GetCmdList();
-	cmd_list->SetComputeRootSignature(root_signature);
-	cmd_list->SetDescriptorHeaps(1, &descriptor_heap);
-	cmd_list->SetPipelineState(pso);
-	cmd_list->SetComputeRootDescriptorTable(0, descriptor_heap->GetGPUDescriptorHandleForHeapStart());
-	cmd_list->Dispatch(1024 / 8, 1024 / 4, 1);
-
-	encoder.Execute();
+	{
+		Gfx::Encoder encoder = device.CreateEncoder();
+		ID3D12GraphicsCommandList* cmd_list = encoder.GetCmdList();
+		cmd_list->SetPipelineState(*cs.pipeline_);
+		D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc{
+			.Format = DXGI_FORMAT_R8G8B8A8_UNORM,
+			.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D
+		};
+		device.device_->CreateUnorderedAccessView(*random_access_texture.resource_, nullptr, &uav_desc, encoder.ReserveComputeSlot(Gfx::DescriptorType::UAV, 0));
+		encoder.SetComputeDescriptors();
+		cmd_list->Dispatch(1920 / 8, 1080 / 4, 1);
+		encoder.Submit();
+	}
 
 	i32 num_backbuffers = 3;
 	Os::Window window{ Vector2i{1920, 1080}, &WndProc };
 	Gfx::Swapchain window_swapchain = device.CreateSwapchain(&window, num_backbuffers);
 
-	window.RunLoop([]() {});
+	i32 current_backbuffer_index = 0;
 
-	device.WaitForCompletion();
+	device.graph_.SetState({ .resource = *random_access_texture.resource_ }, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
-	descriptor_heap->Release();
-	pso->Release();
-	root_signature->Release();
+	for (i32 i = 0; i < num_backbuffers; i++) {
+		device.graph_.SetState({ .resource = *window_swapchain.backbuffers_[i] }, D3D12_RESOURCE_STATE_PRESENT);
+	}
+
+	int frames_ctr = 3;
+
+	Array<Gfx::Waitable> frame_waitables;
+
+	window.RunLoop([&window, &device, &current_backbuffer_index, &window_swapchain, &random_access_texture, &cs, num_backbuffers, &frames_ctr, &frame_waitables]() {
+
+		ID3D12Resource* current_backbuffer = *window_swapchain.backbuffers_[current_backbuffer_index];
+
+		Gfx::Pass* shader_execution_pass = device.graph_.AddSubsequentPass(Gfx::PassAttachments{}
+			.Attach({ .resource = *random_access_texture.resource_ }, D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
+		);
+
+		Gfx::Pass* copy_to_backbuffer_pass = device.graph_.AddSubsequentPass(Gfx::PassAttachments{}
+			.Attach({ .resource = *random_access_texture.resource_ }, D3D12_RESOURCE_STATE_COPY_SOURCE)
+			.Attach({ .resource = current_backbuffer }, D3D12_RESOURCE_STATE_COPY_DEST)
+		);
+
+		Gfx::Pass* present_pass = device.graph_.AddSubsequentPass(Gfx::PassAttachments{}
+			.Attach({ .resource = current_backbuffer }, D3D12_RESOURCE_STATE_PRESENT)
+		);
+
+		Gfx::Encoder encoder = device.CreateEncoder();
+
+		encoder.SetPass(shader_execution_pass);
+		ID3D12GraphicsCommandList* cmd_list = encoder.GetCmdList();
+		cmd_list->SetPipelineState(*cs.pipeline_);
+		D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc{
+			.Format = DXGI_FORMAT_R8G8B8A8_UNORM,
+			.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D
+		};
+		device.device_->CreateUnorderedAccessView(*random_access_texture.resource_, nullptr, &uav_desc, encoder.ReserveComputeSlot(Gfx::DescriptorType::UAV, 0));
+		encoder.SetComputeDescriptors();
+		cmd_list->Dispatch(1920 / 8, 1080 / 4, 1);
+
+		encoder.SetPass(copy_to_backbuffer_pass);
+		cmd_list->CopyResource(current_backbuffer, *random_access_texture.resource_);
+
+		encoder.SetPass(present_pass);
+
+		// we should wait for the presenting being done before we access that backbuffer again?
+		if (frame_waitables.Size() == num_backbuffers) {
+			frame_waitables.RemoveAt(0).Wait();
+		}
+
+		encoder.Submit();
+
+		verify_hr(window_swapchain.swapchain_->Present(1, 0));
+		device.AdvanceFence();
+
+		frame_waitables.PushBack(device.GetWaitable());
+
+		current_backbuffer_index = (current_backbuffer_index + 1) % num_backbuffers;
+
+		});
+
+	device.GetWaitable().Wait();
 
 	return 0;
 }

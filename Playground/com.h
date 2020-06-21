@@ -3,22 +3,22 @@
 namespace Com
 {
 	template<typename T>
-	struct UniqueComPtr
+	struct Box
 	{
 		T* ptr_ = nullptr;
 
-		UniqueComPtr() = default;
+		Box() = default;
 
-		UniqueComPtr(UniqueComPtr const&) = delete;
-		UniqueComPtr& operator=(UniqueComPtr const&) = delete;
+		Box(Box const&) = delete;
+		Box& operator=(Box const&) = delete;
 
-		UniqueComPtr(UniqueComPtr&& other)
+		Box(Box&& other)
 		{
 			ptr_ = other.ptr_;
 			other.ptr_ = nullptr;
 		}
 
-		UniqueComPtr& operator=(UniqueComPtr&& other)
+		Box& operator=(Box&& other)
 		{
 			Release();
 			ptr_ = other.ptr_;
@@ -26,7 +26,7 @@ namespace Com
 			return *this;
 		}
 
-		~UniqueComPtr()
+		~Box()
 		{
 			Release();
 		}
