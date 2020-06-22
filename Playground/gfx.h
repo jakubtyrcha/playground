@@ -147,9 +147,14 @@ namespace Gfx
 
 		ID3D12GraphicsCommandList* GetCmdList();
 
-		D3D12_CPU_DESCRIPTOR_HANDLE ReserveComputeSlot(DescriptorType type, i32 slot_index);
 		void SetPass(Pass*);
+
+		D3D12_CPU_DESCRIPTOR_HANDLE ReserveComputeSlot(DescriptorType type, i32 slot_index);
+		// Currently this "forgets" all the previously reserved slots, as I keep only one shader-visible heap 
+		// and it can't be used as a copy src. With a second cpu-visible heap that tracks all the descriptors
+		// I could restore the state of previously set descriptors and make this more stateless.
 		void SetComputeDescriptors();
+
 		void Submit();
 	};
 

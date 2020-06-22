@@ -70,6 +70,7 @@ int main(int argc, char** argv)
 			.Format = DXGI_FORMAT_R8G8B8A8_UNORM,
 			.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D
 		};
+
 		device.device_->CreateUnorderedAccessView(*random_access_texture.resource_, nullptr, &uav_desc, encoder.ReserveComputeSlot(Gfx::DescriptorType::UAV, 0));
 		encoder.SetComputeDescriptors();
 		cmd_list->Dispatch(1920 / 8, 1080 / 4, 1);
