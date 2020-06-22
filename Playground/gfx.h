@@ -136,7 +136,8 @@ namespace Gfx
 
 		Encoder CreateEncoder();
 		Swapchain* CreateSwapchain(Os::Window*, i32 num_backbuffers);
-		Resource CreateTexture2D(D3D12_HEAP_TYPE heap_type, Vector2i size, DXGI_FORMAT format, i32 miplevels, D3D12_RESOURCE_FLAGS flags);
+		Resource CreateBuffer(D3D12_HEAP_TYPE heap_type, i32 size, DXGI_FORMAT format, D3D12_RESOURCE_FLAGS flags, D3D12_RESOURCE_STATES initial_state);
+		Resource CreateTexture2D(D3D12_HEAP_TYPE heap_type, Vector2i size, DXGI_FORMAT format, i32 miplevels, D3D12_RESOURCE_FLAGS flags, D3D12_RESOURCE_STATES initial_state);
 		Pipeline CreateComputePipeline(D3D12_SHADER_BYTECODE);
 	};
 
@@ -177,8 +178,13 @@ namespace Gfx
 	struct Resource : private MoveableNonCopyable<Resource>
 	{
 		Resource() = default;
+		~Resource();
+
+		Resource(Resource&&) = default;
+		Resource& operator=(Resource&&) = default;
 
 		ResourceType type_;
+		Device* device_ = nullptr;
 
 		Com::Box<ID3D12Resource> resource_;
 		Com::Box<D3D12MA::Allocation> allocation_;

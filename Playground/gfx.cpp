@@ -99,6 +99,7 @@ namespace Gfx
 		D3D12_VERSIONED_ROOT_SIGNATURE_DESC root_signature_desc{};
 
 		root_signature_desc.Version = D3D_ROOT_SIGNATURE_VERSION_1_1;
+		root_signature_desc.Desc_1_1.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
 		D3D12_ROOT_PARAMETER1 params[3] = {};
 
@@ -128,6 +129,23 @@ namespace Gfx
 		params[2].DescriptorTable.NumDescriptorRanges = _countof(ranges_param2);
 		params[2].DescriptorTable.pDescriptorRanges = ranges_param2;
 		params[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+		root_signature_desc.Desc_1_1.NumStaticSamplers = 1;
+		D3D12_STATIC_SAMPLER_DESC static_samplers[1];
+		static_samplers[0].Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+		static_samplers[0].AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+		static_samplers[0].AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+		static_samplers[0].AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+		static_samplers[0].MipLODBias = 0.f;
+		static_samplers[0].MaxAnisotropy = 0;
+		static_samplers[0].ComparisonFunc = D3D12_COMPARISON_FUNC_ALWAYS;
+		static_samplers[0].BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
+		static_samplers[0].MinLOD = 0.f;
+		static_samplers[0].MaxLOD = 0.f;
+		static_samplers[0].ShaderRegister = 0;
+		static_samplers[0].RegisterSpace = 0;
+		static_samplers[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+		root_signature_desc.Desc_1_1.pStaticSamplers = static_samplers;
 
 		root_signature_desc.Desc_1_1.NumParameters = _countof(params);
 		root_signature_desc.Desc_1_1.pParameters = params;
@@ -226,10 +244,44 @@ namespace Gfx
 		return result;
 	}
 
-	Resource Device::CreateTexture2D(D3D12_HEAP_TYPE heap_type, Vector2i size, DXGI_FORMAT format, i32 miplevels, D3D12_RESOURCE_FLAGS flags)
-	{
+	Resource Device::CreateBuffer(D3D12_HEAP_TYPE heap_type, i32 size, DXGI_FORMAT format, D3D12_RESOURCE_FLAGS flags, D3D12_RESOURCE_STATES initial_state) {
 		Resource result{};
 		result.type_ = ResourceType::Texture2D;
+		result.device_ = this;
+
+		D3D12_RESOURCE_DESC resource_desc = {};
+		resource_desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+		resource_desc.Alignment = 0;
+		resource_desc.Width = size;
+		resource_desc.Height = 1;
+		resource_desc.DepthOrArraySize = 1;
+		resource_desc.MipLevels = 1;
+		resource_desc.Format = format;
+		resource_desc.SampleDesc.Count = 1;
+		resource_desc.SampleDesc.Quality = 0;
+		resource_desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+		resource_desc.Flags = flags;
+
+		D3D12MA::ALLOCATION_DESC allocation_desc = {};
+		allocation_desc.HeapType = heap_type;
+
+		verify_hr(allocator_->CreateResource(
+			&allocation_desc,
+			&resource_desc,
+			initial_state,
+			NULL,
+			result.allocation_.InitAddress(),
+			IID_PPV_ARGS(result.resource_.InitAddress())));
+
+		graph_.SetState({ .resource = *result.resource_ }, initial_state);
+
+		return result;
+	}
+
+	Resource Device::CreateTexture2D(D3D12_HEAP_TYPE heap_type, Vector2i size, DXGI_FORMAT format, i32 miplevels, D3D12_RESOURCE_FLAGS flags, D3D12_RESOURCE_STATES initial_state) {
+		Resource result{};
+		result.type_ = ResourceType::Texture2D;
+		result.device_ = this;
 
 		D3D12_RESOURCE_DESC resource_desc = {};
 		resource_desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
@@ -250,12 +302,19 @@ namespace Gfx
 		verify_hr(allocator_->CreateResource(
 			&allocation_desc,
 			&resource_desc,
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+			initial_state,
 			NULL,
 			result.allocation_.InitAddress(),
 			IID_PPV_ARGS(result.resource_.InitAddress())));
 
+		assert(miplevels == 1);
+		graph_.SetState({ .resource = *result.resource_ }, initial_state);
+
 		return result;
+	}
+
+	Resource::~Resource() {
+		device_->graph_.Drop(*resource_);
 	}
 
 	Pipeline Device::CreateComputePipeline(D3D12_SHADER_BYTECODE bytecode)
