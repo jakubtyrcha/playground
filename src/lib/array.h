@@ -37,7 +37,7 @@ namespace Containers
 				return !((*this) == other);
 			}
 
-			T operator *() const {
+			T& operator *() const {
 				return array_->At(index_);
 			}
 		};
@@ -210,14 +210,14 @@ namespace Containers
 
 		const T& At(i64 index) const
 		{
-			static_assert(std::is_trivially_copyable_v<T>);
+			//static_assert(std::is_trivially_copyable_v<T>);
 			DEBUG_ASSERT(0 <= index && index < size_, containers_module{});
 			return data_[index];
 		}
 
 		T& At(i64 index)
 		{
-			static_assert(std::is_trivially_copyable_v<T>);
+			//static_assert(std::is_trivially_copyable_v<T>);
 			DEBUG_ASSERT(0 <= index && index < size_, containers_module{});
 			return data_[index];
 		}
@@ -269,6 +269,10 @@ namespace Containers
 			size_--;
 
 			return obj;
+		}
+
+		T& Last() {
+			return (*this)[Size() - 1];
 		}
 	};
 

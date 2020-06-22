@@ -13,3 +13,17 @@ protected:
 	MoveableNonCopyable() = default;
 	~MoveableNonCopyable() = default;
 };
+
+template<typename T>
+struct Pinned
+{
+	Pinned(const Pinned&) = delete;
+	Pinned& operator = (const Pinned&) = delete;
+
+	Pinned(Pinned&&) = delete;
+	Pinned& operator = (Pinned&&) = delete;
+
+protected:
+	Pinned() = default;
+	~Pinned() = default;
+};

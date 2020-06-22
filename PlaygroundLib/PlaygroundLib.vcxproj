@@ -159,6 +159,7 @@
     <ClInclude Include="..\src\lib\array.h" />
     <ClInclude Include="..\src\lib\assertions.h" />
     <ClInclude Include="..\src\lib\bitarray.h" />
+    <ClInclude Include="..\src\lib\box.h" />
     <ClInclude Include="..\src\lib\com.h" />
     <ClInclude Include="..\src\lib\containers_shared.h" />
     <ClInclude Include="..\src\lib\copy_move.h" />

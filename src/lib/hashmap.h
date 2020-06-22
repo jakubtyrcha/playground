@@ -32,10 +32,11 @@ namespace Containers
 
 		struct Iterator
 		{
-			const Hashmap* const hashmap_;
+			const Hashmap* hashmap_;
 			i64 index_ = 0;
 
-			Iterator(const Hashmap* const hashmap, i64 index) : hashmap_(hashmap) {
+			Iterator(const Hashmap* hashmap, i64 index) : hashmap_(hashmap) {
+				// TODO: should iterator move this, or the place constructing it?
 				if (index >= hashmap_->capacity_) {
 					index_ = hashmap_->capacity_;
 				}
@@ -80,6 +81,15 @@ namespace Containers
 			bool operator !=(Iterator other) const
 			{
 				return !((*this) == other);
+			}
+
+			struct KeyValue {
+				K key;
+				V value;
+			};
+
+			KeyValue operator*() const {
+				return { .key = Key(), .value = Value() };
 			}
 		};
 
@@ -240,9 +250,10 @@ namespace Containers
 			return true;
 		}
 
-		void Remove(K key)
+		Iterator Remove(K key)
 		{
 			i64 index = FindIndex(key);
+			i64 destroyed_index = index;
 			DEBUG_ASSERT(index != -1, containers_module{});
 
 			static_assert(std::is_trivial_v<K>);
@@ -251,8 +262,7 @@ namespace Containers
 			slot_states_.SetBit(index, false);
 			size_--;
 
-			while (true)
-			{
+			while (true) {
 				i64 next = index + 1;
 				if (next == capacity_) {
 					next = 0;
@@ -277,6 +287,8 @@ namespace Containers
 					break;
 				}
 			}
+
+			return Iterator{ this, destroyed_index };
 		}
 
 		K Key(i64 index) const {

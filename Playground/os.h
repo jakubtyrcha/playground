@@ -2,6 +2,10 @@
 
 #include "types.h"
 
+namespace Gfx {
+	struct Swapchain;
+}
+
 namespace Os
 {
 	using WndProcCallback = LRESULT(*)(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -11,9 +15,13 @@ namespace Os
 		HWND hwnd_ = 0;
 		WNDCLASSEX wc_;
 		Vector2i resolution_;
+		Gfx::Swapchain* swapchain_ = nullptr;
 
 		Window(Vector2i resolution, WndProcCallback wnd_proc);
 		~Window();
+
+		void Init();
+		void HandleSizeChange(Vector2i resolution);
 
 		template<typename Functor>
 		void RunLoop(Functor loop_tick)
@@ -33,4 +41,7 @@ namespace Os
 			}
 		}
 	};
+
+	Window* CreateOsWindow(Vector2i resolution);
+	Window* GetWindowByHandle(HWND hwnd);
 }

@@ -209,35 +209,19 @@ namespace Gfx
 		return result;
 	}
 
-	Swapchain Device::CreateSwapchain(Os::Window* window, i32 num_backbuffers)
+	Swapchain* Device::CreateSwapchain(Os::Window* window, i32 backbuffers_num)
 	{
-		Swapchain result{};
+		swapchains_.PushBackRvalueRef(MakeBox<Swapchain>());
+		Swapchain* result = swapchains_.Last().get();
 
-		IDXGISwapChain1* swapchain1 = nullptr;
-		DXGI_SWAP_CHAIN_DESC1 swapchain_desc{};
-		swapchain_desc.BufferCount = num_backbuffers;
-		swapchain_desc.Width = window->resolution_.x();
-		swapchain_desc.Height = window->resolution_.y();
-		swapchain_desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-		swapchain_desc.Flags = DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT;
-		swapchain_desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-		swapchain_desc.SampleDesc.Count = 1;
-		swapchain_desc.SampleDesc.Quality = 0;
-		swapchain_desc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
-		swapchain_desc.AlphaMode = DXGI_ALPHA_MODE_UNSPECIFIED;
-		swapchain_desc.Scaling = DXGI_SCALING_STRETCH;
-		swapchain_desc.Stereo = FALSE;
-		dxgi_factory_->CreateSwapChainForHwnd(*cmd_queue_, window->hwnd_, &swapchain_desc, nullptr, nullptr, &swapchain1);
+		result->device_ = this;
+		result->window_ = window;
+		result->backbuffers_num_ = backbuffers_num;
 
-		verify_hr(swapchain1->QueryInterface<IDXGISwapChain4>(result.swapchain_.InitAddress()));
-		swapchain1->Release();
+		result->Recreate();
 
-		result.swapchain_->SetMaximumFrameLatency(num_backbuffers);
-
-		result.backbuffers_.Resize(num_backbuffers);
-		for (i32 i = 0; i < num_backbuffers; i++) {
-			verify_hr(result.swapchain_->GetBuffer(i, IID_PPV_ARGS(result.backbuffers_[i].InitAddress())));
-		}
+		assert(!window->swapchain_);
+		window->swapchain_ = result;
 
 		return result;
 	}
@@ -387,12 +371,19 @@ namespace Gfx
 		device_ = nullptr;
 	}
 
-	template<typename T, typename ...Args> Box<T> MakeBox(Args&&... args) {
-		return Box<T>{new T{ std::forward<Args>(args)... }};
-	}
-
 	void TransitionGraph::SetState(SubresourceDesc subresource, D3D12_RESOURCE_STATES state) {
 		last_transitioned_state_.Insert(subresource, state);
+	}
+
+	void TransitionGraph::Drop(ID3D12Resource* ptr) {
+		for (decltype(last_transitioned_state_)::Iterator iter = last_transitioned_state_.begin(), end = last_transitioned_state_.end(); iter != end; ) {
+			if (iter.Key().resource == ptr) {
+				iter = last_transitioned_state_.Remove(iter.Key());
+			}
+			else {
+				iter++;
+			}
+		}
 	}
 
 	Pass* TransitionGraph::AddSubsequentPass(PassAttachments attachments) {
@@ -416,6 +407,41 @@ namespace Gfx
 		pending_nodes_.PushBackRvalueRef(std::move(node));
 
 		return pass;
+	}
+
+	void Swapchain::Destroy() {
+		backbuffers_.Clear();
+		swapchain_->Release();
+	}
+
+	void Swapchain::Recreate() {
+		IDXGISwapChain1* swapchain1 = nullptr;
+		DXGI_SWAP_CHAIN_DESC1 swapchain_desc{};
+		swapchain_desc.BufferCount = backbuffers_num_;
+		swapchain_desc.Width = window_->resolution_.x();
+		swapchain_desc.Height = window_->resolution_.y();
+		swapchain_desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		swapchain_desc.Flags = DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT;
+		swapchain_desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+		swapchain_desc.SampleDesc.Count = 1;
+		swapchain_desc.SampleDesc.Quality = 0;
+		swapchain_desc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+		swapchain_desc.AlphaMode = DXGI_ALPHA_MODE_UNSPECIFIED;
+		swapchain_desc.Scaling = DXGI_SCALING_STRETCH;
+		swapchain_desc.Stereo = FALSE;
+
+		verify_hr(device_->dxgi_factory_->CreateSwapChainForHwnd(*device_->cmd_queue_, window_->hwnd_, &swapchain_desc, nullptr, nullptr, &swapchain1));
+
+		verify_hr(swapchain1->QueryInterface<IDXGISwapChain4>(swapchain_.InitAddress()));
+		swapchain1->Release();
+
+		swapchain_->SetMaximumFrameLatency(backbuffers_num_);
+
+		backbuffers_.Resize(backbuffers_num_);
+		for (i32 i = 0; i < backbuffers_num_; i++) {
+			verify_hr(swapchain_->GetBuffer(i, IID_PPV_ARGS(backbuffers_[i].InitAddress())));
+			device_->graph_.SetState({ .resource = *backbuffers_[i] }, D3D12_RESOURCE_STATE_PRESENT);
+		}
 	}
 
 	void Waitable::Wait() {

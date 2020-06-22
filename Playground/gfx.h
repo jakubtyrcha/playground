@@ -5,6 +5,7 @@
 #include "com.h"
 #include "assertions.h"
 #include "copy_move.h"
+#include "box.h"
 
 #define DX12_ENABLE_DEBUG_LAYER _DEBUG
 
@@ -24,8 +25,6 @@ namespace Os
 namespace Gfx
 {
 	using namespace Containers;
-
-	template<typename T> using Box = Corrade::Containers::Pointer<T>;
 
 	struct Device;
 	struct Encoder;
@@ -80,6 +79,7 @@ namespace Gfx
 		Node* tail_ = nullptr;
 
 		void SetState(SubresourceDesc, D3D12_RESOURCE_STATES);
+		void Drop(ID3D12Resource*);
 		Pass* AddSubsequentPass(PassAttachments attachments);
 	};
 
@@ -106,7 +106,7 @@ namespace Gfx
 		// TODO: this is hardcoded for current shared RootSignature, make this data driven
 	};
 
-	struct Device : private MoveableNonCopyable<Device>
+	struct Device : private Pinned<Device>
 	{
 		Com::Box<IDXGIFactory4> dxgi_factory_;
 		Com::Box<IDXGIAdapter1> adapter_;
@@ -124,6 +124,8 @@ namespace Gfx
 		Array<Com::Box<ID3D12CommandAllocator>> cmd_allocators_;
 		Array<Com::Box<ID3D12CommandList>> cmd_lists_;
 
+		Array<Box<Swapchain>> swapchains_;
+
 		TransitionGraph graph_;
 
 		Device();
@@ -133,7 +135,7 @@ namespace Gfx
 		Waitable GetWaitable();
 
 		Encoder CreateEncoder();
-		Swapchain CreateSwapchain(Os::Window*, i32 num_backbuffers);
+		Swapchain* CreateSwapchain(Os::Window*, i32 num_backbuffers);
 		Resource CreateTexture2D(D3D12_HEAP_TYPE heap_type, Vector2i size, DXGI_FORMAT format, i32 miplevels, D3D12_RESOURCE_FLAGS flags);
 		Pipeline CreateComputePipeline(D3D12_SHADER_BYTECODE);
 	};
@@ -158,11 +160,18 @@ namespace Gfx
 		void Submit();
 	};
 
-	struct Swapchain : private MoveableNonCopyable<Swapchain>
+	struct Swapchain : private Pinned<Swapchain>
 	{
+		Device* device_ = nullptr;
+		Os::Window* window_ = nullptr;
+
 		Com::Box<IDXGISwapChain4> swapchain_;
+		i32 backbuffers_num_ = 0;
 
 		Array<Com::Box<ID3D12Resource>> backbuffers_;
+
+		void Destroy();
+		void Recreate();
 	};
 
 	struct Resource : private MoveableNonCopyable<Resource>
