@@ -96,8 +96,13 @@ namespace Gfx
 		i64 max_slots_ = 0;
 		i64 next_slot_ = 0;
 
-
 		i64 AllocateTable(i64 len);
+
+		i64 current_graphics_srvs_offset_ = 0;
+		Bitarray dirty_graphics_srvs_;
+
+		i64 current_graphics_cbvs_offset_ = 0;
+		Bitarray dirty_graphics_cbvs_;
 
 		i64 current_compute_uavs_offset_ = 0;
 		Bitarray dirty_compute_uavs_;
@@ -115,6 +120,7 @@ namespace Gfx
 		Com::Box<D3D12MA::Allocator> allocator_;
 
 		DescriptorHeap descriptor_heap_;
+		DescriptorHeap rtvs_descriptor_heap_;
 
 		Com::Box<ID3D12RootSignature> root_signature_;
 
@@ -152,10 +158,13 @@ namespace Gfx
 
 		void SetPass(Pass*);
 
+		D3D12_CPU_DESCRIPTOR_HANDLE ReserveGraphicsSlot(DescriptorType type, i32 slot_index);
 		D3D12_CPU_DESCRIPTOR_HANDLE ReserveComputeSlot(DescriptorType type, i32 slot_index);
+
 		// Currently this "forgets" all the previously reserved slots, as I keep only one shader-visible heap 
 		// and it can't be used as a copy src. With a second cpu-visible heap that tracks all the descriptors
 		// I could restore the state of previously set descriptors and make this more stateless.
+		void SetGraphicsDescriptors();
 		void SetComputeDescriptors();
 
 		void Submit();
@@ -199,7 +208,7 @@ namespace Gfx
 	};
 
 	struct Waitable {
-		ID3D12Fence1* fence_;
+		ID3D12Fence1* fence_ = nullptr;
 		i64 fence_value_ = 0;
 
 		void Wait();

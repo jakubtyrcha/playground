@@ -161,16 +161,33 @@ namespace Gfx
 
 		verify_hr(device_->CreateRootSignature(0, serialized_root_sig->GetBufferPointer(), serialized_root_sig->GetBufferSize(), IID_PPV_ARGS(root_signature_.InitAddress())));
 
-		D3D12_DESCRIPTOR_HEAP_DESC heap_desc{
-			.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
-			.NumDescriptors = D3D12_MAX_SHADER_VISIBLE_DESCRIPTOR_HEAP_SIZE_TIER_1,
-			.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE
-		};
-		verify_hr(device_->CreateDescriptorHeap(&heap_desc, IID_PPV_ARGS(descriptor_heap_.heap_.InitAddress())));
+		{
+			D3D12_DESCRIPTOR_HEAP_DESC heap_desc{
+				.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
+				.NumDescriptors = D3D12_MAX_SHADER_VISIBLE_DESCRIPTOR_HEAP_SIZE_TIER_1,
+				.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE
+			};
+			verify_hr(device_->CreateDescriptorHeap(&heap_desc, IID_PPV_ARGS(descriptor_heap_.heap_.InitAddress())));
 
-		descriptor_heap_.increment_ = device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-		descriptor_heap_.max_slots_ = heap_desc.NumDescriptors;
-		descriptor_heap_.dirty_compute_uavs_.Resize(8);
+			descriptor_heap_.increment_ = device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+			descriptor_heap_.max_slots_ = heap_desc.NumDescriptors;
+
+			descriptor_heap_.dirty_graphics_srvs_.Resize(8);
+			descriptor_heap_.dirty_graphics_cbvs_.Resize(8);
+			descriptor_heap_.dirty_compute_uavs_.Resize(8);
+		}
+
+		//
+
+		{
+			D3D12_DESCRIPTOR_HEAP_DESC heap_desc{
+				.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
+				.NumDescriptors = 4096
+			};
+			verify_hr(device_->CreateDescriptorHeap(&heap_desc, IID_PPV_ARGS(rtvs_descriptor_heap_.heap_.InitAddress())));
+
+			descriptor_heap_.increment_ = device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+		}
 	}
 
 	Device::~Device()
@@ -314,7 +331,9 @@ namespace Gfx
 	}
 
 	Resource::~Resource() {
-		device_->graph_.Drop(*resource_);
+		if (resource_.Get()) {
+			device_->graph_.Drop(*resource_);
+		}
 	}
 
 	Pipeline Device::CreateComputePipeline(D3D12_SHADER_BYTECODE bytecode)
@@ -379,8 +398,43 @@ namespace Gfx
 		return 0;
 	}
 
+	D3D12_CPU_DESCRIPTOR_HANDLE Encoder::ReserveGraphicsSlot(DescriptorType type, i32 slot_index) {
+		assert(slot_index < 8);
+		assert(type == DescriptorType::SRV || type == DescriptorType::CBV);
+
+		DescriptorHeap& descriptor_heap = device_->descriptor_heap_;
+
+		if (type == DescriptorType::SRV) {
+			if (!descriptor_heap.dirty_graphics_srvs_.AnyBitSet()) {
+				descriptor_heap.current_graphics_srvs_offset_ = descriptor_heap.AllocateTable(8);
+			}
+
+			descriptor_heap.dirty_graphics_srvs_.SetBit(slot_index, true);
+
+			D3D12_CPU_DESCRIPTOR_HANDLE handle = descriptor_heap.heap_->GetCPUDescriptorHandleForHeapStart();
+			handle.ptr += (descriptor_heap.current_graphics_srvs_offset_ + slot_index) * descriptor_heap.increment_;
+			return handle;
+		}
+		else if (type == DescriptorType::CBV) {
+			if (!descriptor_heap.dirty_graphics_cbvs_.AnyBitSet()) {
+				descriptor_heap.current_graphics_cbvs_offset_ = descriptor_heap.AllocateTable(8);
+			}
+
+			descriptor_heap.dirty_graphics_cbvs_.SetBit(slot_index, true);
+
+			D3D12_CPU_DESCRIPTOR_HANDLE handle = descriptor_heap.heap_->GetCPUDescriptorHandleForHeapStart();
+			handle.ptr += (descriptor_heap.current_graphics_cbvs_offset_ + slot_index) * descriptor_heap.increment_;
+			return handle;
+		}
+		else {
+			DEBUG_UNREACHABLE(gfx_module{});
+			return {};
+		}
+	}
+
 	D3D12_CPU_DESCRIPTOR_HANDLE Encoder::ReserveComputeSlot(DescriptorType type, i32 slot_index) {
 		assert(slot_index < 8);
+		assert(type == DescriptorType::UAV);
 		DescriptorHeap& descriptor_heap = device_->descriptor_heap_;
 
 		if (!descriptor_heap.dirty_compute_uavs_.AnyBitSet()) {
@@ -392,6 +446,52 @@ namespace Gfx
 		D3D12_CPU_DESCRIPTOR_HANDLE handle = descriptor_heap.heap_->GetCPUDescriptorHandleForHeapStart();
 		handle.ptr += (descriptor_heap.current_compute_uavs_offset_ + slot_index) * descriptor_heap.increment_;
 		return handle;
+	}
+
+	void Encoder::SetGraphicsDescriptors() {
+		DescriptorHeap& descriptor_heap = device_->descriptor_heap_;
+
+		D3D12_CPU_DESCRIPTOR_HANDLE heap_start = descriptor_heap.heap_->GetCPUDescriptorHandleForHeapStart();
+		D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc{
+			.Format = DXGI_FORMAT_R8G8B8A8_UNORM,
+			.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D,
+			.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
+		};
+
+		if (descriptor_heap.dirty_graphics_srvs_.AnyBitSet()) {
+			for (i32 i = 0; i < 8; i++) {
+				if (!descriptor_heap.dirty_graphics_srvs_.GetBit(i)) {
+					D3D12_CPU_DESCRIPTOR_HANDLE handle = heap_start;
+					handle.ptr += descriptor_heap.increment_ * (i + descriptor_heap.current_graphics_srvs_offset_);
+					device_->device_->CreateShaderResourceView(nullptr, &srv_desc, handle);
+				}
+			}
+
+			D3D12_GPU_DESCRIPTOR_HANDLE handle = descriptor_heap.heap_->GetGPUDescriptorHandleForHeapStart();
+			handle.ptr += descriptor_heap.increment_ * (descriptor_heap.current_graphics_srvs_offset_);
+			GetCmdList()->SetGraphicsRootDescriptorTable(0, handle);
+			descriptor_heap.dirty_graphics_srvs_.ClearAll();
+		}
+
+		D3D12_CONSTANT_BUFFER_VIEW_DESC cbv_desc{
+			.BufferLocation = 0,
+			.SizeInBytes = 0
+		};
+
+		if (descriptor_heap.dirty_graphics_cbvs_.AnyBitSet()) {
+			for (i32 i = 0; i < 8; i++) {
+				if (!descriptor_heap.dirty_graphics_cbvs_.GetBit(i)) {
+					D3D12_CPU_DESCRIPTOR_HANDLE handle = heap_start;
+					handle.ptr += descriptor_heap.increment_ * (i + descriptor_heap.current_graphics_cbvs_offset_);
+					device_->device_->CreateConstantBufferView(&cbv_desc, handle);
+				}
+			}
+
+			D3D12_GPU_DESCRIPTOR_HANDLE handle = descriptor_heap.heap_->GetGPUDescriptorHandleForHeapStart();
+			handle.ptr += descriptor_heap.increment_ * (descriptor_heap.current_graphics_cbvs_offset_);
+			GetCmdList()->SetGraphicsRootDescriptorTable(2, handle);
+			descriptor_heap.dirty_graphics_cbvs_.ClearAll();
+		}
 	}
 
 	void Encoder::SetComputeDescriptors() {

@@ -261,13 +261,23 @@ namespace Containers
 		}
 
 		T RemoveAt(i64 index) {
-			static_assert(std::is_trivially_copyable_v<T>);
+			if constexpr (std::is_trivially_copyable_v<T>) {
+				T obj = At(index);
 
-			T obj = At(index);
+				memmove(data_ + index, data_ + index + 1, (size_ - index - 1) * sizeof(T));
+				size_--;
 
-			memmove(data_ + index, data_ + index + 1, (size_ - index - 1) * sizeof(T));
+				return obj;
+			}
+
+			static_assert(std::is_move_assignable_v<T>);
+			T obj = std::move(data_[index]);
+
+			for (i64 i = index; i < size_ - 1; i++) {
+				data_[i] = std::move(data_[i + 1]);
+			}
+
 			size_--;
-
 			return obj;
 		}
 
