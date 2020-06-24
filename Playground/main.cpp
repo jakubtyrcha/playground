@@ -82,6 +82,8 @@ struct ImGuiRenderer : private Pinned<ImGuiRenderer> {
 	void Shutdown() {
 		ImGuiViewport* main_viewport = ImGui::GetMainViewport();
 		main_viewport->RendererUserData = nullptr;
+
+		frame_data_queue_.Clear();
 	}
 
 	void CreateFontsTexture() {

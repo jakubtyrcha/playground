@@ -349,8 +349,7 @@ namespace Gfx
 		return result;
 	}
 
-	ID3D12GraphicsCommandList* Encoder::GetCmdList()
-	{
+	ID3D12GraphicsCommandList* Encoder::GetCmdList() {
 		return static_cast<ID3D12GraphicsCommandList*>(*cmd_list_);
 	}
 
