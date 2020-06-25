@@ -478,6 +478,11 @@ void ImDrawList::AddCallback(ImDrawCallback callback, void* callback_data)
 // The cost of figuring out if a new command has to be added or if we can merge is paid in those Update** functions only.
 void ImDrawList::_OnChangedClipRect()
 {
+    if (CmdBuffer.Size == 0)
+    {
+        AddDrawCmd();
+        return;
+    }
     // If current command is used with different settings we need to add a new command
     ImDrawCmd* curr_cmd = &CmdBuffer.Data[CmdBuffer.Size - 1];
     if (curr_cmd->ElemCount != 0 && memcmp(&curr_cmd->ClipRect, &_CmdHeader.ClipRect, sizeof(ImVec4)) != 0)
