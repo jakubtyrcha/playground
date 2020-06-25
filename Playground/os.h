@@ -24,7 +24,7 @@ namespace Os
 		void HandleSizeChange(Vector2i resolution);
 
 		template<typename Functor>
-		void RunLoop(Functor loop_tick)
+		void RunMessageLoop(Functor loop_tick)
 		{
 			MSG msg;
 			ZeroMemory(&msg, sizeof(msg));

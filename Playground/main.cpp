@@ -47,7 +47,7 @@ struct ImGuiRenderer : private Pinned<ImGuiRenderer> {
 	struct FrameData {
 		Gfx::Resource vertex_buffer_;
 		Gfx::Resource index_buffer_;
-		Gfx::Resource constant_buffer_;
+		Array<Gfx::Resource> constant_buffers_;
 		Gfx::Waitable waitable_;
 	};
 
@@ -265,45 +265,7 @@ struct ImGuiRenderer : private Pinned<ImGuiRenderer> {
 		verify_hr(device_->device_->CreateGraphicsPipelineState(&pso_desc, IID_PPV_ARGS(pipeline_.pipeline_.InitAddress())));
 	}
 
-	void RenderDrawData(ImDrawData* draw_data, Gfx::Encoder* encoder, D3D12_CPU_DESCRIPTOR_HANDLE rtv_handle) {
-		if (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f)
-			return;
-
-		if (draw_data->TotalVtxCount == 0 || draw_data->TotalIdxCount == 0) {
-			return;
-		}
-
-		if (frame_data_queue_.Size() > max_frames_queued_) {
-			frame_data_queue_.RemoveAt(0);
-			// TODO: fancier ahead-of-time waitables
-			//frame_data_queue_.RemoveAt(0).waitable_.Wait();
-		}
-
-		ViewportData* render_data = (ViewportData*)draw_data->OwnerViewport->RendererUserData;
-
-		FrameData frame_data;
-		frame_data.vertex_buffer_ = device_->CreateBuffer(D3D12_HEAP_TYPE_UPLOAD, draw_data->TotalVtxCount * sizeof(ImDrawVert), DXGI_FORMAT_UNKNOWN, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ);
-		frame_data.index_buffer_ = device_->CreateBuffer(D3D12_HEAP_TYPE_UPLOAD, draw_data->TotalIdxCount * sizeof(ImDrawIdx), DXGI_FORMAT_UNKNOWN, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ);
-		frame_data.constant_buffer_ = device_->CreateBuffer(D3D12_HEAP_TYPE_UPLOAD, aligned_forward(64, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT), DXGI_FORMAT_UNKNOWN, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ);
-
-		ImDrawVert* vtx_dst = nullptr;
-		ImDrawIdx* idx_dst = nullptr;
-		verify_hr(frame_data.vertex_buffer_.resource_->Map(0, nullptr, reinterpret_cast<void**>(&vtx_dst)));
-		verify_hr(frame_data.index_buffer_.resource_->Map(0, nullptr, reinterpret_cast<void**>(&idx_dst)));
-
-		for (i32 n = 0, N = draw_data->CmdListsCount; n < N; n++) {
-			const ImDrawList* cmd_list = draw_data->CmdLists[n];
-
-			memcpy(vtx_dst, cmd_list->VtxBuffer.Data, cmd_list->VtxBuffer.Size * sizeof(ImDrawVert));
-			memcpy(idx_dst, cmd_list->IdxBuffer.Data, cmd_list->IdxBuffer.Size * sizeof(ImDrawIdx));
-
-			vtx_dst += cmd_list->VtxBuffer.Size;
-			idx_dst += cmd_list->IdxBuffer.Size;
-		}
-
-		frame_data.vertex_buffer_.resource_->Unmap(0, nullptr);
-		frame_data.index_buffer_.resource_->Unmap(0, nullptr);
-
+	void SetupRenderState(ImDrawData* draw_data, Gfx::Encoder* encoder, FrameData* frame_data) {
 		float L = draw_data->DisplayPos.x;
 		float R = draw_data->DisplayPos.x + draw_data->DisplaySize.x;
 		float T = draw_data->DisplayPos.y;
@@ -326,41 +288,83 @@ struct ImGuiRenderer : private Pinned<ImGuiRenderer> {
 		vp.TopLeftX = vp.TopLeftY = 0.0f;
 		encoder->GetCmdList()->RSSetViewports(1, &vp);
 
-		encoder->GetCmdList()->OMSetRenderTargets(1, &rtv_handle, false, nullptr);
-
 		// Bind shader and vertex buffers
 		unsigned int stride = sizeof(ImDrawVert);
 		unsigned int offset = 0;
 		D3D12_VERTEX_BUFFER_VIEW vbv;
 		memset(&vbv, 0, sizeof(D3D12_VERTEX_BUFFER_VIEW));
-		vbv.BufferLocation = frame_data.vertex_buffer_.resource_->GetGPUVirtualAddress() + offset;
+		vbv.BufferLocation = frame_data->vertex_buffer_.resource_->GetGPUVirtualAddress() + offset;
 		vbv.SizeInBytes = draw_data->TotalVtxCount * stride;
 		vbv.StrideInBytes = stride;
 		encoder->GetCmdList()->IASetVertexBuffers(0, 1, &vbv);
 		D3D12_INDEX_BUFFER_VIEW ibv;
 		memset(&ibv, 0, sizeof(D3D12_INDEX_BUFFER_VIEW));
-		ibv.BufferLocation = frame_data.index_buffer_.resource_->GetGPUVirtualAddress();
+		ibv.BufferLocation = frame_data->index_buffer_.resource_->GetGPUVirtualAddress();
 		ibv.SizeInBytes = draw_data->TotalIdxCount * sizeof(ImDrawIdx);
 		ibv.Format = sizeof(ImDrawIdx) == 2 ? DXGI_FORMAT_R16_UINT : DXGI_FORMAT_R32_UINT;
 		encoder->GetCmdList()->IASetIndexBuffer(&ibv);
 		encoder->GetCmdList()->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		encoder->GetCmdList()->SetPipelineState(*pipeline_.pipeline_);
 
+		frame_data->constant_buffers_.PushBackRvalueRef(std::move(device_->CreateBuffer(D3D12_HEAP_TYPE_UPLOAD, aligned_forward(64, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT), DXGI_FORMAT_UNKNOWN, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ)));
+
 		void* cb_dst = nullptr;
-		verify_hr(frame_data.constant_buffer_.resource_->Map(0, nullptr, &cb_dst));
+		verify_hr(frame_data->constant_buffers_.Last().resource_->Map(0, nullptr, &cb_dst));
 		memcpy(cb_dst, &mvp[0][0], 64);
-		frame_data.constant_buffer_.resource_->Unmap(0, nullptr);
+		frame_data->constant_buffers_.Last().resource_->Unmap(0, nullptr);
 
 		D3D12_CONSTANT_BUFFER_VIEW_DESC cbv_desc{
-			.BufferLocation = frame_data.constant_buffer_.resource_->GetGPUVirtualAddress(),
+			.BufferLocation = frame_data->constant_buffers_.Last().resource_->GetGPUVirtualAddress(),
 			.SizeInBytes = static_cast<u32>(aligned_forward(64, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT))
 		};
 		device_->device_->CreateConstantBufferView(&cbv_desc, encoder->ReserveGraphicsSlot(Gfx::DescriptorType::CBV, 0));
 
-
 		// Setup blend factor
 		const float blend_factor[4] = { 0.f, 0.f, 0.f, 0.f };
 		encoder->GetCmdList()->OMSetBlendFactor(blend_factor);
+	}
+
+	void RenderDrawData(ImDrawData* draw_data, Gfx::Encoder* encoder, D3D12_CPU_DESCRIPTOR_HANDLE rtv_handle) {
+		if (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f)
+			return;
+
+		if (draw_data->TotalVtxCount == 0 || draw_data->TotalIdxCount == 0) {
+			return;
+		}
+
+		if (frame_data_queue_.Size() > max_frames_queued_) {
+			frame_data_queue_.RemoveAt(0);
+			// TODO: fancier ahead-of-time waitables
+			//frame_data_queue_.RemoveAt(0).waitable_.Wait();
+		}
+
+		ViewportData* render_data = (ViewportData*)draw_data->OwnerViewport->RendererUserData;
+
+		encoder->GetCmdList()->OMSetRenderTargets(1, &rtv_handle, false, nullptr);
+
+		FrameData frame_data;
+		frame_data.vertex_buffer_ = device_->CreateBuffer(D3D12_HEAP_TYPE_UPLOAD, draw_data->TotalVtxCount * sizeof(ImDrawVert), DXGI_FORMAT_UNKNOWN, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ);
+		frame_data.index_buffer_ = device_->CreateBuffer(D3D12_HEAP_TYPE_UPLOAD, draw_data->TotalIdxCount * sizeof(ImDrawIdx), DXGI_FORMAT_UNKNOWN, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ);
+
+		ImDrawVert* vtx_dst = nullptr;
+		ImDrawIdx* idx_dst = nullptr;
+		verify_hr(frame_data.vertex_buffer_.resource_->Map(0, nullptr, reinterpret_cast<void**>(&vtx_dst)));
+		verify_hr(frame_data.index_buffer_.resource_->Map(0, nullptr, reinterpret_cast<void**>(&idx_dst)));
+
+		for (i32 n = 0, N = draw_data->CmdListsCount; n < N; n++) {
+			const ImDrawList* cmd_list = draw_data->CmdLists[n];
+
+			memcpy(vtx_dst, cmd_list->VtxBuffer.Data, cmd_list->VtxBuffer.Size * sizeof(ImDrawVert));
+			memcpy(idx_dst, cmd_list->IdxBuffer.Data, cmd_list->IdxBuffer.Size * sizeof(ImDrawIdx));
+
+			vtx_dst += cmd_list->VtxBuffer.Size;
+			idx_dst += cmd_list->IdxBuffer.Size;
+		}
+
+		frame_data.vertex_buffer_.resource_->Unmap(0, nullptr);
+		frame_data.index_buffer_.resource_->Unmap(0, nullptr);
+
+		SetupRenderState(draw_data, encoder, &frame_data);
 
 		int global_vtx_offset = 0;
 		int global_idx_offset = 0;
@@ -371,8 +375,7 @@ struct ImGuiRenderer : private Pinned<ImGuiRenderer> {
 				const ImDrawCmd* pcmd = &cmd_list->CmdBuffer[cmd_i];
 				if (pcmd->UserCallback != nullptr) {
 					if (pcmd->UserCallback == ImDrawCallback_ResetRenderState) {
-						//ImGui_ImplDX12_SetupRenderState(draw_data, ctx, fr);
-						assert(0);
+						SetupRenderState(draw_data, encoder, &frame_data);
 					}
 					else {
 						pcmd->UserCallback(cmd_list, pcmd);
@@ -439,26 +442,38 @@ int main(int argc, char** argv)
 	Gfx::Pipeline cs = device.CreateComputePipeline(CS);
 
 	// TODO: recreate resources based on window size
-	Gfx::Resource random_access_texture = device.CreateTexture2D(D3D12_HEAP_TYPE_DEFAULT, window->resolution_, DXGI_FORMAT_R8G8B8A8_UNORM, 1, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS | D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	struct ScreenResources {
+		Gfx::Resource random_access_texture;
 
-	i32 current_backbuffer_index = 0;
+		Vector2i resolution;
+	};
+
+	ScreenResources screen_resources{ .resolution = window->resolution_ };
+	screen_resources.random_access_texture = device.CreateTexture2D(D3D12_HEAP_TYPE_DEFAULT, window->resolution_, DXGI_FORMAT_R8G8B8A8_UNORM, 1, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS | D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
 	int frames_ctr = 3;
 
 	Array<Gfx::Waitable> frame_waitables;
 
-	window->RunLoop([
+	window->RunMessageLoop([
 		&window,
 			&device,
-			&current_backbuffer_index,
 			&window_swapchain,
-			&random_access_texture,
+			&screen_resources,
 			&cs,
 			backbuffers_num,
 			&frames_ctr,
 			&frame_waitables,
 			&imgui_renderer
 	]() {
+			i32 current_backbuffer_index = window_swapchain->swapchain_->GetCurrentBackBufferIndex();
+
+			if (screen_resources.resolution != window->resolution_) {
+				screen_resources.random_access_texture = device.CreateTexture2D(D3D12_HEAP_TYPE_DEFAULT, window->resolution_, DXGI_FORMAT_R8G8B8A8_UNORM, 1, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS | D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+
+				screen_resources.resolution = window->resolution_;
+			}
+
 			ImGui_ImplWin32_NewFrame();
 			ImGui::NewFrame();
 
@@ -467,18 +482,20 @@ int main(int argc, char** argv)
 				ImGui::End();
 			}
 
+			ImGui::ShowDemoWindow();
+
 			ID3D12Resource* current_backbuffer = *window_swapchain->backbuffers_[current_backbuffer_index];
 
 			Gfx::Pass* shader_execution_pass = device.graph_.AddSubsequentPass(Gfx::PassAttachments{}
-				.Attach({ .resource = *random_access_texture.resource_ }, D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
+				.Attach({ .resource = *screen_resources.random_access_texture.resource_ }, D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
 			);
 
 			Gfx::Pass* render_ui_pass = device.graph_.AddSubsequentPass(Gfx::PassAttachments{}
-				.Attach({ .resource = *random_access_texture.resource_ }, D3D12_RESOURCE_STATE_RENDER_TARGET)
+				.Attach({ .resource = *screen_resources.random_access_texture.resource_ }, D3D12_RESOURCE_STATE_RENDER_TARGET)
 			);
 
 			Gfx::Pass* copy_to_backbuffer_pass = device.graph_.AddSubsequentPass(Gfx::PassAttachments{}
-				.Attach({ .resource = *random_access_texture.resource_ }, D3D12_RESOURCE_STATE_COPY_SOURCE)
+				.Attach({ .resource = *screen_resources.random_access_texture.resource_ }, D3D12_RESOURCE_STATE_COPY_SOURCE)
 				.Attach({ .resource = current_backbuffer }, D3D12_RESOURCE_STATE_COPY_DEST)
 			);
 
@@ -498,7 +515,7 @@ int main(int argc, char** argv)
 				.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D,
 				.Texture2D = {}
 			};
-			device.device_->CreateUnorderedAccessView(*random_access_texture.resource_, nullptr, &uav_desc, encoder.ReserveComputeSlot(Gfx::DescriptorType::UAV, 0));
+			device.device_->CreateUnorderedAccessView(*screen_resources.random_access_texture.resource_, nullptr, &uav_desc, encoder.ReserveComputeSlot(Gfx::DescriptorType::UAV, 0));
 			encoder.SetComputeDescriptors();
 			cmd_list->Dispatch((window->resolution_.x() + 7) / 8, (window->resolution_.y() + 3) / 4, 1);
 
@@ -512,11 +529,11 @@ int main(int argc, char** argv)
 
 			D3D12_CPU_DESCRIPTOR_HANDLE rtv_handle = device.rtvs_descriptor_heap_.heap_->GetCPUDescriptorHandleForHeapStart();
 			rtv_handle.ptr += device.rtvs_descriptor_heap_.AllocateTable(1) * device.rtvs_descriptor_heap_.increment_;
-			device.device_->CreateRenderTargetView(*random_access_texture.resource_, &rtv_desc, rtv_handle);
+			device.device_->CreateRenderTargetView(*screen_resources.random_access_texture.resource_, &rtv_desc, rtv_handle);
 			imgui_renderer.RenderDrawData(ImGui::GetDrawData(), &encoder, rtv_handle);
 
 			encoder.SetPass(copy_to_backbuffer_pass);
-			cmd_list->CopyResource(current_backbuffer, *random_access_texture.resource_);
+			cmd_list->CopyResource(current_backbuffer, *screen_resources.random_access_texture.resource_);
 
 			encoder.SetPass(present_pass);
 

@@ -162,6 +162,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\imgui\imgui_demo.cpp" />
     <ClCompile Include="..\external\d3d12memoryallocator\Common.cpp" />
     <ClCompile Include="..\external\d3d12memoryallocator\D3D12MemAlloc.cpp" />
     <ClCompile Include="..\external\fmt\src\format.cc" />
