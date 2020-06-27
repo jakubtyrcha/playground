@@ -134,6 +134,10 @@ namespace Containers
 			return *this;
 		}
 
+		i64 Capacity() const {
+			return capacity_;
+		}
+
 		void Clear()
 		{
 			if (keys_) {
@@ -186,7 +190,6 @@ namespace Containers
 			Hashmap<K, V> rehashed;
 			rehashed.ReserveForCapacity(new_capacity);
 
-			//for (auto iter : (*this)) { // TODO: fix range for, why doesn't it compile?
 			for (auto iter = begin(); iter != end(); ++iter) {
 				bool i = rehashed.Insert(iter.Key(), iter.Value());
 				DEBUG_ASSERT(i, containers_module{});
@@ -250,10 +253,50 @@ namespace Containers
 			return true;
 		}
 
-		Iterator Remove(K key)
-		{
+		void _AdjustProbing(i64 deleted_index) {
+			i64 max_probe_count = MaxProbeCount();
+
+			for (i64 offset = 1; offset < max_probe_count; offset++) {
+				i64 index = deleted_index + offset;
+				if (index >= capacity_) {
+					index -= capacity_;
+				}
+
+				if (slot_states_.GetBit(index) == false) {
+					break;
+				}
+
+				u64 hash = Hash::HashValue(keys_[index]);
+				i64 preferred_index = HashmapSlot(hash, capacity_);
+
+				if (preferred_index == index) {
+					continue;
+				}
+
+				i64 distance_if_moved = deleted_index - preferred_index;
+				if (distance_if_moved < 0) {
+					distance_if_moved += capacity_;
+				}
+				i64 current_distance = index - preferred_index;
+				if (current_distance < 0) {
+					current_distance += capacity_;
+				}
+
+				if (distance_if_moved > current_distance) {
+					continue;
+				}
+
+				keys_[deleted_index] = keys_[index];
+				values_[deleted_index] = values_[index];
+				slot_states_.SetBit(deleted_index, true);
+				slot_states_.SetBit(index, false);
+
+				_AdjustProbing(index);
+			}
+		}
+
+		Iterator Remove(K key) {
 			i64 index = FindIndex(key);
-			i64 destroyed_index = index;
 			DEBUG_ASSERT(index != -1, containers_module{});
 
 			static_assert(std::is_trivial_v<K>);
@@ -262,33 +305,9 @@ namespace Containers
 			slot_states_.SetBit(index, false);
 			size_--;
 
-			while (true) {
-				i64 next = index + 1;
-				if (next == capacity_) {
-					next = 0;
-				}
+			_AdjustProbing(index);
 
-				if (slot_states_.GetBit(next) == false) {
-					break;
-				}
-
-				u64 hash = Hash::HashValue(keys_[next]);
-				i64 preferred_index = HashmapSlot(hash, capacity_);
-
-				if (preferred_index != next) {
-					keys_[index] = keys_[next];
-					values_[index] = values_[next];
-					slot_states_.SetBit(index, true);
-					slot_states_.SetBit(next, false);
-
-					index = next;
-				}
-				else {
-					break;
-				}
-			}
-
-			return Iterator{ this, destroyed_index };
+			return Iterator{ this, index };
 		}
 
 		K Key(i64 index) const {
