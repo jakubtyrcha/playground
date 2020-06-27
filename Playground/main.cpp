@@ -30,6 +30,9 @@ namespace Rendering {
 		f32 far_plane;
 
 		f32 GetAspectRatio() const;
+		Vector3 GetLookToVector() const;
+		Vector3 GetRightVector() const;
+		void TranslateCamera(Vector3);
 
 		Matrix4x4 view_matrix;
 		Matrix4x4 inv_view_matrix;
@@ -49,6 +52,20 @@ namespace Rendering {
 		return resolution.x() / static_cast<f32>(resolution.y());
 	}
 
+	Vector3 Viewport::GetLookToVector() const {
+		return (camera_look_at - camera_position).normalized();
+	}
+
+	Vector3 Viewport::GetRightVector() const {
+		Vector3 z = (camera_look_at - camera_position).normalized();
+		return Math::cross(camera_up, z).normalized();
+	}
+
+	void Viewport::TranslateCamera(Vector3 v) {
+		camera_position += v;
+		camera_look_at += v;
+	}
+
 	Matrix4 LookAtLh(Vector3 look_at, Vector3 eye, Vector3 up) {
 		Vector3 z = (look_at - eye).normalized();
 		Vector3 x = Math::cross(up, z).normalized();
@@ -57,7 +74,10 @@ namespace Rendering {
 		return Matrix4{ Vector4{x, -Math::dot(x, eye)}, Vector4{y, -Math::dot(y, eye)},Vector4{z, -Math::dot(z, eye)},Vector4{0, 0, 0, 1} }.transposed();
 	}
 
-	Matrix4 InverseLookAtLh(Vector3 look_at, Vector3 eye, Vector3 up);
+	Matrix4 InverseLookAtLh(Vector3 look_at, Vector3 eye, Vector3 up) {
+		Matrix4 view = LookAtLh(look_at, eye, up);
+		return Matrix4::from(view.rotation().transposed(), eye);
+	}
 
 	Matrix4 PerspectiveFovLh(f32 aspect_ratio, f32 fov_y, f32 near_plane, f32 far_plane) {
 		f32 yscale = 1.f / tanf(fov_y * 0.5f);
@@ -71,19 +91,22 @@ namespace Rendering {
 		};
 	}
 
-	Matrix4 InversePerspectiveFovLh(f32 aspect_ratio, f32 fov_y, f32 near, f32 far);
+	Matrix4 InversePerspectiveFovLh(f32 aspect_ratio, f32 fov_y, f32 near_plane, f32 far_plane) {
+		f32 yscale = tanf(fov_y * 0.5f);
+		f32 xscale = yscale * aspect_ratio;
+		f32 ab = -1.f / near_plane;
+
+		return {
+			Vector4{xscale, 0, 0, 0},
+			Vector4{0, yscale, 0, 0},
+			Vector4{0, 0, 0, ab},
+			Vector4{0, 0, 1, -ab}
+		};
+	}
 
 	Matrix4 PerspectiveFovLhReversedZ(f32 aspect_ratio, f32 fov_y, f32 near, f32 far);
 
 	Matrix4 InversePerspectiveFovLhReversedZ(f32 aspect_ratio, f32 fov_y, f32 near, f32 far);
-
-	// clear depth to 0
-	// generate a 
-
-	// RenderCube()
-	// RenderLine()
-	// RenderGrid
-	// RenderQuad
 
 	struct ImmediateModeShapeRenderer {
 		Gfx::Device* device_ = nullptr;
@@ -653,7 +676,6 @@ int main(int argc, char** argv)
 	Gfx::Device device;
 
 	InitImgui();
-	ImGuiIO& io = ImGui::GetIO();
 
 	ImGuiRenderer imgui_renderer;
 	imgui_renderer.Init(&device);
@@ -724,100 +746,129 @@ int main(int argc, char** argv)
 			&shape_renderer,
 			&main_viewport
 	]() {
-			i32 current_backbuffer_index = window_swapchain->swapchain_->GetCurrentBackBufferIndex();
+		i32 current_backbuffer_index = window_swapchain->swapchain_->GetCurrentBackBufferIndex();
 
-			if (screen_resources.resolution != window->resolution_) {
-				screen_resources.random_access_texture = device.CreateTexture2D(D3D12_HEAP_TYPE_DEFAULT, window->resolution_, DXGI_FORMAT_R8G8B8A8_UNORM, 1, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS | D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+		if (screen_resources.resolution != window->resolution_) {
+			screen_resources.random_access_texture = device.CreateTexture2D(D3D12_HEAP_TYPE_DEFAULT, window->resolution_, DXGI_FORMAT_R8G8B8A8_UNORM, 1, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS | D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
-				screen_resources.resolution = window->resolution_;
-				main_viewport.resolution = window->resolution_;
-			}
+			screen_resources.resolution = window->resolution_;
+			main_viewport.resolution = window->resolution_;
+		}
 
-			ImGui_ImplWin32_NewFrame();
-			ImGui::NewFrame();
+		f32 camera_sensivity = 0.1f;
+		if(window->user_input_.keys_down_['W']) {
+			main_viewport.TranslateCamera(main_viewport.GetLookToVector() * camera_sensivity);
+		}
+		if(window->user_input_.keys_down_['S']) {
+			main_viewport.TranslateCamera(-main_viewport.GetLookToVector() * camera_sensivity);
+		}
+		if(window->user_input_.keys_down_['A']) {
+			main_viewport.TranslateCamera(-main_viewport.GetRightVector() * camera_sensivity);
+		}
+		if(window->user_input_.keys_down_['D']) {
+			main_viewport.TranslateCamera(main_viewport.GetRightVector() * camera_sensivity);
+		}
 
-			{
-				ImGui::Begin("Hello, world!");
-				ImGui::End();
-			}
+		ImGuiIO& io = ImGui::GetIO();
+		
+		if(!io.WantCaptureMouse && window->user_input_.mouse_down_[0]) {
+			f32 delta_x = io.MouseDelta.x / static_cast<f32>(window->resolution_.x());
+			f32 delta_y = -io.MouseDelta.y / static_cast<f32>(window->resolution_.y());
 
-			ImGui::ShowDemoWindow();
+			// 
+			Vector4 clip_space_point_to{delta_x * 2.f, delta_y * 2.f, 1.f, 1.f};
 
-			main_viewport.view_matrix = Rendering::LookAtLh(main_viewport.camera_look_at, main_viewport.camera_position, main_viewport.camera_up);
-			main_viewport.projection_matrix = Rendering::PerspectiveFovLh(main_viewport.GetAspectRatio(), main_viewport.fov_y, main_viewport.near_plane, main_viewport.far_plane);
-			main_viewport.view_projection_matrix = main_viewport.projection_matrix * main_viewport.view_matrix;
+			Vector4 world_point_to = main_viewport.inv_view_projection_matrix * clip_space_point_to;
+			world_point_to = (world_point_to).normalized();
 
-			Vector4 test = main_viewport.projection_matrix * main_viewport.view_matrix * Vector4{ 0, 0, 1, 1 };
+			main_viewport.camera_look_at = main_viewport.camera_position + world_point_to.xyz();
+		}
 
-			ID3D12Resource* current_backbuffer = *window_swapchain->backbuffers_[current_backbuffer_index];
+		ImGui_ImplWin32_NewFrame();
+		ImGui::NewFrame();
+		{
+			ImGui::Begin("Hello, world!");
+			ImGui::End();
+		}
 
-			Gfx::Pass* shader_execution_pass = device.graph_.AddSubsequentPass(Gfx::PassAttachments{}
-				.Attach({ .resource = *screen_resources.random_access_texture.resource_ }, D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
-			);
+		ImGui::ShowDemoWindow();
 
-			Gfx::Pass* render_ui_pass = device.graph_.AddSubsequentPass(Gfx::PassAttachments{}
-				.Attach({ .resource = *screen_resources.random_access_texture.resource_ }, D3D12_RESOURCE_STATE_RENDER_TARGET)
-			);
+		main_viewport.view_matrix = Rendering::LookAtLh(main_viewport.camera_look_at, main_viewport.camera_position, main_viewport.camera_up);
+		main_viewport.inv_view_matrix = Rendering::InverseLookAtLh(main_viewport.camera_look_at, main_viewport.camera_position, main_viewport.camera_up);
+		main_viewport.projection_matrix = Rendering::PerspectiveFovLh(main_viewport.GetAspectRatio(), main_viewport.fov_y, main_viewport.near_plane, main_viewport.far_plane);
+		main_viewport.inv_projection_matrix = Rendering::InversePerspectiveFovLh(main_viewport.GetAspectRatio(), main_viewport.fov_y, main_viewport.near_plane, main_viewport.far_plane);
+		main_viewport.view_projection_matrix = main_viewport.projection_matrix * main_viewport.view_matrix;
+		main_viewport.inv_view_projection_matrix = main_viewport.inv_view_matrix * main_viewport.inv_projection_matrix;
 
-			Gfx::Pass* copy_to_backbuffer_pass = device.graph_.AddSubsequentPass(Gfx::PassAttachments{}
-				.Attach({ .resource = *screen_resources.random_access_texture.resource_ }, D3D12_RESOURCE_STATE_COPY_SOURCE)
-				.Attach({ .resource = current_backbuffer }, D3D12_RESOURCE_STATE_COPY_DEST)
-			);
+		ID3D12Resource* current_backbuffer = *window_swapchain->backbuffers_[current_backbuffer_index];
 
-			Gfx::Pass* present_pass = device.graph_.AddSubsequentPass(Gfx::PassAttachments{}
-				.Attach({ .resource = current_backbuffer }, D3D12_RESOURCE_STATE_PRESENT)
-			);
+		Gfx::Pass* shader_execution_pass = device.graph_.AddSubsequentPass(Gfx::PassAttachments{}
+			.Attach({ .resource = *screen_resources.random_access_texture.resource_ }, D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
+		);
 
-			Gfx::Encoder encoder = device.CreateEncoder();
+		Gfx::Pass* render_ui_pass = device.graph_.AddSubsequentPass(Gfx::PassAttachments{}
+			.Attach({ .resource = *screen_resources.random_access_texture.resource_ }, D3D12_RESOURCE_STATE_RENDER_TARGET)
+		);
 
-			ImGui::Render();
+		Gfx::Pass* copy_to_backbuffer_pass = device.graph_.AddSubsequentPass(Gfx::PassAttachments{}
+			.Attach({ .resource = *screen_resources.random_access_texture.resource_ }, D3D12_RESOURCE_STATE_COPY_SOURCE)
+			.Attach({ .resource = current_backbuffer }, D3D12_RESOURCE_STATE_COPY_DEST)
+		);
 
-			encoder.SetPass(shader_execution_pass);
-			ID3D12GraphicsCommandList* cmd_list = encoder.GetCmdList();
-			cmd_list->SetPipelineState(*cs.pipeline_);
-			D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc{
-				.Format = DXGI_FORMAT_R8G8B8A8_UNORM,
-				.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D,
-				.Texture2D = {}
-			};
-			device.device_->CreateUnorderedAccessView(*screen_resources.random_access_texture.resource_, nullptr, &uav_desc, encoder.ReserveComputeSlot(Gfx::DescriptorType::UAV, 0));
-			encoder.SetComputeDescriptors();
-			cmd_list->Dispatch((window->resolution_.x() + 7) / 8, (window->resolution_.y() + 3) / 4, 1);
+		Gfx::Pass* present_pass = device.graph_.AddSubsequentPass(Gfx::PassAttachments{}
+			.Attach({ .resource = current_backbuffer }, D3D12_RESOURCE_STATE_PRESENT)
+		);
 
-			encoder.SetPass(render_ui_pass);
+		Gfx::Encoder encoder = device.CreateEncoder();
 
-			D3D12_RENDER_TARGET_VIEW_DESC rtv_desc{
-				.Format = DXGI_FORMAT_R8G8B8A8_UNORM,
-				.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D,
-				.Texture2D = {}
-			};
+		ImGui::Render();
 
-			D3D12_CPU_DESCRIPTOR_HANDLE rtv_handle = device.rtvs_descriptor_heap_.heap_->GetCPUDescriptorHandleForHeapStart();
-			rtv_handle.ptr += device.rtvs_descriptor_heap_.AllocateTable(1) * device.rtvs_descriptor_heap_.increment_;
-			device.device_->CreateRenderTargetView(*screen_resources.random_access_texture.resource_, &rtv_desc, rtv_handle);
-			imgui_renderer.RenderDrawData(ImGui::GetDrawData(), &encoder, rtv_handle);
-			shape_renderer.Render(&encoder, &main_viewport, rtv_handle);
+		encoder.SetPass(shader_execution_pass);
+		ID3D12GraphicsCommandList* cmd_list = encoder.GetCmdList();
+		cmd_list->SetPipelineState(*cs.pipeline_);
+		D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc{
+			.Format = DXGI_FORMAT_R8G8B8A8_UNORM,
+			.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D,
+			.Texture2D = {}
+		};
+		device.device_->CreateUnorderedAccessView(*screen_resources.random_access_texture.resource_, nullptr, &uav_desc, encoder.ReserveComputeSlot(Gfx::DescriptorType::UAV, 0));
+		encoder.SetComputeDescriptors();
+		cmd_list->Dispatch((window->resolution_.x() + 7) / 8, (window->resolution_.y() + 3) / 4, 1);
 
-			encoder.SetPass(copy_to_backbuffer_pass);
-			cmd_list->CopyResource(current_backbuffer, *screen_resources.random_access_texture.resource_);
+		encoder.SetPass(render_ui_pass);
 
-			encoder.SetPass(present_pass);
+		D3D12_RENDER_TARGET_VIEW_DESC rtv_desc{
+			.Format = DXGI_FORMAT_R8G8B8A8_UNORM,
+			.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D,
+			.Texture2D = {}
+		};
 
-			// we should wait for the presenting being done before we access that backbuffer again?
-			if (frame_waitables.Size() == backbuffers_num) {
-				frame_waitables.RemoveAt(0).Wait();
-			}
+		D3D12_CPU_DESCRIPTOR_HANDLE rtv_handle = device.rtvs_descriptor_heap_.heap_->GetCPUDescriptorHandleForHeapStart();
+		rtv_handle.ptr += device.rtvs_descriptor_heap_.AllocateTable(1) * device.rtvs_descriptor_heap_.increment_;
+		device.device_->CreateRenderTargetView(*screen_resources.random_access_texture.resource_, &rtv_desc, rtv_handle);
+		shape_renderer.Render(&encoder, &main_viewport, rtv_handle);
+		imgui_renderer.RenderDrawData(ImGui::GetDrawData(), &encoder, rtv_handle);
 
-			encoder.Submit();
+		encoder.SetPass(copy_to_backbuffer_pass);
+		cmd_list->CopyResource(current_backbuffer, *screen_resources.random_access_texture.resource_);
 
-			verify_hr(window_swapchain->swapchain_->Present(1, 0));
-			device.AdvanceFence();
+		encoder.SetPass(present_pass);
 
-			frame_waitables.PushBack(device.GetWaitable());
+		// we should wait for the presenting being done before we access that backbuffer again?
+		if (frame_waitables.Size() == backbuffers_num) {
+			frame_waitables.RemoveAt(0).Wait();
+		}
 
-			current_backbuffer_index = (current_backbuffer_index + 1) % backbuffers_num;
+		encoder.Submit();
 
-		});
+		verify_hr(window_swapchain->swapchain_->Present(1, 0));
+		device.AdvanceFence();
+
+		frame_waitables.PushBack(device.GetWaitable());
+
+		current_backbuffer_index = (current_backbuffer_index + 1) % backbuffers_num;
+
+	});
 
 	device.GetWaitable().Wait();
 
