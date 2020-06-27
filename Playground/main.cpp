@@ -13,8 +13,253 @@
 #include <imgui/imgui.h>
 #include "imgui_impl_win32.h"
 
+#include <math.h>
+
 using namespace Containers;
 using namespace IO;
+
+using namespace Magnum;
+namespace Rendering {
+	struct Viewport {
+		Vector2i resolution;
+		f32 fov_y;
+		Vector3 camera_look_at;
+		Vector3 camera_position;
+		Vector3 camera_up;
+		f32 near_plane;
+		f32 far_plane;
+
+		f32 GetAspectRatio() const;
+
+		Matrix4x4 view_matrix;
+		Matrix4x4 inv_view_matrix;
+		Matrix4x4 camera_offseted_view_matrix;
+		Matrix4x4 camera_offseted_inv_view_matrix;
+		Matrix4x4 projection_matrix;
+		Matrix4x4 inv_projection_matrix;
+		Matrix4x4 view_projection_matrix;
+		Matrix4x4 inv_view_projection_matrix;
+		Matrix4x4 camera_offseted_view_projection_matrix;
+		Matrix4x4 inv_camera_offseted_view_projection_matrix;
+		Matrix4x4 prev_view_matrix;
+		Matrix4x4 prev_inv_view_matrix;
+	};
+
+	f32 Viewport::GetAspectRatio() const {
+		return resolution.x() / static_cast<f32>(resolution.y());
+	}
+
+	Matrix4 LookAtLh(Vector3 look_at, Vector3 eye, Vector3 up) {
+		Vector3 z = (look_at - eye).normalized();
+		Vector3 x = Math::cross(up, z).normalized();
+		Vector3 y = Math::cross(z, x);
+
+		return Matrix4{ Vector4{x, -Math::dot(x, eye)}, Vector4{y, -Math::dot(y, eye)},Vector4{z, -Math::dot(z, eye)},Vector4{0, 0, 0, 1} }.transposed();
+	}
+
+	Matrix4 InverseLookAtLh(Vector3 look_at, Vector3 eye, Vector3 up);
+
+	Matrix4 PerspectiveFovLh(f32 aspect_ratio, f32 fov_y, f32 near_plane, f32 far_plane) {
+		f32 yscale = 1.f / tanf(fov_y * 0.5f);
+		f32 xscale = yscale / aspect_ratio;
+
+		return {
+			Vector4{xscale, 0, 0, 0},
+			Vector4{0, yscale, 0, 0},
+			Vector4{0, 0, far_plane / (far_plane - near_plane), 1},
+			Vector4{0, 0, -near_plane * far_plane / (far_plane - near_plane), 0}
+		};
+	}
+
+	Matrix4 InversePerspectiveFovLh(f32 aspect_ratio, f32 fov_y, f32 near, f32 far);
+
+	Matrix4 PerspectiveFovLhReversedZ(f32 aspect_ratio, f32 fov_y, f32 near, f32 far);
+
+	Matrix4 InversePerspectiveFovLhReversedZ(f32 aspect_ratio, f32 fov_y, f32 near, f32 far);
+
+	// clear depth to 0
+	// generate a 
+
+	// RenderCube()
+	// RenderLine()
+	// RenderGrid
+	// RenderQuad
+
+	struct ImmediateModeShapeRenderer {
+		Gfx::Device* device_ = nullptr;
+		Gfx::Pipeline pipeline_;
+
+		struct FrameData {
+			Gfx::Resource vertex_buffer_;
+			Gfx::Resource index_buffer_;
+			Array<Gfx::Resource> constant_buffers_;
+			Gfx::Waitable waitable_;
+		};
+
+		i32 max_frames_queued_ = 3;
+		Array<FrameData> frame_data_queue_;
+
+		void Init(Gfx::Device* device) {
+			device_ = device;
+
+			D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_desc{};
+			pso_desc.NodeMask = 1;
+			pso_desc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
+			pso_desc.pRootSignature = *device_->root_signature_;
+			pso_desc.SampleMask = UINT_MAX;
+			pso_desc.NumRenderTargets = 1;
+			pso_desc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+			pso_desc.SampleDesc.Count = 1;
+			pso_desc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
+
+			Gfx::ShaderBlob* vs_bytecode;
+			{
+				vs_bytecode = Gfx::CompileShaderFromFile(L"../data/shape.hlsl", L"../data/shape.hlsl", L"VsMain", L"vs_6_0");
+				pso_desc.VS = { vs_bytecode->GetBufferPointer(), vs_bytecode->GetBufferSize() };
+			}
+
+			// Create the input layout
+			static D3D12_INPUT_ELEMENT_DESC local_layout[] = {
+				{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,   0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+				{ "COLOR",    0, DXGI_FORMAT_R8G8B8A8_UNORM, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+			};
+			pso_desc.InputLayout = { local_layout, _countof(local_layout) };
+
+			Gfx::ShaderBlob* ps_bytecode;
+			{
+				ps_bytecode = Gfx::CompileShaderFromFile(L"../data/shape.hlsl", L"../data/shape.hlsl", L"PsMain", L"ps_6_0");
+				pso_desc.PS = { ps_bytecode->GetBufferPointer(), ps_bytecode->GetBufferSize() };
+			}
+
+			// Create the blending setup
+			{
+				D3D12_BLEND_DESC& desc = pso_desc.BlendState;
+				desc.AlphaToCoverageEnable = false;
+				desc.RenderTarget[0].BlendEnable = false;
+				desc.RenderTarget[0].LogicOpEnable = false;
+				desc.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+			}
+
+			// Create the rasterizer state
+			{
+				D3D12_RASTERIZER_DESC& desc = pso_desc.RasterizerState;
+				desc.FillMode = D3D12_FILL_MODE_SOLID;
+				desc.CullMode = D3D12_CULL_MODE_NONE;
+				desc.FrontCounterClockwise = FALSE;
+				desc.DepthBias = D3D12_DEFAULT_DEPTH_BIAS;
+				desc.DepthBiasClamp = D3D12_DEFAULT_DEPTH_BIAS_CLAMP;
+				desc.SlopeScaledDepthBias = D3D12_DEFAULT_SLOPE_SCALED_DEPTH_BIAS;
+				desc.DepthClipEnable = true;
+				desc.MultisampleEnable = FALSE;
+				desc.AntialiasedLineEnable = TRUE;
+				desc.ForcedSampleCount = 0;
+				desc.ConservativeRaster = D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF;
+			}
+
+			// Create depth-stencil State
+			{
+				D3D12_DEPTH_STENCIL_DESC& desc = pso_desc.DepthStencilState;
+				desc.DepthEnable = false; //
+				desc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+				desc.DepthFunc = D3D12_COMPARISON_FUNC_GREATER_EQUAL;
+				desc.StencilEnable = false;
+				desc.FrontFace.StencilFailOp = desc.FrontFace.StencilDepthFailOp = desc.FrontFace.StencilPassOp = D3D12_STENCIL_OP_KEEP;
+				desc.FrontFace.StencilFunc = D3D12_COMPARISON_FUNC_ALWAYS;
+				desc.BackFace = desc.FrontFace;
+			}
+
+			verify_hr(device_->device_->CreateGraphicsPipelineState(&pso_desc, IID_PPV_ARGS(pipeline_.pipeline_.InitAddress())));
+
+			vs_bytecode->Release();
+			ps_bytecode->Release();
+		}
+
+		void Render(Gfx::Encoder* encoder, Viewport* viewport, D3D12_CPU_DESCRIPTOR_HANDLE rtv_handle) {
+			if (frame_data_queue_.Size() > max_frames_queued_) {
+				frame_data_queue_.RemoveAt(0);
+				// TODO: fancier ahead-of-time waitables
+				//frame_data_queue_.RemoveAt(0).waitable_.Wait();
+			}
+
+			encoder->GetCmdList()->OMSetRenderTargets(1, &rtv_handle, false, nullptr);
+
+			D3D12_VIEWPORT vp{
+				.Width = static_cast<float>(viewport->resolution.x()),
+				.Height = static_cast<float>(viewport->resolution.y()),
+				.MinDepth = 0.f,
+				.MaxDepth = 1.f
+			};
+			encoder->GetCmdList()->RSSetViewports(1, &vp);
+
+			using ColourR8G8B8A8U = Magnum::Math::Vector4<u8>;
+			struct ShapeVertex {
+				Vector3 position;
+				ColourR8G8B8A8U colour;
+			};
+
+			static_assert(offsetof(ShapeVertex, colour) == 12);
+
+			ShapeVertex vertices[] = {
+				{.position = {0, 0, 0}, .colour = {255, 0, 0, 1}},
+				{.position = {1, 0, 0}, .colour = {255, 0, 0, 1}},
+				{.position = {0, 0, 0}, .colour = {0, 255, 0, 1}},
+				{.position = {0, 1, 0}, .colour = {0, 255, 0, 1}},
+				{.position = {0, 0, 0}, .colour = {0, 0, 255, 1}},
+				{.position = {0, 0, 1}, .colour = {0, 0, 255, 1}},
+			};
+
+			i32 verticesNum = _countof(vertices);
+
+			FrameData frame_data;
+			frame_data.vertex_buffer_ = device_->CreateBuffer(D3D12_HEAP_TYPE_UPLOAD, verticesNum * sizeof(ShapeVertex), DXGI_FORMAT_UNKNOWN, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ);
+
+			ShapeVertex* vtx_dst = nullptr;
+			verify_hr(frame_data.vertex_buffer_.resource_->Map(0, nullptr, reinterpret_cast<void**>(&vtx_dst)));
+			memcpy(vtx_dst, vertices, sizeof(vertices));
+			frame_data.vertex_buffer_.resource_->Unmap(0, nullptr);
+
+			// Bind shader and vertex buffers
+			unsigned int stride = sizeof(ShapeVertex);
+			unsigned int offset = 0;
+			D3D12_VERTEX_BUFFER_VIEW vbv{
+				.BufferLocation = frame_data.vertex_buffer_.resource_->GetGPUVirtualAddress() + offset,
+				.SizeInBytes = verticesNum * stride,
+				.StrideInBytes = stride
+			};
+			encoder->GetCmdList()->IASetVertexBuffers(0, 1, &vbv);
+			encoder->GetCmdList()->IASetIndexBuffer(nullptr);
+			encoder->GetCmdList()->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
+			encoder->GetCmdList()->SetPipelineState(*pipeline_.pipeline_);
+
+			frame_data.constant_buffers_.PushBackRvalueRef(std::move(device_->CreateBuffer(D3D12_HEAP_TYPE_UPLOAD, AlignedForward(64, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT), DXGI_FORMAT_UNKNOWN, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ)));
+
+			Matrix4x4 view_projection_matrix = viewport->view_projection_matrix;
+
+			void* cb_dst = nullptr;
+			verify_hr(frame_data.constant_buffers_.Last().resource_->Map(0, nullptr, &cb_dst));
+			memcpy(cb_dst, &view_projection_matrix, 64);
+			frame_data.constant_buffers_.Last().resource_->Unmap(0, nullptr);
+
+			D3D12_CONSTANT_BUFFER_VIEW_DESC cbv_desc{
+				.BufferLocation = frame_data.constant_buffers_.Last().resource_->GetGPUVirtualAddress(),
+				.SizeInBytes = static_cast<u32>(AlignedForward(64, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT))
+			};
+			device_->device_->CreateConstantBufferView(&cbv_desc, encoder->ReserveGraphicsSlot(Gfx::DescriptorType::CBV, 0));
+
+			encoder->SetGraphicsDescriptors();
+
+			const D3D12_RECT r = { 0, 0, viewport->resolution.x(), viewport->resolution.y() };
+			encoder->GetCmdList()->RSSetScissorRects(1, &r);
+			encoder->GetCmdList()->DrawInstanced(6, 1, 0, 0);
+
+			frame_data_queue_.PushBackRvalueRef(std::move(frame_data));
+		}
+
+		void Shutdown() {
+			frame_data_queue_.Clear();
+		}
+	};
+};
 
 void InitImgui() {
 	IMGUI_CHECKVERSION();
@@ -32,11 +277,6 @@ void InitImgui() {
 		style.WindowRounding = 0.0f;
 		style.Colors[ImGuiCol_WindowBg].w = 1.0f;
 	}
-}
-
-template<typename T>
-T aligned_forward(T v, T a) {
-	return (v + (a - 1)) & ~(a - 1);
 }
 
 struct ImGuiRenderer : private Pinned<ImGuiRenderer> {
@@ -94,7 +334,7 @@ struct ImGuiRenderer : private Pinned<ImGuiRenderer> {
 
 		font_texture_ = device_->CreateTexture2D(D3D12_HEAP_TYPE_DEFAULT, { width, height }, DXGI_FORMAT_R8G8B8A8_UNORM, 1, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST);
 
-		i32 upload_pitch = aligned_forward(width * 4, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
+		i32 upload_pitch = AlignedForward(width * 4, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
 		D3D12_RESOURCE_DESC desc = font_texture_.resource_->GetDesc();
 		Gfx::Resource upload_buffer = device_->CreateBuffer(D3D12_HEAP_TYPE_UPLOAD, width * upload_pitch, DXGI_FORMAT_UNKNOWN, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ);
 
@@ -150,6 +390,7 @@ struct ImGuiRenderer : private Pinned<ImGuiRenderer> {
 		pso_desc.SampleDesc.Count = 1;
 		pso_desc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
 
+		Gfx::ShaderBlob* vs_bytecode;
 		{
 			static const char* vertex_shader =
 				"cbuffer vertexBuffer : register(b0) \
@@ -180,11 +421,10 @@ struct ImGuiRenderer : private Pinned<ImGuiRenderer> {
             }";
 
 			Gfx::ShaderBlob* vs_blob = Gfx::Wrap(vertex_shader, strlen(vertex_shader));
-			Gfx::ShaderBlob* vs_bytecode = Gfx::CompileShader(vs_blob, nullptr, L"vs", L"main", L"vs_6_0");
+			vs_bytecode = Gfx::CompileShader(vs_blob, nullptr, L"vs", L"main", L"vs_6_0");
 			pso_desc.VS = { vs_bytecode->GetBufferPointer(), vs_bytecode->GetBufferSize() };
 
 			vs_blob->Release();
-			vs_bytecode->Release();
 		}
 
 		// Create the input layout
@@ -195,6 +435,7 @@ struct ImGuiRenderer : private Pinned<ImGuiRenderer> {
 		};
 		pso_desc.InputLayout = { local_layout, 3 };
 
+		Gfx::ShaderBlob* ps_bytecode;
 		{
 			static const char* pixel_shader =
 				"struct PS_INPUT\
@@ -213,11 +454,10 @@ struct ImGuiRenderer : private Pinned<ImGuiRenderer> {
             }";
 
 			Gfx::ShaderBlob* ps_blob = Gfx::Wrap(pixel_shader, strlen(pixel_shader));
-			Gfx::ShaderBlob* ps_bytecode = Gfx::CompileShader(ps_blob, nullptr, L"ps", L"main", L"ps_6_0");
+			ps_bytecode = Gfx::CompileShader(ps_blob, nullptr, L"ps", L"main", L"ps_6_0");
 			pso_desc.PS = { ps_bytecode->GetBufferPointer(), ps_bytecode->GetBufferSize() };
 
 			ps_blob->Release();
-			ps_bytecode->Release();
 		}
 
 		// Create the blending setup
@@ -263,6 +503,9 @@ struct ImGuiRenderer : private Pinned<ImGuiRenderer> {
 		}
 
 		verify_hr(device_->device_->CreateGraphicsPipelineState(&pso_desc, IID_PPV_ARGS(pipeline_.pipeline_.InitAddress())));
+
+		vs_bytecode->Release();
+		ps_bytecode->Release();
 	}
 
 	void SetupRenderState(ImDrawData* draw_data, Gfx::Encoder* encoder, FrameData* frame_data) {
@@ -306,7 +549,7 @@ struct ImGuiRenderer : private Pinned<ImGuiRenderer> {
 		encoder->GetCmdList()->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		encoder->GetCmdList()->SetPipelineState(*pipeline_.pipeline_);
 
-		frame_data->constant_buffers_.PushBackRvalueRef(std::move(device_->CreateBuffer(D3D12_HEAP_TYPE_UPLOAD, aligned_forward(64, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT), DXGI_FORMAT_UNKNOWN, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ)));
+		frame_data->constant_buffers_.PushBackRvalueRef(std::move(device_->CreateBuffer(D3D12_HEAP_TYPE_UPLOAD, AlignedForward(64, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT), DXGI_FORMAT_UNKNOWN, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ)));
 
 		void* cb_dst = nullptr;
 		verify_hr(frame_data->constant_buffers_.Last().resource_->Map(0, nullptr, &cb_dst));
@@ -315,7 +558,7 @@ struct ImGuiRenderer : private Pinned<ImGuiRenderer> {
 
 		D3D12_CONSTANT_BUFFER_VIEW_DESC cbv_desc{
 			.BufferLocation = frame_data->constant_buffers_.Last().resource_->GetGPUVirtualAddress(),
-			.SizeInBytes = static_cast<u32>(aligned_forward(64, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT))
+			.SizeInBytes = static_cast<u32>(AlignedForward(64, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT))
 		};
 		device_->device_->CreateConstantBufferView(&cbv_desc, encoder->ReserveGraphicsSlot(Gfx::DescriptorType::CBV, 0));
 
@@ -415,6 +658,9 @@ int main(int argc, char** argv)
 	ImGuiRenderer imgui_renderer;
 	imgui_renderer.Init(&device);
 
+	Rendering::ImmediateModeShapeRenderer shape_renderer;
+	shape_renderer.Init(&device);
+
 	// TODO: who should own backbuffers num?
 	// Device, swapchain?
 	i32 backbuffers_num = 3;
@@ -455,6 +701,16 @@ int main(int argc, char** argv)
 
 	Array<Gfx::Waitable> frame_waitables;
 
+	Rendering::Viewport main_viewport{};
+
+	main_viewport.camera_look_at = { 0, 0, 0 };
+	main_viewport.camera_position = { 5, 5, -5 };
+	main_viewport.camera_up = { 0, 1, 0 };
+	main_viewport.resolution = window->resolution_;
+	main_viewport.fov_y = Magnum::Math::Constants<float>::piHalf();
+	main_viewport.near_plane = 0.1f;
+	main_viewport.far_plane = 1000.f;
+
 	window->RunMessageLoop([
 		&window,
 			&device,
@@ -464,7 +720,9 @@ int main(int argc, char** argv)
 			backbuffers_num,
 			&frames_ctr,
 			&frame_waitables,
-			&imgui_renderer
+			&imgui_renderer,
+			&shape_renderer,
+			&main_viewport
 	]() {
 			i32 current_backbuffer_index = window_swapchain->swapchain_->GetCurrentBackBufferIndex();
 
@@ -472,6 +730,7 @@ int main(int argc, char** argv)
 				screen_resources.random_access_texture = device.CreateTexture2D(D3D12_HEAP_TYPE_DEFAULT, window->resolution_, DXGI_FORMAT_R8G8B8A8_UNORM, 1, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS | D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
 				screen_resources.resolution = window->resolution_;
+				main_viewport.resolution = window->resolution_;
 			}
 
 			ImGui_ImplWin32_NewFrame();
@@ -483,6 +742,12 @@ int main(int argc, char** argv)
 			}
 
 			ImGui::ShowDemoWindow();
+
+			main_viewport.view_matrix = Rendering::LookAtLh(main_viewport.camera_look_at, main_viewport.camera_position, main_viewport.camera_up);
+			main_viewport.projection_matrix = Rendering::PerspectiveFovLh(main_viewport.GetAspectRatio(), main_viewport.fov_y, main_viewport.near_plane, main_viewport.far_plane);
+			main_viewport.view_projection_matrix = main_viewport.projection_matrix * main_viewport.view_matrix;
+
+			Vector4 test = main_viewport.projection_matrix * main_viewport.view_matrix * Vector4{ 0, 0, 1, 1 };
 
 			ID3D12Resource* current_backbuffer = *window_swapchain->backbuffers_[current_backbuffer_index];
 
@@ -531,6 +796,7 @@ int main(int argc, char** argv)
 			rtv_handle.ptr += device.rtvs_descriptor_heap_.AllocateTable(1) * device.rtvs_descriptor_heap_.increment_;
 			device.device_->CreateRenderTargetView(*screen_resources.random_access_texture.resource_, &rtv_desc, rtv_handle);
 			imgui_renderer.RenderDrawData(ImGui::GetDrawData(), &encoder, rtv_handle);
+			shape_renderer.Render(&encoder, &main_viewport, rtv_handle);
 
 			encoder.SetPass(copy_to_backbuffer_pass);
 			cmd_list->CopyResource(current_backbuffer, *screen_resources.random_access_texture.resource_);
@@ -557,6 +823,7 @@ int main(int argc, char** argv)
 
 	ImGui_ImplWin32_Shutdown();
 	imgui_renderer.Shutdown();
+	shape_renderer.Shutdown();
 	ImGui::DestroyContext();
 
 	return 0;

@@ -1,6 +1,11 @@
 #pragma once
 
 template<typename T>
+T AlignedForward(T v, T a) {
+	return (v + (a - 1)) & ~(a - 1);
+}
+
+template<typename T>
 struct MoveableNonCopyable
 {
 	MoveableNonCopyable(const MoveableNonCopyable&) = delete;
