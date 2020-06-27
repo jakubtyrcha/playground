@@ -55,6 +55,32 @@ TEST_CASE("can remove from hashtable", "[hashtable]") {
 	}
 }
 
+TEST_CASE("hashtable reinsert test for linear probing", "[hashtable]") {
+	Hashmap<i32, i32> h;
+
+	for (int i = 0; i < 10; i++) {
+		h.Insert(i, i);
+	}
+	for (int i = 0; i < 10; i++) {
+		h.Remove(i);
+	}
+
+	REQUIRE(h.Size() == 0);
+
+	h.Insert(0, 0);
+	int mod = static_cast<int>(h.Capacity());
+
+	int collision2 = mod * 2;
+
+	h.Insert(1, 1);
+	h.Insert(collision2, 2);
+
+	REQUIRE(h.Size() == 3);
+
+	h.Remove(0);
+	REQUIRE(h.Insert(collision2, 2) == false);
+}
+
 TEST_CASE("hashtable can handle pow2", "[hashtable]") {
 	Hashmap<i32, i32> h;
 
