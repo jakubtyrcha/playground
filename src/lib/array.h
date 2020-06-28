@@ -281,6 +281,16 @@ namespace Containers
 			return obj;
 		}
 
+		void RemoveAndSwapWithLast(i64 index) {
+			static_assert(std::is_trivially_copyable_v<T>);
+
+			if(index != size_-1) {
+				data_[index] = data_[size_ - 1];
+			}
+
+			size_--;
+		}
+
 		T& Last() {
 			return (*this)[Size() - 1];
 		}
