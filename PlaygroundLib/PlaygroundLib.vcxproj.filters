@@ -54,6 +54,9 @@
     <ClInclude Include="..\src\lib\box.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\src\lib\random.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp">
@@ -69,6 +72,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\src\lib\hashmap.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\mersennetwister\mersenne-twister.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\lib\random.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

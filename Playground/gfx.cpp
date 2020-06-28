@@ -174,7 +174,10 @@ namespace Gfx
 
 			descriptor_heap_.dirty_graphics_srvs_.Resize(8);
 			descriptor_heap_.dirty_graphics_cbvs_.Resize(8);
+
+			descriptor_heap_.dirty_compute_srvs_.Resize(8);
 			descriptor_heap_.dirty_compute_uavs_.Resize(8);
+			descriptor_heap_.dirty_compute_cbvs_.Resize(8);
 		}
 
 		//
@@ -261,7 +264,7 @@ namespace Gfx
 		return result;
 	}
 
-	Resource Device::CreateBuffer(D3D12_HEAP_TYPE heap_type, i32 size, DXGI_FORMAT format, D3D12_RESOURCE_FLAGS flags, D3D12_RESOURCE_STATES initial_state) {
+	Resource Device::CreateBuffer(D3D12_HEAP_TYPE heap_type, i64 size, DXGI_FORMAT format, D3D12_RESOURCE_FLAGS flags, D3D12_RESOURCE_STATES initial_state) {
 		Resource result{};
 		result.type_ = ResourceType::Texture2D;
 		result.device_ = this;
@@ -290,6 +293,42 @@ namespace Gfx
 			result.allocation_.InitAddress(),
 			IID_PPV_ARGS(result.resource_.InitAddress())));
 
+		// TODO: remove state tracking for UPLOAD heap (textures as well)
+		graph_.SetState({ .resource = *result.resource_ }, initial_state);
+
+		return result;
+	}
+
+	Resource Device::CreateTexture1D(D3D12_HEAP_TYPE heap_type, i64 size, DXGI_FORMAT format, i32 miplevels, D3D12_RESOURCE_FLAGS flags, D3D12_RESOURCE_STATES initial_state) {
+		Resource result{};
+		result.type_ = ResourceType::Texture1D;
+		result.device_ = this;
+
+		D3D12_RESOURCE_DESC resource_desc = {};
+		resource_desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE1D;
+		resource_desc.Alignment = 0;
+		resource_desc.Width = size;
+		resource_desc.Height = 1;
+		resource_desc.DepthOrArraySize = 1;
+		resource_desc.MipLevels = miplevels;
+		resource_desc.Format = format;
+		resource_desc.SampleDesc.Count = 1;
+		resource_desc.SampleDesc.Quality = 0;
+		resource_desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+		resource_desc.Flags = flags;
+
+		D3D12MA::ALLOCATION_DESC allocation_desc = {};
+		allocation_desc.HeapType = heap_type;
+
+		verify_hr(allocator_->CreateResource(
+			&allocation_desc,
+			&resource_desc,
+			initial_state,
+			NULL,
+			result.allocation_.InitAddress(),
+			IID_PPV_ARGS(result.resource_.InitAddress())));
+
+		assert(miplevels == 1);
 		graph_.SetState({ .resource = *result.resource_ }, initial_state);
 
 		return result;
@@ -433,30 +472,57 @@ namespace Gfx
 
 	D3D12_CPU_DESCRIPTOR_HANDLE Encoder::ReserveComputeSlot(DescriptorType type, i32 slot_index) {
 		assert(slot_index < 8);
-		assert(type == DescriptorType::UAV);
 		DescriptorHeap& descriptor_heap = device_->descriptor_heap_;
 
-		if (!descriptor_heap.dirty_compute_uavs_.AnyBitSet()) {
-			descriptor_heap.current_compute_uavs_offset_ = descriptor_heap.AllocateTable(8);
+		if (type == DescriptorType::SRV) {
+			if (!descriptor_heap.dirty_compute_srvs_.AnyBitSet()) {
+				descriptor_heap.current_compute_srvs_offset_ = descriptor_heap.AllocateTable(8);
+			}
+
+			descriptor_heap.dirty_compute_srvs_.SetBit(slot_index, true);
+
+			D3D12_CPU_DESCRIPTOR_HANDLE handle = descriptor_heap.heap_->GetCPUDescriptorHandleForHeapStart();
+			handle.ptr += (descriptor_heap.current_compute_srvs_offset_ + slot_index) * descriptor_heap.increment_;
+			return handle;
 		}
+		else if (type == DescriptorType::UAV) {
+			if (!descriptor_heap.dirty_compute_uavs_.AnyBitSet()) {
+				descriptor_heap.current_compute_uavs_offset_ = descriptor_heap.AllocateTable(8);
+			}
 
-		descriptor_heap.dirty_compute_uavs_.SetBit(slot_index, true);
+			descriptor_heap.dirty_compute_uavs_.SetBit(slot_index, true);
 
-		D3D12_CPU_DESCRIPTOR_HANDLE handle = descriptor_heap.heap_->GetCPUDescriptorHandleForHeapStart();
-		handle.ptr += (descriptor_heap.current_compute_uavs_offset_ + slot_index) * descriptor_heap.increment_;
-		return handle;
+			D3D12_CPU_DESCRIPTOR_HANDLE handle = descriptor_heap.heap_->GetCPUDescriptorHandleForHeapStart();
+			handle.ptr += (descriptor_heap.current_compute_uavs_offset_ + slot_index) * descriptor_heap.increment_;
+			return handle;
+		}
+		else if (type == DescriptorType::CBV) {
+			if (!descriptor_heap.dirty_compute_cbvs_.AnyBitSet()) {
+				descriptor_heap.current_compute_cbvs_offset_ = descriptor_heap.AllocateTable(8);
+			}
+
+			descriptor_heap.dirty_compute_cbvs_.SetBit(slot_index, true);
+
+			D3D12_CPU_DESCRIPTOR_HANDLE handle = descriptor_heap.heap_->GetCPUDescriptorHandleForHeapStart();
+			handle.ptr += (descriptor_heap.current_compute_cbvs_offset_ + slot_index) * descriptor_heap.increment_;
+			return handle;
+		}
+		else {
+			DEBUG_UNREACHABLE(gfx_module{});
+			return {};
+		}
 	}
 
 	void Encoder::SetGraphicsDescriptors() {
 		DescriptorHeap& descriptor_heap = device_->descriptor_heap_;
 
 		D3D12_CPU_DESCRIPTOR_HANDLE heap_start = descriptor_heap.heap_->GetCPUDescriptorHandleForHeapStart();
+
 		D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc{
 			.Format = DXGI_FORMAT_R8G8B8A8_UNORM,
 			.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D,
 			.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
 		};
-
 		if (descriptor_heap.dirty_graphics_srvs_.AnyBitSet()) {
 			for (i32 i = 0; i < 8; i++) {
 				if (!descriptor_heap.dirty_graphics_srvs_.GetBit(i)) {
@@ -476,7 +542,6 @@ namespace Gfx
 			.BufferLocation = 0,
 			.SizeInBytes = 0
 		};
-
 		if (descriptor_heap.dirty_graphics_cbvs_.AnyBitSet()) {
 			for (i32 i = 0; i < 8; i++) {
 				if (!descriptor_heap.dirty_graphics_cbvs_.GetBit(i)) {
@@ -497,11 +562,31 @@ namespace Gfx
 		DescriptorHeap& descriptor_heap = device_->descriptor_heap_;
 
 		D3D12_CPU_DESCRIPTOR_HANDLE heap_start = descriptor_heap.heap_->GetCPUDescriptorHandleForHeapStart();
+
+		D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc{
+			.Format = DXGI_FORMAT_R8G8B8A8_UNORM,
+			.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D,
+			.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
+		};
+		if (descriptor_heap.dirty_compute_srvs_.AnyBitSet()) {
+			for (i32 i = 0; i < 8; i++) {
+				if (!descriptor_heap.dirty_compute_srvs_.GetBit(i)) {
+					D3D12_CPU_DESCRIPTOR_HANDLE handle = heap_start;
+					handle.ptr += descriptor_heap.increment_ * (i + descriptor_heap.current_compute_srvs_offset_);
+					device_->device_->CreateShaderResourceView(nullptr, &srv_desc, handle);
+				}
+			}
+
+			D3D12_GPU_DESCRIPTOR_HANDLE handle = descriptor_heap.heap_->GetGPUDescriptorHandleForHeapStart();
+			handle.ptr += descriptor_heap.increment_ * (descriptor_heap.current_compute_srvs_offset_);
+			GetCmdList()->SetComputeRootDescriptorTable(0, handle);
+			descriptor_heap.dirty_compute_srvs_.ClearAll();
+		}
+
 		D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc{
 			.Format = DXGI_FORMAT_R8G8B8A8_UNORM,
 			.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D
 		};
-
 		if (descriptor_heap.dirty_compute_uavs_.AnyBitSet()) {
 			for (i32 i = 0; i < 8; i++) {
 				if (!descriptor_heap.dirty_compute_uavs_.GetBit(i)) {
@@ -515,6 +600,25 @@ namespace Gfx
 			handle.ptr += descriptor_heap.increment_ * (descriptor_heap.current_compute_uavs_offset_);
 			GetCmdList()->SetComputeRootDescriptorTable(1, handle);
 			descriptor_heap.dirty_compute_uavs_.ClearAll();
+		}
+
+		D3D12_CONSTANT_BUFFER_VIEW_DESC cbv_desc{
+			.BufferLocation = 0,
+			.SizeInBytes = 0
+		};
+		if (descriptor_heap.dirty_compute_cbvs_.AnyBitSet()) {
+			for (i32 i = 0; i < 8; i++) {
+				if (!descriptor_heap.dirty_compute_cbvs_.GetBit(i)) {
+					D3D12_CPU_DESCRIPTOR_HANDLE handle = heap_start;
+					handle.ptr += descriptor_heap.increment_ * (i + descriptor_heap.current_compute_cbvs_offset_);
+					device_->device_->CreateConstantBufferView(&cbv_desc, handle);
+				}
+			}
+
+			D3D12_GPU_DESCRIPTOR_HANDLE handle = descriptor_heap.heap_->GetGPUDescriptorHandleForHeapStart();
+			handle.ptr += descriptor_heap.increment_ * (descriptor_heap.current_compute_cbvs_offset_);
+			GetCmdList()->SetComputeRootDescriptorTable(2, handle);
+			descriptor_heap.dirty_compute_cbvs_.ClearAll();
 		}
 	}
 

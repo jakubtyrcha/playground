@@ -37,6 +37,7 @@ namespace Gfx
 	enum class ResourceType
 	{
 		Buffer,
+		Texture1D,
 		Texture2D
 	};
 
@@ -98,14 +99,21 @@ namespace Gfx
 
 		i64 AllocateTable(i64 len);
 
+		// TODO: DRY...
 		i64 current_graphics_srvs_offset_ = 0;
 		Bitarray dirty_graphics_srvs_;
 
 		i64 current_graphics_cbvs_offset_ = 0;
 		Bitarray dirty_graphics_cbvs_;
 
+		i64 current_compute_srvs_offset_ = 0;
+		Bitarray dirty_compute_srvs_;
+
 		i64 current_compute_uavs_offset_ = 0;
 		Bitarray dirty_compute_uavs_;
+
+		i64 current_compute_cbvs_offset_ = 0;
+		Bitarray dirty_compute_cbvs_;
 
 		i64 increment_ = 0;
 		// TODO: this is hardcoded for current shared RootSignature, make this data driven
@@ -142,7 +150,8 @@ namespace Gfx
 
 		Encoder CreateEncoder();
 		Swapchain* CreateSwapchain(Os::Window*, i32 num_backbuffers);
-		Resource CreateBuffer(D3D12_HEAP_TYPE heap_type, i32 size, DXGI_FORMAT format, D3D12_RESOURCE_FLAGS flags, D3D12_RESOURCE_STATES initial_state);
+		Resource CreateBuffer(D3D12_HEAP_TYPE heap_type, i64 size, DXGI_FORMAT format, D3D12_RESOURCE_FLAGS flags, D3D12_RESOURCE_STATES initial_state);
+		Resource CreateTexture1D(D3D12_HEAP_TYPE heap_type, i64 size, DXGI_FORMAT format, i32 miplevels, D3D12_RESOURCE_FLAGS flags, D3D12_RESOURCE_STATES initial_state);
 		Resource CreateTexture2D(D3D12_HEAP_TYPE heap_type, Vector2i size, DXGI_FORMAT format, i32 miplevels, D3D12_RESOURCE_FLAGS flags, D3D12_RESOURCE_STATES initial_state);
 		Pipeline CreateComputePipeline(D3D12_SHADER_BYTECODE);
 	};
