@@ -17,6 +17,7 @@
 
 #include <stdio.h>
 #include "mersenne-twister.h"
+#include <stdlib.h>
 
 // Better on older Intel Core i7, but worse on newer Intel Xeon CPUs (undefine
 // it on those).
@@ -40,17 +41,15 @@ struct MTState {
   size_t index = SIZE;
 };
 
-static MTState state;
-
 #define M32(x) (0x80000000 & x) // 32nd MSB
 #define L31(x) (0x7FFFFFFF & x) // 31 LSBs
 
-#define UNROLL(expr) \
-  y = M32(state.MT[i]) | L31(state.MT[i+1]); \
-  state.MT[i] = state.MT[expr] ^ (y >> 1) ^ (((int32_t(y) << 31) >> 31) & MAGIC); \
+#define UNROLL(state, expr) \
+  y = M32(state->MT[i]) | L31(state->MT[i+1]); \
+  state->MT[i] = state->MT[expr] ^ (y >> 1) ^ (((int32_t(y) << 31) >> 31) & MAGIC); \
   ++i;
 
-static void generate_numbers()
+static void generate_numbers(MTState * state)
 {
   /*
    * For performance reasons, we've unrolled the loop three times, thus
@@ -67,7 +66,7 @@ static void generate_numbers()
      * We're doing 226 = 113*2, an even number of steps, so we can safely
      * unroll one more step here for speed:
      */
-    UNROLL(i+PERIOD);
+    UNROLL(state, i+PERIOD);
 
 #ifdef MT_UNROLL_MORE
     UNROLL(i+PERIOD);
@@ -80,7 +79,7 @@ static void generate_numbers()
      * 623-227 = 396 = 2*2*3*3*11, so we can unroll this loop in any number
      * that evenly divides 396 (2, 4, 6, etc). Here we'll unroll 11 times.
      */
-    UNROLL(i-DIFF);
+    UNROLL(state, i-DIFF);
 
 #ifdef MT_UNROLL_MORE
     UNROLL(i-DIFF);
@@ -98,25 +97,25 @@ static void generate_numbers()
 
   {
     // i = 623, last step rolls over
-    y = M32(state.MT[SIZE-1]) | L31(state.MT[0]);
-    state.MT[SIZE-1] = state.MT[PERIOD-1] ^ (y >> 1) ^ (((int32_t(y) << 31) >>
+    y = M32(state->MT[SIZE-1]) | L31(state->MT[0]);
+    state->MT[SIZE-1] = state->MT[PERIOD-1] ^ (y >> 1) ^ (((int32_t(y) << 31) >>
           31) & MAGIC);
   }
 
   // Temper all numbers in a batch
   for (size_t i = 0; i < SIZE; ++i) {
-    y = state.MT[i];
+    y = state->MT[i];
     y ^= y >> 11;
     y ^= y << 7  & 0x9d2c5680;
     y ^= y << 15 & 0xefc60000;
     y ^= y >> 18;
-    state.MT_TEMPERED[i] = y;
+    state->MT_TEMPERED[i] = y;
   }
 
-  state.index = 0;
+  state->index = 0;
 }
 
-extern "C" void seed(uint32_t value)
+extern "C" void mt_init(MTState ** out_state, uint32_t value)
 {
   /*
    * The equation below is a linear congruential generator (LCG), one of the
@@ -149,19 +148,27 @@ extern "C" void seed(uint32_t value)
    * masking with 0xFFFFFFFF below.
    */
 
-  state.MT[0] = value;
-  state.index = SIZE;
+  MTState* state = (MTState*)calloc(1, sizeof(MTState));
+  *out_state = state;
+
+  state->MT[0] = value;
+  state->index = SIZE;
 
   for ( uint_fast32_t i=1; i<SIZE; ++i )
-    state.MT[i] = 0x6c078965*(state.MT[i-1] ^ state.MT[i-1]>>30) + i;
+    state->MT[i] = 0x6c078965*(state->MT[i-1] ^ state->MT[i-1]>>30) + i;
 }
 
-extern "C" uint32_t rand_u32()
+extern "C" void mt_destroy(MTState * state)
 {
-  if ( state.index == SIZE ) {
-    generate_numbers();
-    state.index = 0;
+    free(state);
+}
+
+extern "C" uint32_t mt_rand_u32(MTState * state)
+{
+  if ( state->index == SIZE ) {
+    generate_numbers(state);
+    state->index = 0;
   }
 
-  return state.MT_TEMPERED[state.index++];
+  return state->MT_TEMPERED[state->index++];
 }
