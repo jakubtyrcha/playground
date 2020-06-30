@@ -264,10 +264,15 @@ namespace Gfx
 		return result;
 	}
 
+	bool IsHeapTypeStateFixed(D3D12_HEAP_TYPE heap_type) {
+		return heap_type != D3D12_HEAP_TYPE_DEFAULT;
+	}
+
 	Resource Device::CreateBuffer(D3D12_HEAP_TYPE heap_type, i64 size, DXGI_FORMAT format, D3D12_RESOURCE_FLAGS flags, D3D12_RESOURCE_STATES initial_state) {
 		Resource result{};
 		result.type_ = ResourceType::Texture2D;
 		result.device_ = this;
+		result.heap_type_ = heap_type;
 
 		D3D12_RESOURCE_DESC resource_desc = {};
 		resource_desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
@@ -293,8 +298,9 @@ namespace Gfx
 			result.allocation_.InitAddress(),
 			IID_PPV_ARGS(result.resource_.InitAddress())));
 
-		// TODO: remove state tracking for UPLOAD heap (textures as well)
-		graph_.SetState({ .resource = *result.resource_ }, initial_state);
+		if(!IsHeapTypeStateFixed(result.heap_type_)) {
+			graph_.SetState({ .resource = *result.resource_ }, initial_state);
+		}
 
 		return result;
 	}
@@ -303,6 +309,7 @@ namespace Gfx
 		Resource result{};
 		result.type_ = ResourceType::Texture1D;
 		result.device_ = this;
+		result.heap_type_ = heap_type;
 
 		D3D12_RESOURCE_DESC resource_desc = {};
 		resource_desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE1D;
@@ -329,7 +336,9 @@ namespace Gfx
 			IID_PPV_ARGS(result.resource_.InitAddress())));
 
 		assert(miplevels == 1);
-		graph_.SetState({ .resource = *result.resource_ }, initial_state);
+		if(!IsHeapTypeStateFixed(result.heap_type_)) {
+			graph_.SetState({ .resource = *result.resource_ }, initial_state);
+		}
 
 		return result;
 	}
@@ -338,6 +347,7 @@ namespace Gfx
 		Resource result{};
 		result.type_ = ResourceType::Texture2D;
 		result.device_ = this;
+		result.heap_type_ = heap_type;
 
 		D3D12_RESOURCE_DESC resource_desc = {};
 		resource_desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
@@ -364,13 +374,15 @@ namespace Gfx
 			IID_PPV_ARGS(result.resource_.InitAddress())));
 
 		assert(miplevels == 1);
-		graph_.SetState({ .resource = *result.resource_ }, initial_state);
+		if(!IsHeapTypeStateFixed(result.heap_type_)) {
+			graph_.SetState({ .resource = *result.resource_ }, initial_state);
+		}
 
 		return result;
 	}
 
 	Resource::~Resource() {
-		if (resource_.Get()) {
+		if (resource_.Get() && !IsHeapTypeStateFixed(heap_type_)) {
 			device_->graph_.Drop(*resource_);
 		}
 	}
@@ -634,10 +646,19 @@ namespace Gfx
 	}
 
 	void TransitionGraph::SetState(SubresourceDesc subresource, D3D12_RESOURCE_STATES state) {
+		D3D12_HEAP_PROPERTIES heap_properties;
+		D3D12_HEAP_FLAGS heap_flags;
+		verify_hr(subresource.resource->GetHeapProperties(&heap_properties, &heap_flags));
+		assert(!IsHeapTypeStateFixed(heap_properties.Type));
 		last_transitioned_state_.Insert(subresource, state);
 	}
 
 	void TransitionGraph::Drop(ID3D12Resource* ptr) {
+		D3D12_HEAP_PROPERTIES heap_properties;
+		D3D12_HEAP_FLAGS heap_flags;
+		verify_hr(ptr->GetHeapProperties(&heap_properties, &heap_flags));
+		assert(!IsHeapTypeStateFixed(heap_properties.Type));
+
 		for (decltype(last_transitioned_state_)::Iterator iter = last_transitioned_state_.begin(), end = last_transitioned_state_.end(); iter != end; ) {
 			if (iter.Key().resource == ptr) {
 				iter = last_transitioned_state_.Remove(iter.Key());

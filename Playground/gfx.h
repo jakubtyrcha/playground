@@ -203,6 +203,7 @@ namespace Gfx
 
 		ResourceType type_;
 		Device* device_ = nullptr;
+		D3D12_HEAP_TYPE heap_type_ = static_cast<D3D12_HEAP_TYPE>(0);
 
 		Com::Box<ID3D12Resource> resource_;
 		Com::Box<D3D12MA::Allocation> allocation_;
