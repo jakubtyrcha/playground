@@ -439,8 +439,6 @@ namespace Gfx
 	}
 
 	void DescriptorHeap::FenceDescriptors(Waitable waitable) {
-		// TODO: assert all tables were pushed?
-
 		fences_.PushBack({.offset = used_start_slot_, .waitable = waitable});
 
 		while(fences_.Size() && fences_.First().waitable.IsDone()) {

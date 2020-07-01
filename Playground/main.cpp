@@ -1054,7 +1054,6 @@ int main(int argc, char** argv)
 	Gfx::Pipeline cs = device.CreateComputePipeline(CS);
 	compiled_shader->Release();
 
-	// TODO: recreate resources based on window size
 	struct ScreenResources {
 		Gfx::Resource random_access_texture;
 		Vector2i resolution;

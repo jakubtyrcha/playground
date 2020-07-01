@@ -137,7 +137,7 @@ namespace Gfx
 		TablesSet compute_tables;
 
 		i64 increment_ = 0;
-		// TODO: this is hardcoded for current shared RootSignature, make this data driven
+		// TODO: this is hardcoded for the current shared RootSignature, make this data driven
 	};
 
 	struct Device : private Pinned<Device>
