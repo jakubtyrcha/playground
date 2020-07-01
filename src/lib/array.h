@@ -291,6 +291,10 @@ namespace Containers
 			size_--;
 		}
 
+		T& First() {
+			return (*this)[0];
+		}
+
 		T& Last() {
 			return (*this)[Size() - 1];
 		}

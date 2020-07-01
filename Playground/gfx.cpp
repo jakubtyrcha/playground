@@ -189,7 +189,8 @@ namespace Gfx
 			};
 			verify_hr(device_->CreateDescriptorHeap(&heap_desc, IID_PPV_ARGS(rtvs_descriptor_heap_.heap_.InitAddress())));
 
-			descriptor_heap_.increment_ = device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+			rtvs_descriptor_heap_.max_slots_ = heap_desc.NumDescriptors;
+			rtvs_descriptor_heap_.increment_ = device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 		}
 	}
 
@@ -436,14 +437,27 @@ namespace Gfx
 		}
 	}
 
+	void DescriptorHeap::FenceDescriptors(Waitable waitable) {
+		// TODO: assert all tables were pushed?
+
+		fences_.PushBack({.offset = used_start_slot_, .waitable = waitable});
+
+		while(fences_.Size() && fences_.First().waitable.IsDone()) {
+			used_start_slot_ = fences_.RemoveAt(0).offset;
+		}
+	}
+
 	i64 DescriptorHeap::AllocateTable(i64 len) {
+		assert((next_slot_ >= used_start_slot_) || (next_slot_ + len < used_start_slot_));
+
 		if (next_slot_ + len <= max_slots_) {
 			i64 offset = next_slot_;
 			next_slot_ += len;
 			return offset;
 		}
 
-		// TODO: check if gpu is done
+		assert((len < used_start_slot_));
+
 		next_slot_ = len;
 		return 0;
 	}
@@ -641,6 +655,8 @@ namespace Gfx
 		device_->cmd_allocators_.PushBackRvalueRef(std::move(cmd_allocator_));
 		device_->cmd_lists_.PushBackRvalueRef(std::move(cmd_list_));
 		device_->AdvanceFence();
+		device_->descriptor_heap_.FenceDescriptors(device_->GetWaitable());
+		device_->rtvs_descriptor_heap_.FenceDescriptors(device_->GetWaitable());
 
 		device_ = nullptr;
 	}
@@ -732,6 +748,10 @@ namespace Gfx
 		verify_hr(fence_->SetEventOnCompletion(fence_value_, event));
 		verify(WaitForSingleObject(event, INFINITE) == WAIT_OBJECT_0);
 		CloseHandle(event);
+	}
+
+	bool Waitable::IsDone() {
+		return fence_->GetCompletedValue() >= fence_value_;
 	}
 }
 

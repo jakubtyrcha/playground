@@ -84,6 +84,14 @@ namespace Gfx
 		Pass* AddSubsequentPass(PassAttachments attachments);
 	};
 
+	struct Waitable {
+		ID3D12Fence1* fence_ = nullptr;
+		u64 fence_value_ = 0;
+
+		void Wait();
+		bool IsDone();
+	};
+
 	enum class DescriptorType {
 		SRV,
 		UAV,
@@ -96,7 +104,17 @@ namespace Gfx
 
 		i64 max_slots_ = 0;
 		i64 next_slot_ = 0;
+		i64 used_start_slot_ = 0;
 
+		struct Fence {
+			i64 offset; // index of the first descriptor that might still be in use
+			Waitable waitable;
+		};
+		Array<Fence> fences_;
+
+		// important to call periodically to release older descriptors and avoid deadlock
+		// clears all previous usages
+		void FenceDescriptors(Waitable waitable);
 		i64 AllocateTable(i64 len);
 
 		// TODO: DRY...
@@ -133,7 +151,7 @@ namespace Gfx
 		Com::Box<ID3D12RootSignature> root_signature_;
 
 		Com::Box<ID3D12Fence1> fence_;
-		i64 fence_value_ = 0;
+		u64 fence_value_ = 0;
 
 		Array<Com::Box<ID3D12CommandAllocator>> cmd_allocators_;
 		Array<Com::Box<ID3D12CommandList>> cmd_lists_;
@@ -215,13 +233,6 @@ namespace Gfx
 
 	struct Pass {
 		Containers::Array<Attachment> attachments_;
-	};
-
-	struct Waitable {
-		ID3D12Fence1* fence_ = nullptr;
-		i64 fence_value_ = 0;
-
-		void Wait();
 	};
 }
 
