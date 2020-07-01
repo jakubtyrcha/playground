@@ -489,7 +489,7 @@ namespace Gfx
 	}
 
 	void DescriptorHeap::FenceDescriptors(Waitable waitable) {
-		fences_.PushBack({.offset = used_start_slot_, .waitable = waitable});
+		fences_.PushBack({.offset = next_slot_, .waitable = waitable});
 
 		while(fences_.Size() && fences_.First().waitable.IsDone()) {
 			used_start_slot_ = fences_.RemoveAt(0).offset;
