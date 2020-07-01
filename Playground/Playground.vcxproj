@@ -201,6 +201,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Use</PrecompiledHeader>
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">pch.h</PrecompiledHeaderFile>
     </ClCompile>
+    <ClCompile Include="particles.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
@@ -220,6 +221,7 @@
     <ClInclude Include="imgui_backend.h" />
     <ClInclude Include="imgui_impl_win32.h" />
     <ClInclude Include="os.h" />
+    <ClInclude Include="particles.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="rendering.h" />
     <ClInclude Include="shader.h" />
