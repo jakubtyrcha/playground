@@ -6,6 +6,7 @@
 #include "assertions.h"
 #include "copy_move.h"
 #include "box.h"
+#include <magnum/CorradeOptional.h>
 
 #define DX12_ENABLE_DEBUG_LAYER _DEBUG
 
@@ -24,6 +25,8 @@ namespace Os
 
 namespace Gfx
 {
+	template<typename T> using Optional = Corrade::Containers::Optional<T>;
+
 	using namespace Containers;
 
 	struct Device;
@@ -85,8 +88,10 @@ namespace Gfx
 	};
 
 	struct Waitable {
-		ID3D12Fence1* fence_ = nullptr;
-		u64 fence_value_ = 0;
+		Device * device_ = nullptr;
+
+		i32 handle_ = 0;
+		i32 generation_ = 0;
 
 		void Wait();
 		bool IsDone();
@@ -156,6 +161,15 @@ namespace Gfx
 		Com::Box<ID3D12Fence1> fence_;
 		u64 fence_value_ = 0;
 
+		struct WaitableSlot {
+			Optional<u64> value;
+			i32 generation = 0;
+			bool pending = false;
+		};
+		Array<WaitableSlot> waitables_pool_;
+		// TODO: queue candidate
+		Array<Waitable> waitables_pending_;
+
 		Array<Com::Box<ID3D12CommandAllocator>> cmd_allocators_;
 		Array<Com::Box<ID3D12CommandList>> cmd_lists_;
 
@@ -168,6 +182,14 @@ namespace Gfx
 
 		void AdvanceFence();
 		Waitable GetWaitable();
+
+		Waitable ReserveWaitable();
+		void TriggerWaitable(Waitable, u64);
+		void Wait(Waitable);
+		bool IsDone(Waitable);
+
+		// has to be called from time to time (once per frame) to free older waitables, descriptors etc
+		void RecycleResources();
 
 		Encoder CreateEncoder();
 		Swapchain* CreateSwapchain(Os::Window*, i32 num_backbuffers);
@@ -183,6 +205,7 @@ namespace Gfx
 
 		Com::Box<ID3D12CommandAllocator> cmd_allocator_;
 		Com::Box<ID3D12CommandList> cmd_list_;
+		Array<Waitable> waitables_to_trigger_;
 
 		ID3D12GraphicsCommandList* GetCmdList();
 
@@ -196,6 +219,8 @@ namespace Gfx
 		// I could restore the state of previously set descriptors and make this more stateless.
 		void SetGraphicsDescriptors();
 		void SetComputeDescriptors();
+
+		Waitable GetWaitable();
 
 		void Submit();
 	};

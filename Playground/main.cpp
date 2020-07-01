@@ -198,10 +198,8 @@ namespace Rendering {
 		}
 
 		void Render(Gfx::Encoder* encoder, Viewport* viewport, D3D12_CPU_DESCRIPTOR_HANDLE rtv_handle) {
-			if (frame_data_queue_.Size() > max_frames_queued_) {
+			while(frame_data_queue_.Size() && frame_data_queue_.First().waitable_.IsDone()) {
 				frame_data_queue_.RemoveAt(0);
-				// TODO: fancier ahead-of-time waitables
-				//frame_data_queue_.RemoveAt(0).waitable_.Wait();
 			}
 
 			encoder->GetCmdList()->OMSetRenderTargets(1, &rtv_handle, false, nullptr);
@@ -274,6 +272,8 @@ namespace Rendering {
 			const D3D12_RECT r = { 0, 0, viewport->resolution.x(), viewport->resolution.y() };
 			encoder->GetCmdList()->RSSetScissorRects(1, &r);
 			encoder->GetCmdList()->DrawInstanced(6, 1, 0, 0);
+
+			frame_data.waitable_ = encoder->GetWaitable();
 
 			frame_data_queue_.PushBackRvalueRef(std::move(frame_data));
 		}
@@ -466,10 +466,8 @@ namespace Particle {
 		}
 
 		void Render(Gfx::Device * device, Gfx::Encoder * encoder, Rendering::Viewport * viewport, Gfx::Resource * color_texture) {
-			if (frame_data_queue_.Size() > max_frames_queued_) {
+			while(frame_data_queue_.Size() && frame_data_queue_.First().waitable_.IsDone()) {
 				frame_data_queue_.RemoveAt(0);
-				// TODO: fancier ahead-of-time waitables
-				//frame_data_queue_.RemoveAt(0).waitable_.Wait();
 			}
 
 			FrameData frame_data;
@@ -593,6 +591,8 @@ namespace Particle {
 			encoder->SetComputeDescriptors();
 			particle_depth_pass_ = nullptr;
 			encoder->GetCmdList()->Dispatch(static_cast<u32>(active_pages_.Size() * PAGE_SIZE), 1, 1);
+
+			frame_data.waitable_ = encoder->GetWaitable();
 
 			frame_data_queue_.PushBackRvalueRef(std::move(frame_data));
 		}
@@ -932,10 +932,8 @@ struct ImGuiRenderer : private Pinned<ImGuiRenderer> {
 			return;
 		}
 
-		if (frame_data_queue_.Size() > max_frames_queued_) {
+		while(frame_data_queue_.Size() && frame_data_queue_.First().waitable_.IsDone()) {
 			frame_data_queue_.RemoveAt(0);
-			// TODO: fancier ahead-of-time waitables
-			//frame_data_queue_.RemoveAt(0).waitable_.Wait();
 		}
 
 		ViewportData* render_data = (ViewportData*)draw_data->OwnerViewport->RendererUserData;
@@ -1000,6 +998,8 @@ struct ImGuiRenderer : private Pinned<ImGuiRenderer> {
 			global_idx_offset += cmd_list->IdxBuffer.Size;
 			global_vtx_offset += cmd_list->VtxBuffer.Size;
 		}
+
+		frame_data.waitable_ = encoder->GetWaitable();
 
 		frame_data_queue_.PushBackRvalueRef(std::move(frame_data));
 	}

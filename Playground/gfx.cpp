@@ -193,6 +193,8 @@ namespace Gfx
 			rtvs_descriptor_heap_.max_slots_ = heap_desc.NumDescriptors;
 			rtvs_descriptor_heap_.increment_ = device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 		}
+
+		waitables_pool_.Resize(4096);
 	}
 
 	Device::~Device()
@@ -213,7 +215,58 @@ namespace Gfx
 	}
 
 	Waitable Device::GetWaitable() {
-		return { .fence_ = fence_.Get(), .fence_value_ = fence_value_ };
+		Waitable result = ReserveWaitable();
+		TriggerWaitable(result, fence_value_);
+		return result;
+	}
+
+	Waitable Device::ReserveWaitable() {
+		for(i32 i = 0; i < waitables_pool_.Size(); i++) {
+			if(!waitables_pool_[i].pending) {
+				waitables_pool_[i].pending = true;
+				Waitable result = { .device_ = this, .handle_ = i, .generation_ = waitables_pool_[i].generation };
+				waitables_pending_.PushBack(result);
+				return result;
+			}
+		}
+
+		// if we get here, the pool needs to be growable
+		DEBUG_UNREACHABLE(gfx_module{});
+		return {};
+	}
+
+	void Device::TriggerWaitable(Waitable waitable, u64 value) {
+		assert(!waitables_pool_[waitable.handle_].value);
+		assert(waitables_pool_[waitable.handle_].pending);
+		assert(waitables_pool_[waitable.handle_].generation == waitable.generation_);
+		waitables_pool_[waitable.handle_].value = value;
+	}
+
+	void Device::Wait(Waitable waitable) {
+		if(waitable.generation_ < waitables_pool_[waitable.handle_].generation) {
+			return;
+		}
+
+		assert(waitable.generation_ == waitables_pool_[waitable.handle_].generation);
+
+		HANDLE event = CreateEvent(nullptr, false, false, nullptr);
+		verify_hr(fence_->SetEventOnCompletion(*waitables_pool_[waitable.handle_].value, event));
+		verify(WaitForSingleObject(event, INFINITE) == WAIT_OBJECT_0);
+		CloseHandle(event);
+	}
+
+	bool Device::IsDone(Waitable waitable) {
+		if(waitable.generation_ < waitables_pool_[waitable.handle_].generation) {
+			return true;
+		}
+
+		assert(waitable.generation_ == waitables_pool_[waitable.handle_].generation);
+
+		if(waitables_pool_[waitable.handle_].pending) {
+			return false;
+		}
+
+		return fence_->GetCompletedValue() >= *waitables_pool_[waitable.handle_].value;
 	}
 
 	Encoder Device::CreateEncoder()
@@ -608,6 +661,11 @@ namespace Gfx
 		});
 	}
 
+	Waitable Encoder::GetWaitable() {
+		waitables_to_trigger_.PushBack(device_->ReserveWaitable());
+		return waitables_to_trigger_.Last();
+	}
+
 	void Encoder::Submit() {
 		verify_hr(GetCmdList()->Close());
 		ID3D12CommandList* cmd_list = GetCmdList();
@@ -615,10 +673,25 @@ namespace Gfx
 		device_->cmd_allocators_.PushBackRvalueRef(std::move(cmd_allocator_));
 		device_->cmd_lists_.PushBackRvalueRef(std::move(cmd_list_));
 		device_->AdvanceFence();
-		device_->descriptor_heap_.FenceDescriptors(device_->GetWaitable());
-		device_->rtvs_descriptor_heap_.FenceDescriptors(device_->GetWaitable());
+
+		for(Waitable waitable : waitables_to_trigger_) {
+			device_->TriggerWaitable(waitable, device_->fence_value_);
+		}
+		waitables_to_trigger_.Clear();
 
 		device_ = nullptr;
+	}
+
+	void Device::RecycleResources() {
+		descriptor_heap_.FenceDescriptors(GetWaitable());
+		rtvs_descriptor_heap_.FenceDescriptors(GetWaitable());
+
+		while(waitables_pending_.Size() && IsDone(waitables_pending_.First())) {
+			i32 handle =  waitables_pending_.RemoveAt(0).handle_;
+			waitables_pool_[handle].pending = false;
+			waitables_pool_[handle].value = {};
+			waitables_pool_[handle].generation++;
+		}
 	}
 
 	void TransitionGraph::SetState(SubresourceDesc subresource, D3D12_RESOURCE_STATES state) {
@@ -704,14 +777,11 @@ namespace Gfx
 	}
 
 	void Waitable::Wait() {
-		HANDLE event = CreateEvent(nullptr, false, false, nullptr);
-		verify_hr(fence_->SetEventOnCompletion(fence_value_, event));
-		verify(WaitForSingleObject(event, INFINITE) == WAIT_OBJECT_0);
-		CloseHandle(event);
+		device_->Wait(*this);
 	}
 
 	bool Waitable::IsDone() {
-		return fence_->GetCompletedValue() >= fence_value_;
+		return device_->IsDone(*this);
 	}
 }
 
