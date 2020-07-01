@@ -179,6 +179,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Use</PrecompiledHeader>
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">pch.h</PrecompiledHeaderFile>
     </ClCompile>
+    <ClCompile Include="imgui_backend.cpp" />
     <ClCompile Include="imgui_impl_win32.cpp" />
     <ClCompile Include="main.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Use</PrecompiledHeader>
@@ -210,14 +211,19 @@
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">pch.h</PrecompiledHeaderFile>
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">pch.h</PrecompiledHeaderFile>
     </ClCompile>
+    <ClCompile Include="rendering.cpp" />
     <ClCompile Include="shader.cpp" />
+    <ClCompile Include="shapes.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="gfx.h" />
+    <ClInclude Include="imgui_backend.h" />
     <ClInclude Include="imgui_impl_win32.h" />
     <ClInclude Include="os.h" />
     <ClInclude Include="pch.h" />
+    <ClInclude Include="rendering.h" />
     <ClInclude Include="shader.h" />
+    <ClInclude Include="shapes.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\PlaygroundLib\PlaygroundLib.vcxproj">

@@ -1,7 +1,6 @@
 #pragma once
 
-struct IDxcBlob;
-struct IDxcIncludeHandler;
+#include <dxcapi.h>
 
 namespace Gfx {
 	using ShaderBlob = IDxcBlob;
