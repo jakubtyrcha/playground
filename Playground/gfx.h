@@ -117,21 +117,24 @@ namespace Gfx
 		void FenceDescriptors(Waitable waitable);
 		i64 AllocateTable(i64 len);
 
-		// TODO: DRY...
-		i64 current_graphics_srvs_offset_ = 0;
-		Bitarray dirty_graphics_srvs_;
+		struct Table {
+			i64 offset = 0;
+			Bitarray dirty;
 
-		i64 current_graphics_cbvs_offset_ = 0;
-		Bitarray dirty_graphics_cbvs_;
+			void Resize(i32 size);
+		};
 
-		i64 current_compute_srvs_offset_ = 0;
-		Bitarray dirty_compute_srvs_;
+		D3D12_CPU_DESCRIPTOR_HANDLE ReserveTableSlot(Table & table, i32 slot_index);
+		template<typename F, typename F1> void SetRootTable(Table & table, F fill_null_slot, F1 set_root_param);
 
-		i64 current_compute_uavs_offset_ = 0;
-		Bitarray dirty_compute_uavs_;
+		struct TablesSet {
+			Table srv;
+			Table uav;
+			Table cbv;
+		};
 
-		i64 current_compute_cbvs_offset_ = 0;
-		Bitarray dirty_compute_cbvs_;
+		TablesSet graphics_tables;
+		TablesSet compute_tables;
 
 		i64 increment_ = 0;
 		// TODO: this is hardcoded for current shared RootSignature, make this data driven
