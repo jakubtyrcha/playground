@@ -593,6 +593,7 @@ int main(int argc, char** argv)
 
 		verify_hr(window_swapchain->swapchain_->Present(1, 0));
 		device.AdvanceFence();
+		device.RecycleResources();
 
 		frame_waitables.PushBack(device.GetWaitable());
 

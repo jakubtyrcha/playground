@@ -225,7 +225,6 @@ namespace Gfx
 			if(!waitables_pool_[i].pending) {
 				waitables_pool_[i].pending = true;
 				Waitable result = { .device_ = this, .handle_ = i, .generation_ = waitables_pool_[i].generation };
-				waitables_pending_.PushBack(result);
 				return result;
 			}
 		}
@@ -240,6 +239,7 @@ namespace Gfx
 		assert(waitables_pool_[waitable.handle_].pending);
 		assert(waitables_pool_[waitable.handle_].generation == waitable.generation_);
 		waitables_pool_[waitable.handle_].value = value;
+		waitables_pending_.PushBack(waitable);
 	}
 
 	void Device::Wait(Waitable waitable) {
@@ -261,10 +261,7 @@ namespace Gfx
 		}
 
 		assert(waitable.generation_ == waitables_pool_[waitable.handle_].generation);
-
-		if(waitables_pool_[waitable.handle_].pending) {
-			return false;
-		}
+		assert(waitables_pool_[waitable.handle_].pending);
 
 		return fence_->GetCompletedValue() >= *waitables_pool_[waitable.handle_].value;
 	}
