@@ -11,7 +11,7 @@ cbuffer CB : register(b0) {
 };
 
 float3 ReadCameraPos() {
-    return float3(frame.inv_view_matrix._41_42_43);
+    return frame.inv_view_matrix._14_24_34;
 }
 
 struct PS_INPUT {
@@ -60,8 +60,8 @@ float4 PsMain(PS_INPUT input) : SV_TARGET {
     sphere.radius = 1;
 
     float2 clip_space_xy = input.pos.xy * frame.inv_resolution * float2(2, -2) + float2(-1, 1);
-    float4 ray_dir_wh = mul(frame.inv_view_projection_matrix, float4(clip_space_xy, 0, 1));
-    float3 ray_dir = normalize(ray_dir_wh.xyz / ray_dir_wh.w);
+    float4 ray_dir_wh = mul(frame.inv_view_projection_matrix, float4(clip_space_xy, 1, 1));
+    float3 ray_dir = normalize(ray_dir_wh.xyz);
 
     Ray screen_ray;
     screen_ray.origin = ReadCameraPos();
@@ -69,5 +69,14 @@ float4 PsMain(PS_INPUT input) : SV_TARGET {
 
     float t = RaySphereIntersection(screen_ray, sphere);
 
-    return float4(clip_space_xy,0,0);
+    if(t > 0) {
+        float3 hit = screen_ray.origin + screen_ray.direction * t;
+        float3 N = normalize(hit - sphere.center);
+        float3 V = -ray_dir;
+
+        float3 color = pow(dot(N, V), 0.25);
+        return float4(color, 0);
+    }
+
+    return float4(0, 0, 0, 0);
 }

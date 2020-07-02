@@ -384,9 +384,8 @@ int main(int argc, char** argv)
 			Vector4 clip_space_point_to{delta_x * 2.f, delta_y * 2.f, 1.f, 1.f};
 
 			Vector4 world_point_to = main_viewport.inv_view_projection_matrix * clip_space_point_to;
-			world_point_to = (world_point_to).normalized();
 
-			main_viewport.camera_look_at = main_viewport.camera_position + world_point_to.xyz();
+			main_viewport.camera_look_at = main_viewport.camera_position + world_point_to.xyz().normalized();
 		}
 
 		//particle_generator.Tick(io.DeltaTime);
