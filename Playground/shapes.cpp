@@ -57,7 +57,7 @@ namespace Rendering {
 			desc.SlopeScaledDepthBias = D3D12_DEFAULT_SLOPE_SCALED_DEPTH_BIAS;
 			desc.DepthClipEnable = true;
 			desc.MultisampleEnable = FALSE;
-			desc.AntialiasedLineEnable = TRUE;
+			desc.AntialiasedLineEnable = FALSE;
 			desc.ForcedSampleCount = 0;
 			desc.ConservativeRaster = D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF;
 		}
@@ -95,31 +95,16 @@ namespace Rendering {
 		};
 		encoder->GetCmdList()->RSSetViewports(1, &vp);
 
-		using ColourR8G8B8A8U = Magnum::Math::Vector4<u8>;
-		struct ShapeVertex {
-			Vector3 position;
-			ColourR8G8B8A8U colour;
-		};
-
 		static_assert(offsetof(ShapeVertex, colour) == 12);
 
-		ShapeVertex vertices[] = {
-			{.position = {0, 0, 0}, .colour = {255, 0, 0, 1}},
-			{.position = {1, 0, 0}, .colour = {255, 0, 0, 1}},
-			{.position = {0, 0, 0}, .colour = {0, 255, 0, 1}},
-			{.position = {0, 1, 0}, .colour = {0, 255, 0, 1}},
-			{.position = {0, 0, 0}, .colour = {0, 0, 255, 1}},
-			{.position = {0, 0, 1}, .colour = {0, 0, 255, 1}},
-		};
-
-		i32 verticesNum = _countof(vertices);
+		i64 verticesNum = vertices_.Size();
 
 		FrameData frame_data;
 		frame_data.vertex_buffer_ = device_->CreateBuffer(D3D12_HEAP_TYPE_UPLOAD, verticesNum * sizeof(ShapeVertex), DXGI_FORMAT_UNKNOWN, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ);
 
 		ShapeVertex* vtx_dst = nullptr;
 		verify_hr(frame_data.vertex_buffer_.resource_->Map(0, nullptr, reinterpret_cast<void**>(&vtx_dst)));
-		memcpy(vtx_dst, vertices, sizeof(vertices));
+		memcpy(vtx_dst, vertices_.Data(), verticesNum * sizeof(ShapeVertex));
 		frame_data.vertex_buffer_.resource_->Unmap(0, nullptr);
 
 		// Bind shader and vertex buffers
@@ -127,7 +112,7 @@ namespace Rendering {
 		unsigned int offset = 0;
 		D3D12_VERTEX_BUFFER_VIEW vbv{
 			.BufferLocation = frame_data.vertex_buffer_.resource_->GetGPUVirtualAddress() + offset,
-			.SizeInBytes = verticesNum * stride,
+			.SizeInBytes = static_cast<u32>(verticesNum * stride),
 			.StrideInBytes = stride
 		};
 		encoder->GetCmdList()->IASetVertexBuffers(0, 1, &vbv);
@@ -154,15 +139,21 @@ namespace Rendering {
 
 		const D3D12_RECT r = { 0, 0, viewport->resolution.x(), viewport->resolution.y() };
 		encoder->GetCmdList()->RSSetScissorRects(1, &r);
-		encoder->GetCmdList()->DrawInstanced(6, 1, 0, 0);
+		encoder->GetCmdList()->DrawInstanced(static_cast<u32>(verticesNum), 1, 0, 0);
 
 		frame_data.waitable_ = encoder->GetWaitable();
 
 		frame_data_queue_.PushBackRvalueRef(std::move(frame_data));
+
+		vertices_.Clear();
 	}
 
 	void ImmediateModeShapeRenderer::Shutdown() {
 		frame_data_queue_.Clear();
 	}
 
+	void ImmediateModeShapeRenderer::AddLine(Vector3 a, Vector3 b, ColourR8G8B8A8U colour) {
+		vertices_.PushBack({.position = a, .colour = colour});
+		vertices_.PushBack({.position = b, .colour = colour});
+	}
 }

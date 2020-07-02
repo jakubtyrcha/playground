@@ -40,4 +40,20 @@ namespace Algorithms
 		}
 		return l;
 	}
+
+	template<typename T, typename = std::enable_if<std::is_trivially_copyable_v<T>>::type>
+	T max(T l, T r) {
+		if (r > l) {
+			return r;
+		}
+		return l;
+	}
+
+	template<typename T, typename = std::enable_if<!std::is_trivially_copyable_v<T>>::type>
+	const T& max(T const& l, T const& r) {
+		if (r > l) {
+			return r;
+		}
+		return l;
+	}
 }

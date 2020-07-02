@@ -9,7 +9,7 @@ struct FrameConstants {
     float4x4 view_projection_matrix;
 };
 
-cbuffer VertexBuffer : register(b0) {
+cbuffer CB : register(b0) {
     FrameConstants frame;
 };
 
@@ -19,11 +19,11 @@ void ParticleDepthPassCs( uint3 DTid : SV_DispatchThreadID, uint3 GTid : SV_Grou
 
     float4 pos = float4(Position[uint2(page_index, Gid.x)], 1.f);
     float4 clip_pos = mul(frame.view_projection_matrix, pos);
-    clip_pos /= clip_pos.w;
-
-    if(clip_pos.z < 0) {
+    if(clip_pos.w < 0) {
         return;
     }
+    clip_pos /= clip_pos.w;
+
     if(any(clip_pos.xy) < -1 || any(clip_pos.xy) > 1) {
         return;
     }

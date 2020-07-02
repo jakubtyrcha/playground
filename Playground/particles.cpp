@@ -138,11 +138,13 @@ namespace Rendering {
 			);
 		}
 
-		particle_depth_pass_ = device_->graph_.AddSubsequentPass(Gfx::PassAttachments{}
-			.Attach({ .resource = *state_positions_texture_.resource_ }, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE)
-			.Attach({ .resource = *depth_target_.resource_ }, D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
-			.Attach({ .resource = *color_target->resource_ }, D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
-		);
+		if(active_pages_.Size()) {
+			particle_depth_pass_ = device_->graph_.AddSubsequentPass(Gfx::PassAttachments{}
+				.Attach({ .resource = *state_positions_texture_.resource_ }, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE)
+				.Attach({ .resource = *depth_target_.resource_ }, D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
+				.Attach({ .resource = *color_target->resource_ }, D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
+			);
+		}
 	}
 
 	void PolygonParticleGenerator::Render(Gfx::Encoder * encoder, Rendering::Viewport * viewport, Gfx::Resource * color_texture) {
@@ -191,86 +193,89 @@ namespace Rendering {
 		}
 		updates_.Clear();
 
-		frame_data.page_buffer_ = device_->CreateBuffer(D3D12_HEAP_TYPE_UPLOAD, active_pages_.Size() * sizeof(i32), DXGI_FORMAT_UNKNOWN, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ);
+		if(active_pages_.Size()) {
+			encoder->SetPass(particle_depth_pass_);
+			particle_depth_pass_ = nullptr;
 
-		i32* page_dst = nullptr;
-		verify_hr(frame_data.page_buffer_.resource_->Map(0, nullptr, reinterpret_cast<void**>(&page_dst)));
-		memcpy(page_dst, active_pages_.Data(), active_pages_.Size() * sizeof(i32));
-		frame_data.page_buffer_.resource_->Unmap(0, nullptr);
+			frame_data.page_buffer_ = device_->CreateBuffer(D3D12_HEAP_TYPE_UPLOAD, active_pages_.Size() * sizeof(i32), DXGI_FORMAT_UNKNOWN, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ);
 
-		{
-			D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc{
-				.Format = DXGI_FORMAT_UNKNOWN,
-				.ViewDimension = D3D12_SRV_DIMENSION_BUFFER,
-				.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
-				.Buffer = {
-					.NumElements = static_cast<u32>(active_pages_.Size()),
-					.StructureByteStride = 2,
-				}
-			};
-			device_->device_->CreateShaderResourceView(*frame_data.page_buffer_.resource_, &srv_desc, encoder->ReserveComputeSlot(Gfx::DescriptorType::SRV, 0));
-		}
-		{
-			D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc{
-				.Format = DXGI_FORMAT_R32G32B32_FLOAT,
-				.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D,
-				.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
-				.Texture2D = {
-					.MipLevels = 1
-				}
-			};
-			device_->device_->CreateShaderResourceView(*state_positions_texture_.resource_, &srv_desc, encoder->ReserveComputeSlot(Gfx::DescriptorType::SRV, 1));
-		}
+			i32* page_dst = nullptr;
+			verify_hr(frame_data.page_buffer_.resource_->Map(0, nullptr, reinterpret_cast<void**>(&page_dst)));
+			memcpy(page_dst, active_pages_.Data(), active_pages_.Size() * sizeof(i32));
+			frame_data.page_buffer_.resource_->Unmap(0, nullptr);
 
-		{
-			//depth
-			D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc{
-				.Format = DXGI_FORMAT_R32_UINT,
-				.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D,
-				.Texture2D = {}
-			};
-			device_->device_->CreateUnorderedAccessView(*depth_target_.resource_, nullptr, &uav_desc, encoder->ReserveComputeSlot(Gfx::DescriptorType::UAV, 0));
-		}
-		{
-			//color
-			D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc{
-				.Format = DXGI_FORMAT_R8G8B8A8_UNORM,
-				.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D,
-				.Texture2D = {}
-			};
-			device_->device_->CreateUnorderedAccessView(*color_texture->resource_, nullptr, &uav_desc, encoder->ReserveComputeSlot(Gfx::DescriptorType::UAV, 1));
-		}
+			{
+				D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc{
+					.Format = DXGI_FORMAT_UNKNOWN,
+					.ViewDimension = D3D12_SRV_DIMENSION_BUFFER,
+					.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
+					.Buffer = {
+						.NumElements = static_cast<u32>(active_pages_.Size()),
+						.StructureByteStride = 2,
+					}
+				};
+				device_->device_->CreateShaderResourceView(*frame_data.page_buffer_.resource_, &srv_desc, encoder->ReserveComputeSlot(Gfx::DescriptorType::SRV, 0));
+			}
+			{
+				D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc{
+					.Format = DXGI_FORMAT_R32G32B32_FLOAT,
+					.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D,
+					.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
+					.Texture2D = {
+						.MipLevels = 1
+					}
+				};
+				device_->device_->CreateShaderResourceView(*state_positions_texture_.resource_, &srv_desc, encoder->ReserveComputeSlot(Gfx::DescriptorType::SRV, 1));
+			}
+
+			{
+				//depth
+				D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc{
+					.Format = DXGI_FORMAT_R32_UINT,
+					.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D,
+					.Texture2D = {}
+				};
+				device_->device_->CreateUnorderedAccessView(*depth_target_.resource_, nullptr, &uav_desc, encoder->ReserveComputeSlot(Gfx::DescriptorType::UAV, 0));
+			}
+			{
+				//color
+				D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc{
+					.Format = DXGI_FORMAT_R8G8B8A8_UNORM,
+					.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D,
+					.Texture2D = {}
+				};
+				device_->device_->CreateUnorderedAccessView(*color_texture->resource_, nullptr, &uav_desc, encoder->ReserveComputeSlot(Gfx::DescriptorType::UAV, 1));
+			}
 		
-		// TODO: less boilerplate code for data upload
-		struct FrameConstants {
-			Vector2i resolution;
-			int padding[2];
-			Matrix4x4 view_projection_matrix;
-		};
-		static_assert(offsetof(FrameConstants, view_projection_matrix) == 16);
-		FrameConstants frame_constants {
-			.resolution = viewport->resolution,
-			.view_projection_matrix = viewport->view_projection_matrix
-		};
+			// TODO: less boilerplate code for data upload
+			struct FrameConstants {
+				Vector2i resolution;
+				int padding[2];
+				Matrix4x4 view_projection_matrix;
+			};
+			static_assert(offsetof(FrameConstants, view_projection_matrix) == 16);
+			FrameConstants frame_constants {
+				.resolution = viewport->resolution,
+				.view_projection_matrix = viewport->view_projection_matrix
+			};
 
-		frame_data.constant_buffers_.PushBackRvalueRef(std::move(device_->CreateBuffer(D3D12_HEAP_TYPE_UPLOAD, AlignedForward(static_cast<i32>(sizeof(frame_constants)), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT), DXGI_FORMAT_UNKNOWN, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ)));
+			frame_data.constant_buffers_.PushBackRvalueRef(std::move(device_->CreateBuffer(D3D12_HEAP_TYPE_UPLOAD, AlignedForward(static_cast<i32>(sizeof(frame_constants)), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT), DXGI_FORMAT_UNKNOWN, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ)));
 
-		void* cb_dst = nullptr;
-		verify_hr(frame_data.constant_buffers_.Last().resource_->Map(0, nullptr, &cb_dst));
-		memcpy(cb_dst, &frame_constants, sizeof(frame_constants));
-		frame_data.constant_buffers_.Last().resource_->Unmap(0, nullptr);
+			void* cb_dst = nullptr;
+			verify_hr(frame_data.constant_buffers_.Last().resource_->Map(0, nullptr, &cb_dst));
+			memcpy(cb_dst, &frame_constants, sizeof(frame_constants));
+			frame_data.constant_buffers_.Last().resource_->Unmap(0, nullptr);
 
-		D3D12_CONSTANT_BUFFER_VIEW_DESC cbv_desc{
-			.BufferLocation = frame_data.constant_buffers_.Last().resource_->GetGPUVirtualAddress(),
-			.SizeInBytes = AlignedForward(static_cast<u32>(sizeof(frame_constants)), static_cast<u32>(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT))
-		};
-		device_->device_->CreateConstantBufferView(&cbv_desc, encoder->ReserveComputeSlot(Gfx::DescriptorType::CBV, 0));
-
-		encoder->SetPass(particle_depth_pass_);
-		encoder->GetCmdList()->SetPipelineState(*depth_pass_pipeline_.pipeline_);
-		encoder->SetComputeDescriptors();
-		particle_depth_pass_ = nullptr;
-		encoder->GetCmdList()->Dispatch(static_cast<u32>(active_pages_.Size() * PAGE_SIZE), 1, 1);
+			D3D12_CONSTANT_BUFFER_VIEW_DESC cbv_desc{
+				.BufferLocation = frame_data.constant_buffers_.Last().resource_->GetGPUVirtualAddress(),
+				.SizeInBytes = AlignedForward(static_cast<u32>(sizeof(frame_constants)), static_cast<u32>(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT))
+			};
+			device_->device_->CreateConstantBufferView(&cbv_desc, encoder->ReserveComputeSlot(Gfx::DescriptorType::CBV, 0));
+		
+			encoder->GetCmdList()->SetPipelineState(*depth_pass_pipeline_.pipeline_);
+			encoder->SetComputeDescriptors();
+			encoder->GetCmdList()->Dispatch(static_cast<u32>(active_pages_.Size() * PAGE_SIZE), 1, 1);
+		}
 
 		frame_data.waitable_ = encoder->GetWaitable();
 
