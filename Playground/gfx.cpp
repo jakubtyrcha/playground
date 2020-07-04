@@ -194,6 +194,19 @@ namespace Gfx
 			rtvs_descriptor_heap_.increment_ = device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 		}
 
+		//
+
+		{
+			D3D12_DESCRIPTOR_HEAP_DESC heap_desc{
+				.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV,
+				.NumDescriptors = 4096
+			};
+			verify_hr(device_->CreateDescriptorHeap(&heap_desc, IID_PPV_ARGS(dsvs_descriptor_heap_.heap_.InitAddress())));
+
+			dsvs_descriptor_heap_.max_slots_ = heap_desc.NumDescriptors;
+			dsvs_descriptor_heap_.increment_ = device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
+		}
+
 		waitables_pool_.Resize(4096);
 	}
 
@@ -682,6 +695,7 @@ namespace Gfx
 	void Device::RecycleResources() {
 		descriptor_heap_.FenceDescriptors(GetWaitable());
 		rtvs_descriptor_heap_.FenceDescriptors(GetWaitable());
+		dsvs_descriptor_heap_.FenceDescriptors(GetWaitable());
 
 		while(waitables_pending_.Size() && IsDone(waitables_pending_.First())) {
 			i32 handle =  waitables_pending_.RemoveAt(0).handle_;

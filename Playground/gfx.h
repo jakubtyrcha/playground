@@ -155,6 +155,7 @@ namespace Gfx
 
 		DescriptorHeap descriptor_heap_;
 		DescriptorHeap rtvs_descriptor_heap_;
+		DescriptorHeap dsvs_descriptor_heap_;
 
 		Com::Box<ID3D12RootSignature> root_signature_;
 
