@@ -18,17 +18,69 @@ namespace Rendering {
 	}
 
 	void PolygonParticleGenerator::_CreatePipelines() {
-		Gfx::ShaderBlob* compiled_shader = Gfx::CompileShaderFromFile(
-			L"../data/particle.hlsl",
-			L"../data/particle.hlsl",
-			L"ParticleDepthPassCs",
-			L"cs_6_1"
-		);
-		D3D12_SHADER_BYTECODE CS;
-		CS.pShaderBytecode = compiled_shader->GetBufferPointer();
-		CS.BytecodeLength = compiled_shader->GetBufferSize();
-		depth_pass_pipeline_ = device_->CreateComputePipeline(CS);
-		compiled_shader->Release();
+		D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_desc{};
+		pso_desc.NodeMask = 1;
+		pso_desc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+		pso_desc.pRootSignature = *device_->root_signature_;
+		pso_desc.SampleMask = UINT_MAX;
+		pso_desc.NumRenderTargets = 1;
+		pso_desc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+		pso_desc.SampleDesc.Count = 1;
+		pso_desc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
+
+		Gfx::ShaderBlob* vs_bytecode;
+		{
+			vs_bytecode = Gfx::CompileShaderFromFile(L"../data/sphere_splatting.hlsl", L"../data/sphere_splatting.hlsl", L"VsMain", L"vs_6_0");
+			pso_desc.VS = { vs_bytecode->GetBufferPointer(), vs_bytecode->GetBufferSize() };
+		}
+		
+		Gfx::ShaderBlob* ps_bytecode;
+		{
+			ps_bytecode = Gfx::CompileShaderFromFile(L"../data/sphere_splatting.hlsl", L"../data/sphere_splatting.hlsl", L"PsMain", L"ps_6_0");
+			pso_desc.PS = { ps_bytecode->GetBufferPointer(), ps_bytecode->GetBufferSize() };
+		}
+
+		// Create the blending setup
+		{
+			D3D12_BLEND_DESC& desc = pso_desc.BlendState;
+			desc.AlphaToCoverageEnable = false;
+			desc.RenderTarget[0].BlendEnable = false;
+			desc.RenderTarget[0].LogicOpEnable = false;
+			desc.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+		}
+
+		// Create the rasterizer state
+		{
+			D3D12_RASTERIZER_DESC& desc = pso_desc.RasterizerState;
+			desc.FillMode = D3D12_FILL_MODE_SOLID;
+			desc.CullMode = D3D12_CULL_MODE_NONE;
+			desc.FrontCounterClockwise = FALSE;
+			desc.DepthBias = D3D12_DEFAULT_DEPTH_BIAS;
+			desc.DepthBiasClamp = D3D12_DEFAULT_DEPTH_BIAS_CLAMP;
+			desc.SlopeScaledDepthBias = D3D12_DEFAULT_SLOPE_SCALED_DEPTH_BIAS;
+			desc.DepthClipEnable = true;
+			desc.MultisampleEnable = FALSE;
+			desc.AntialiasedLineEnable = FALSE;
+			desc.ForcedSampleCount = 0;
+			desc.ConservativeRaster = D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF;
+		}
+
+		// Create depth-stencil State
+		{
+			D3D12_DEPTH_STENCIL_DESC& desc = pso_desc.DepthStencilState;
+			desc.DepthEnable = false; //
+			desc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+			desc.DepthFunc = D3D12_COMPARISON_FUNC_GREATER_EQUAL;
+			desc.StencilEnable = false;
+			desc.FrontFace.StencilFailOp = desc.FrontFace.StencilDepthFailOp = desc.FrontFace.StencilPassOp = D3D12_STENCIL_OP_KEEP;
+			desc.FrontFace.StencilFunc = D3D12_COMPARISON_FUNC_ALWAYS;
+			desc.BackFace = desc.FrontFace;
+		}
+
+		verify_hr(device_->device_->CreateGraphicsPipelineState(&pso_desc, IID_PPV_ARGS(pipeline_.pipeline_.InitAddress())));
+
+		vs_bytecode->Release();
+		ps_bytecode->Release();
 	}
 
 	void PolygonParticleGenerator::Init(Gfx::Device * device, i32 max_particles, f32 spawn_rate, f32 max_lifetime) {
@@ -42,17 +94,9 @@ namespace Rendering {
 		inv_spawn_rate_ = 1.f / spawn_rate;
 		max_lifetime_ = max_lifetime;
 
-		state_positions_texture_ = device->CreateTexture2D(D3D12_HEAP_TYPE_DEFAULT, {PAGE_SIZE, pages_num}, DXGI_FORMAT_R32G32B32_FLOAT, 1, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST);
+		state_positions_texture_ = device->CreateTexture2D(D3D12_HEAP_TYPE_DEFAULT, {PAGE_SIZE, pages_num}, DXGI_FORMAT_R32G32B32A32_FLOAT, 1, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST);
 
 		_CreatePipelines();
-	}
-
-	void PolygonParticleGenerator::AllocateScreenTextures(Vector2i resolution) {
-		if(resolution != resolution_) {
-			resolution_ = resolution;
-
-			depth_target_ = device_->CreateTexture2D(D3D12_HEAP_TYPE_DEFAULT, resolution, DXGI_FORMAT_R32_UINT, 1, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-		}
 	}
 
 	void PolygonParticleGenerator::_UpdateLifetimes(f32 time_delta) {
@@ -131,7 +175,7 @@ namespace Rendering {
 		// UpdateTextures
 	}
 
-	void PolygonParticleGenerator::AddPassesToGraph(Gfx::Resource * color_target) {
+	void PolygonParticleGenerator::AddPassesToGraph(Gfx::Resource * color_target, Gfx::Resource * depth_target) {
 		if(updates_.Size()) {
 			update_positions_pass_ = device_->graph_.AddSubsequentPass(Gfx::PassAttachments{}
 				.Attach({ .resource = *state_positions_texture_.resource_ }, D3D12_RESOURCE_STATE_COPY_DEST)
@@ -139,15 +183,15 @@ namespace Rendering {
 		}
 
 		if(active_pages_.Size()) {
-			particle_depth_pass_ = device_->graph_.AddSubsequentPass(Gfx::PassAttachments{}
+			particle_pass_ = device_->graph_.AddSubsequentPass(Gfx::PassAttachments{}
 				.Attach({ .resource = *state_positions_texture_.resource_ }, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE)
-				.Attach({ .resource = *depth_target_.resource_ }, D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
-				.Attach({ .resource = *color_target->resource_ }, D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
+				.Attach({ .resource = *depth_target->resource_ }, D3D12_RESOURCE_STATE_DEPTH_WRITE)
+				.Attach({ .resource = *color_target->resource_ }, D3D12_RESOURCE_STATE_RENDER_TARGET)
 			);
 		}
 	}
 
-	void PolygonParticleGenerator::Render(Gfx::Encoder * encoder, Rendering::Viewport * viewport, Gfx::Resource * color_texture) {
+	void PolygonParticleGenerator::Render(Gfx::Encoder * encoder, Rendering::Viewport * viewport, D3D12_CPU_DESCRIPTOR_HANDLE color_target_handle, D3D12_CPU_DESCRIPTOR_HANDLE depth_target_handle) {
 		while(frame_data_queue_.Size() && frame_data_queue_.First().waitable_.IsDone()) {
 			frame_data_queue_.RemoveAt(0);
 		}
@@ -167,7 +211,7 @@ namespace Rendering {
 				.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT,
 				.PlacedFootprint = {
 					.Footprint = {
-						.Format = DXGI_FORMAT_R32G32B32_FLOAT,
+						.Format = DXGI_FORMAT_R32G32B32A32_FLOAT,
 						.Width = 1,
 						.Height = static_cast<u32>(updates_.Size()),
 						.Depth = 1,
@@ -182,7 +226,8 @@ namespace Rendering {
 			};
 			i32 index = 0;
 			for(ParticleInitData update : updates_) {
-				memcpy(positions, &update.position, sizeof(update.position));
+				//memcpy(positions, &update.position, sizeof(update.position));
+				*reinterpret_cast<Vector4*>(positions) = Vector4{update.position, 0.01f};
 				positions+=256;
 
 				D3D12_BOX src_box { .left = 0, .top = static_cast<u32>(index), .right = 1, .bottom = static_cast<u32>(index + 1), .back = 1};
@@ -194,8 +239,8 @@ namespace Rendering {
 		updates_.Clear();
 
 		if(active_pages_.Size()) {
-			encoder->SetPass(particle_depth_pass_);
-			particle_depth_pass_ = nullptr;
+			encoder->SetPass(particle_pass_);
+			particle_pass_ = nullptr;
 
 			frame_data.page_buffer_ = device_->CreateBuffer(D3D12_HEAP_TYPE_UPLOAD, active_pages_.Size() * sizeof(i32), DXGI_FORMAT_UNKNOWN, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ);
 
@@ -214,67 +259,70 @@ namespace Rendering {
 						.StructureByteStride = 2,
 					}
 				};
-				device_->device_->CreateShaderResourceView(*frame_data.page_buffer_.resource_, &srv_desc, encoder->ReserveComputeSlot(Gfx::DescriptorType::SRV, 0));
+				device_->device_->CreateShaderResourceView(*frame_data.page_buffer_.resource_, &srv_desc, encoder->ReserveGraphicsSlot(Gfx::DescriptorType::SRV, 0));
 			}
 			{
 				D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc{
-					.Format = DXGI_FORMAT_R32G32B32_FLOAT,
+					.Format = DXGI_FORMAT_R32G32B32A32_FLOAT,
 					.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D,
 					.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
 					.Texture2D = {
 						.MipLevels = 1
 					}
 				};
-				device_->device_->CreateShaderResourceView(*state_positions_texture_.resource_, &srv_desc, encoder->ReserveComputeSlot(Gfx::DescriptorType::SRV, 1));
+				device_->device_->CreateShaderResourceView(*state_positions_texture_.resource_, &srv_desc, encoder->ReserveGraphicsSlot(Gfx::DescriptorType::SRV, 1));
 			}
-
-			{
-				//depth
-				D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc{
-					.Format = DXGI_FORMAT_R32_UINT,
-					.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D,
-					.Texture2D = {}
-				};
-				device_->device_->CreateUnorderedAccessView(*depth_target_.resource_, nullptr, &uav_desc, encoder->ReserveComputeSlot(Gfx::DescriptorType::UAV, 0));
-			}
-			{
-				//color
-				D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc{
-					.Format = DXGI_FORMAT_R8G8B8A8_UNORM,
-					.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D,
-					.Texture2D = {}
-				};
-				device_->device_->CreateUnorderedAccessView(*color_texture->resource_, nullptr, &uav_desc, encoder->ReserveComputeSlot(Gfx::DescriptorType::UAV, 1));
-			}
-		
+					
 			// TODO: less boilerplate code for data upload
 			struct FrameConstants {
 				Vector2i resolution;
-				int padding[2];
-				Matrix4x4 view_projection_matrix;
+				Vector2 inv_resolution;
+				Matrix4 view_matrix;
+				Matrix4 projection_matrix;
+				Matrix4 view_projection_matrix;
+				Matrix4 inv_view_projection_matrix;
+				Matrix4 inv_view_matrix;
 			};
-			static_assert(offsetof(FrameConstants, view_projection_matrix) == 16);
-			FrameConstants frame_constants {
-				.resolution = viewport->resolution,
-				.view_projection_matrix = viewport->view_projection_matrix
-			};
+			FrameConstants constants;
+			constants.resolution = viewport->resolution;
+			constants.inv_resolution = 1.f / Vector2(constants.resolution);
+			constants.view_matrix = viewport->view_matrix;
+			constants.projection_matrix = viewport->projection_matrix;
+			constants.view_projection_matrix = viewport->view_projection_matrix;
+			constants.inv_view_projection_matrix = viewport->inv_view_projection_matrix;
+			constants.inv_view_matrix = viewport->inv_view_matrix;
 
-			frame_data.constant_buffers_.PushBackRvalueRef(std::move(device_->CreateBuffer(D3D12_HEAP_TYPE_UPLOAD, AlignedForward(static_cast<i32>(sizeof(frame_constants)), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT), DXGI_FORMAT_UNKNOWN, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ)));
-
+			frame_data.constant_buffers_.PushBackRvalueRef(std::move(device_->CreateBuffer(D3D12_HEAP_TYPE_UPLOAD, AlignedForward(static_cast<i32>(sizeof(FrameConstants)), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT), DXGI_FORMAT_UNKNOWN, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ)));
 			void* cb_dst = nullptr;
 			verify_hr(frame_data.constant_buffers_.Last().resource_->Map(0, nullptr, &cb_dst));
-			memcpy(cb_dst, &frame_constants, sizeof(frame_constants));
+			memcpy(cb_dst, &constants, sizeof(FrameConstants));
 			frame_data.constant_buffers_.Last().resource_->Unmap(0, nullptr);
 
 			D3D12_CONSTANT_BUFFER_VIEW_DESC cbv_desc{
 				.BufferLocation = frame_data.constant_buffers_.Last().resource_->GetGPUVirtualAddress(),
-				.SizeInBytes = AlignedForward(static_cast<u32>(sizeof(frame_constants)), static_cast<u32>(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT))
+				.SizeInBytes = static_cast<u32>(AlignedForward(static_cast<i32>(sizeof(FrameConstants)), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT))
 			};
-			device_->device_->CreateConstantBufferView(&cbv_desc, encoder->ReserveComputeSlot(Gfx::DescriptorType::CBV, 0));
-		
-			encoder->GetCmdList()->SetPipelineState(*depth_pass_pipeline_.pipeline_);
-			encoder->SetComputeDescriptors();
-			encoder->GetCmdList()->Dispatch(static_cast<u32>(active_pages_.Size() * PAGE_SIZE), 1, 1);
+			device_->device_->CreateConstantBufferView(&cbv_desc, encoder->ReserveGraphicsSlot(Gfx::DescriptorType::CBV, 0));
+			
+			encoder->GetCmdList()->OMSetRenderTargets(1, &color_target_handle, false, &depth_target_handle);
+
+			D3D12_VIEWPORT vp{
+				.Width = static_cast<float>(viewport->resolution.x()),
+				.Height = static_cast<float>(viewport->resolution.y()),
+				.MinDepth = 0.f,
+				.MaxDepth = 1.f
+			};
+			encoder->GetCmdList()->RSSetViewports(1, &vp);
+
+			encoder->GetCmdList()->IASetVertexBuffers(0, 1, nullptr);
+			encoder->GetCmdList()->IASetIndexBuffer(nullptr);
+			encoder->GetCmdList()->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+			encoder->GetCmdList()->SetPipelineState(*pipeline_.pipeline_);
+			encoder->SetGraphicsDescriptors();
+			//encoder->GetCmdList()->Dispatch(static_cast<u32>(active_pages_.Size() * PAGE_SIZE), 1, 1);
+			const D3D12_RECT r = { 0, 0, viewport->resolution.x(), viewport->resolution.y() };
+			encoder->GetCmdList()->RSSetScissorRects(1, &r);
+			encoder->GetCmdList()->DrawInstanced(4, static_cast<u32>(active_pages_.Size() * PAGE_SIZE), 0, 0);
 		}
 
 		frame_data.waitable_ = encoder->GetWaitable();

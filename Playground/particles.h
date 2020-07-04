@@ -26,13 +26,12 @@ namespace Rendering {
 		Gfx::Resource position_texture_;
 
 		Vector2i resolution_;
-		Gfx::Resource depth_target_;
 		Gfx::Resource state_positions_texture_;
 
-		Gfx::Pipeline depth_pass_pipeline_;
+		Gfx::Pipeline pipeline_;
 
 		Gfx::Pass* update_positions_pass_ = nullptr;
-		Gfx::Pass* particle_depth_pass_ = nullptr;
+		Gfx::Pass* particle_pass_ = nullptr;
 
 		struct FrameData {
 			Gfx::Resource page_buffer_;
@@ -59,9 +58,8 @@ namespace Rendering {
 
 		i32 NumParticles() const;
 		void Init(Gfx::Device * device, i32 max_particles, f32 spawn_rate, f32 max_lifetime);
-		void AllocateScreenTextures(Vector2i resolution);
 		void Tick(f32 time_delta);
-		void AddPassesToGraph(Gfx::Resource * color_target);
-		void Render(Gfx::Encoder * encoder, Viewport * viewport, Gfx::Resource * color_texture);
+		void AddPassesToGraph(Gfx::Resource * color_target, Gfx::Resource * depth_target);
+		void Render(Gfx::Encoder * encoder, Viewport * viewport, D3D12_CPU_DESCRIPTOR_HANDLE color_target_handle, D3D12_CPU_DESCRIPTOR_HANDLE depth_target_handle);
 	};
 }
