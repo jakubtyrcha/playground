@@ -55,13 +55,10 @@
 #include <d3d12.h>
 #include <dxgi1_6.h>
 #include <dxgidebug.h>
-
 #include <fmt/format.h>
-#include <magnum/CorradePointer.h>
-#include <d3d12memoryallocator/D3D12MemAlloc.h>
-
 #include "types.h"
-
-#undef assert
+#include <magnum/CorradePointer.h>
+#include <magnum/CorradeOptional.h>
+#include <d3d12memoryallocator/D3D12MemAlloc.h>
 
 #endif //PCH_H

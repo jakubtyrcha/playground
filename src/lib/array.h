@@ -165,6 +165,12 @@ namespace Containers
 			return size_;
 		}
 
+		static Array<T> From(T const* src, i64 num) {
+			Array<T> result;
+			result.Append(src, num);
+			return result;
+		}
+
 		void Append(T const* src, i64 num)
 		{
 			static_assert(std::is_trivially_copyable_v<T>);
@@ -281,7 +287,7 @@ namespace Containers
 			return obj;
 		}
 
-		void RemoveAndSwapWithLast(i64 index) {
+		void RemoveAtAndSwapWithLast(i64 index) {
 			static_assert(std::is_trivially_copyable_v<T>);
 
 			if(index != size_-1) {
@@ -289,6 +295,15 @@ namespace Containers
 			}
 
 			size_--;
+		}
+
+		Core::Optional<i64> Find(const T& item) const {
+			for(i64 i = 0, N = Size(); i<N; i++) {
+				if(At[i] == item) {
+					return i;
+				}
+			}
+			return {};
 		}
 
 		T& First() {

@@ -76,20 +76,6 @@ int main(int argc, char** argv)
 	window->Init();
 	ImGui_ImplWin32_Init(window->hwnd_);
 
-	Gfx::ShaderBlob* compiled_shader = Gfx::CompileShaderFromFile(
-		L"../data/shader.hlsl",
-		L"../data/shader.hlsl",
-		L"main",
-		L"cs_6_0"
-	);
-
-	D3D12_SHADER_BYTECODE CS;
-	CS.pShaderBytecode = compiled_shader->GetBufferPointer();
-	CS.BytecodeLength = compiled_shader->GetBufferSize();
-
-	Gfx::Pipeline cs = device.CreateComputePipeline(CS);
-	compiled_shader->Release();
-
 	struct ScreenResources {
 		Gfx::Resource random_access_texture;
 		Gfx::Resource depth_buffer;
@@ -119,7 +105,6 @@ int main(int argc, char** argv)
 			&device,
 			&window_swapchain,
 			&screen_resources,
-			&cs,
 			backbuffers_num,
 			&frames_ctr,
 			&frame_waitables,
@@ -200,8 +185,8 @@ int main(int argc, char** argv)
 
 		ID3D12Resource* current_backbuffer = *window_swapchain->backbuffers_[current_backbuffer_index];
 
-		Gfx::Pass* shader_execution_pass = device.graph_.AddSubsequentPass(Gfx::PassAttachments{}
-			.Attach({ .resource = *screen_resources.random_access_texture.resource_ }, D3D12_RESOURCE_STATE_UNORDERED_ACCESS)
+		Gfx::Pass* clear_bb_pass = device.graph_.AddSubsequentPass(Gfx::PassAttachments{}
+			.Attach({ .resource = *screen_resources.random_access_texture.resource_ }, D3D12_RESOURCE_STATE_RENDER_TARGET)
 		);
 
 		particle_generator.AddPassesToGraph(&screen_resources.random_access_texture, &screen_resources.depth_buffer);
@@ -223,17 +208,7 @@ int main(int argc, char** argv)
 
 		ImGui::Render();
 
-		encoder.SetPass(shader_execution_pass);
-		ID3D12GraphicsCommandList* cmd_list = encoder.GetCmdList();
-		cmd_list->SetPipelineState(*cs.pipeline_);
-		D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc{
-			.Format = DXGI_FORMAT_R8G8B8A8_UNORM,
-			.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D,
-			.Texture2D = {}
-		};
-		device.device_->CreateUnorderedAccessView(*screen_resources.random_access_texture.resource_, nullptr, &uav_desc, encoder.ReserveComputeSlot(Gfx::DescriptorType::UAV, 0));
-		encoder.SetComputeDescriptors();
-		cmd_list->Dispatch((window->resolution_.x() + 7) / 8, (window->resolution_.y() + 3) / 4, 1);
+		encoder.SetPass(clear_bb_pass);
 
 		D3D12_RENDER_TARGET_VIEW_DESC rtv_desc{
 			.Format = DXGI_FORMAT_R8G8B8A8_UNORM,
@@ -243,6 +218,9 @@ int main(int argc, char** argv)
 		D3D12_CPU_DESCRIPTOR_HANDLE rtv_handle = device.rtvs_descriptor_heap_.heap_->GetCPUDescriptorHandleForHeapStart();
 		rtv_handle.ptr += device.rtvs_descriptor_heap_.AllocateTable(1) * device.rtvs_descriptor_heap_.increment_;
 		device.device_->CreateRenderTargetView(*screen_resources.random_access_texture.resource_, &rtv_desc, rtv_handle);
+
+		f32 clear_colour[4] = {};
+		encoder.GetCmdList()->ClearRenderTargetView(rtv_handle, clear_colour, 0, nullptr);
 
 		D3D12_DEPTH_STENCIL_VIEW_DESC dsv_desc{
 			.Format = DXGI_FORMAT_D24_UNORM_S8_UINT,
@@ -261,7 +239,7 @@ int main(int argc, char** argv)
 		imgui_renderer.RenderDrawData(ImGui::GetDrawData(), &encoder, rtv_handle);
 
 		encoder.SetPass(copy_to_backbuffer_pass);
-		cmd_list->CopyResource(current_backbuffer, *screen_resources.random_access_texture.resource_);
+		encoder.GetCmdList()->CopyResource(current_backbuffer, *screen_resources.random_access_texture.resource_);
 
 		encoder.SetPass(present_pass);
 

@@ -7,6 +7,7 @@
 #include "algorithms.h"
 
 // heavily inspired by https://probablydance.com/2017/02/26/i-wrote-the-fastest-hashtable/
+// TODO: this is a bit messy, make sure all cominations of trivially copyable and movable keys and values work
 
 namespace Containers
 {
@@ -65,11 +66,11 @@ namespace Containers
 				return *this;
 			}
 
-			K Key() const {
+			K& Key() const {
 				return hashmap_->Key(index_);
 			}
 
-			V Value() const {
+			V& Value() const {
 				return hashmap_->Value(index_);
 			}
 
@@ -84,8 +85,8 @@ namespace Containers
 			}
 
 			struct KeyValue {
-				K key;
-				V value;
+				K& key;
+				V& value;
 			};
 
 			KeyValue operator*() const {
@@ -141,8 +142,16 @@ namespace Containers
 		void Clear()
 		{
 			if (keys_) {
-				static_assert(std::is_trivial_v<K>);
-				static_assert(std::is_trivial_v<V>);
+				for (auto iter = begin(); iter != end(); ++iter) {
+					if constexpr (!std::is_trivial_v<K>) {
+						(keys_ + iter.index_)->K::~K();
+					}
+					if constexpr (!std::is_trivial_v<V>) {
+						(values_ + iter.index_)->V::~V();
+					}
+				}
+				//static_assert(std::is_trivial_v<K>);
+				//static_assert(std::is_trivial_v<V>);
 				free(keys_);
 				free(values_);
 			}
@@ -182,6 +191,13 @@ namespace Containers
 			{
 				keys_ = static_cast<K*>(realloc(keys_, sizeof(K) * new_capacity));
 				values_ = static_cast<V*>(realloc(values_, sizeof(V) * new_capacity));
+
+				if constexpr (std::is_move_assignable_v<V>) {
+					for(i64 i=0; i<new_capacity; i++) {
+						new (values_ + i) V{};
+					}
+				}
+
 				slot_states_.Resize(new_capacity);
 				capacity_ = new_capacity;
 				return;
@@ -191,8 +207,14 @@ namespace Containers
 			rehashed.ReserveForCapacity(new_capacity);
 
 			for (auto iter = begin(); iter != end(); ++iter) {
-				bool i = rehashed.Insert(iter.Key(), iter.Value());
-				DEBUG_ASSERT(i, containers_module{});
+				if constexpr(std::is_trivially_copyable_v<V>) {
+					bool i = rehashed.Insert(iter.Key(), iter.Value());
+					DEBUG_ASSERT(i, containers_module{});
+				}
+				else {
+					bool i = rehashed.InsertRvalueRef(iter.Key(), std::move(iter.Value()));
+					DEBUG_ASSERT(i, containers_module{});
+				}
 			}
 
 			*this = std::move(rehashed);
@@ -205,10 +227,10 @@ namespace Containers
 			ReserveForCapacity(new_capacity);
 		}
 
+		template<typename = std::enable_if<std::is_trivially_copyable_v<V>>::type>
 		bool Insert(K key, V value)
 		{
 			static_assert(std::is_trivially_copyable_v<K>);
-			static_assert(std::is_trivially_copyable_v<V>);
 
 			if (capacity_ < MinCapacity(size_ + 1)) {
 				Reserve(size_ + 1);
@@ -248,6 +270,54 @@ namespace Containers
 				ReserveForCapacity(GetHashmapSize(capacity_ + 1));
 
 				return Insert(key, value);
+			}
+
+			return true;
+		}
+
+		template<typename = std::enable_if<std::is_move_assignable_v<V>>::type>
+		bool InsertRvalueRef(K key, V && value)
+		{
+			static_assert(std::is_trivially_copyable_v<K>);
+
+			if (capacity_ < MinCapacity(size_ + 1)) {
+				Reserve(size_ + 1);
+			}
+
+			u64 hash = Hash::HashValue(key);
+			i64 index = HashmapSlot(hash, capacity_);
+
+			i64 max_probe_count = MaxProbeCount();
+
+			bool inserted = false;
+
+			for (i64 offset = 0; offset < max_probe_count; offset++) {
+				if (index == capacity_) {
+					index = 0;
+				}
+
+				if (slot_states_.GetBit(index) == true && keys_[index] == key) {
+					values_[index] = std::move(value);
+					inserted = true;
+					return false;
+				}
+
+				if (slot_states_.GetBit(index) == false) {
+					slot_states_.SetBit(index, true);
+					keys_[index] = key;
+					values_[index] = std::move(value);
+					size_++;
+					inserted = true;
+					break;
+				}
+
+				index++;
+			}
+
+			if (!inserted) {
+				ReserveForCapacity(GetHashmapSize(capacity_ + 1));
+
+				return InsertRvalueRef(key, std::move(value));
 			}
 
 			return true;
@@ -296,8 +366,7 @@ namespace Containers
 		}
 
 		Iterator Remove(K key) {
-			i64 index = FindIndex(key);
-			DEBUG_ASSERT(index != -1, containers_module{});
+			i64 index = *_FindIndex(key);
 
 			static_assert(std::is_trivial_v<K>);
 			static_assert(std::is_trivial_v<V>);
@@ -310,19 +379,23 @@ namespace Containers
 			return Iterator{ this, index };
 		}
 
-		K Key(i64 index) const {
-			static_assert(std::is_trivially_copyable_v<K>);
+		K& Key(i64 index) const {
+			//static_assert(std::is_trivially_copyable_v<K>);
 			DEBUG_ASSERT(slot_states_.GetBit(index), containers_module{});
 			return keys_[index];
 		}
 
-		V Value(i64 index) const {
-			static_assert(std::is_trivially_copyable_v<V>);
+		V& Value(i64 index) const {
+			//static_assert(std::is_trivially_copyable_v<V>);
 			DEBUG_ASSERT(slot_states_.GetBit(index), containers_module{});
 			return values_[index];
 		}
 
-		i64 FindIndex(K key) const {
+		Core::Optional<i64> _FindIndex(K key) const {
+			if(capacity_ == 0 || size_ == 0) {
+				return {};
+			}
+
 			u64 hash = Hash::HashValue(key);
 			i64 index = HashmapSlot(hash, capacity_);
 			i64 max_probe_count = MaxProbeCount();
@@ -339,20 +412,30 @@ namespace Containers
 				index = index + 1;
 			}
 
-			return -1;
+			return {};
 		}
 
 		bool Contains(K key) const
 		{
-			return FindIndex(key) != -1;
+			return static_cast<bool>(_FindIndex(key));
 		}
 
 		V At(K key) const
 		{
 			static_assert(std::is_trivially_copyable_v<V>);
-			i64 index = FindIndex(key);
-			DEBUG_ASSERT(index != -1, containers_module{});
+			i64 index = *_FindIndex(key);
 			return values_[index];
+		}
+
+		Core::Optional<V*> Find(K key) const {
+			//static_assert(std::is_trivially_copyable_v<V>);
+			Core::Optional<i64> maybe_index = _FindIndex(key);
+
+			if(!maybe_index) {
+				return {};
+			}
+
+			return &values_[*maybe_index];
 		}
 
 		i64 Size() const

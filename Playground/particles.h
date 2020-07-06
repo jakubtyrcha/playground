@@ -2,6 +2,7 @@
 
 #include "gfx.h"
 #include "random.h"
+#include "shader.h"
 
 namespace Rendering {
 	struct Viewport;
@@ -28,7 +29,7 @@ namespace Rendering {
 		Vector2i resolution_;
 		Gfx::Resource state_positions_texture_;
 
-		Gfx::Pipeline pipeline_;
+		Box<Gfx::IPipelineBuilder> pipeline_;
 
 		Gfx::Pass* update_positions_pass_ = nullptr;
 		Gfx::Pass* particle_pass_ = nullptr;
@@ -50,7 +51,6 @@ namespace Rendering {
 		};
 		Containers::Array<ParticleInitData> updates_;
 
-		void _CreatePipelines();
 		Vector3 _GeneratePoint();
 		void _InitParticle(i32 page_index, i32 index);
 		void _SpawnParticle();

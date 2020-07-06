@@ -2,6 +2,7 @@
 
 #include "gfx.h"
 #include "array.h"
+#include "shader.h"
 
 namespace Rendering {
 	struct Viewport;
@@ -15,7 +16,7 @@ namespace Rendering {
 
 	struct ImmediateModeShapeRenderer {
 		Gfx::Device* device_ = nullptr;
-		Gfx::Pipeline pipeline_;
+		Box<Gfx::IPipelineBuilder> pipeline_;
 
 		struct FrameData {
 			Gfx::Resource vertex_buffer_;

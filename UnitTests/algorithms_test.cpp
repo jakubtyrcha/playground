@@ -1,6 +1,5 @@
-#include "catch/catch.hpp"
-
 #include "algorithms.h"
+#include "catch/catch.hpp"
 
 using namespace Algorithms;
 

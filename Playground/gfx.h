@@ -197,7 +197,6 @@ namespace Gfx
 		Resource CreateBuffer(D3D12_HEAP_TYPE heap_type, i64 size, DXGI_FORMAT format, D3D12_RESOURCE_FLAGS flags, D3D12_RESOURCE_STATES initial_state);
 		Resource CreateTexture1D(D3D12_HEAP_TYPE heap_type, i64 size, DXGI_FORMAT format, i32 miplevels, D3D12_RESOURCE_FLAGS flags, D3D12_RESOURCE_STATES initial_state);
 		Resource CreateTexture2D(D3D12_HEAP_TYPE heap_type, Vector2i size, DXGI_FORMAT format, i32 miplevels, D3D12_RESOURCE_FLAGS flags, D3D12_RESOURCE_STATES initial_state);
-		Pipeline CreateComputePipeline(D3D12_SHADER_BYTECODE);
 	};
 
 	struct Encoder : private MoveableNonCopyable<Encoder>
@@ -258,6 +257,8 @@ namespace Gfx
 
 	struct Pipeline : private MoveableNonCopyable<Resource> {
 		Com::Box<ID3D12PipelineState> pipeline_;
+
+		static Box<Pipeline> From(Device * device, D3D12_GRAPHICS_PIPELINE_STATE_DESC const & desc);
 	};
 
 	struct Pass {

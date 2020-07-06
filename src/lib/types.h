@@ -13,5 +13,16 @@ using u64 = uint64_t;
 using f32 = float;
 using f64 = double;
 
+#include "assertions.h"
+
+#define CORRADE_ASSERT(condition, message, returnValue) assert(condition)
+
 #include <magnum/MagnumMath.hpp>
 using namespace Magnum;
+
+#include <magnum/CorradeOptional.h>
+
+namespace Core {
+	template<typename T>
+	using Optional = Corrade::Containers::Optional<T>;
+}

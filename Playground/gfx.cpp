@@ -452,19 +452,6 @@ namespace Gfx
 		}
 	}
 
-	Pipeline Device::CreateComputePipeline(D3D12_SHADER_BYTECODE bytecode)
-	{
-		Pipeline result;
-
-		D3D12_COMPUTE_PIPELINE_STATE_DESC pipeline_desc{};
-		pipeline_desc.pRootSignature = *root_signature_;
-		pipeline_desc.CS = bytecode;
-
-		verify_hr(device_->CreateComputePipelineState(&pipeline_desc, IID_PPV_ARGS(result.pipeline_.InitAddress())));
-
-		return result;
-	}
-
 	ID3D12GraphicsCommandList* Encoder::GetCmdList() {
 		return static_cast<ID3D12GraphicsCommandList*>(*cmd_list_);
 	}
@@ -793,6 +780,12 @@ namespace Gfx
 
 	bool Waitable::IsDone() {
 		return device_->IsDone(*this);
+	}
+
+	Box<Pipeline> Pipeline::From(Device * device, D3D12_GRAPHICS_PIPELINE_STATE_DESC const & desc) {
+		Box<Pipeline> result = MakeBox<Pipeline>();
+		verify_hr(device->device_->CreateGraphicsPipelineState(&desc, IID_PPV_ARGS(result->pipeline_.InitAddress())));
+		return result;
 	}
 }
 

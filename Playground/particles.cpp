@@ -17,71 +17,74 @@ namespace Rendering {
 		return num_particles_;
 	}
 
-	void PolygonParticleGenerator::_CreatePipelines() {
-		D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_desc{};
-		pso_desc.NodeMask = 1;
-		pso_desc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-		pso_desc.pRootSignature = *device_->root_signature_;
-		pso_desc.SampleMask = UINT_MAX;
-		pso_desc.NumRenderTargets = 1;
-		pso_desc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
-		pso_desc.SampleDesc.Count = 1;
-		pso_desc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
+	struct ParticlePipeline : public Gfx::IPipelineBuilder {
+		PolygonParticleGenerator* owner_ = nullptr;
 
-		Gfx::ShaderBlob* vs_bytecode;
-		{
-			vs_bytecode = Gfx::CompileShaderFromFile(L"../data/sphere_splatting.hlsl", L"../data/sphere_splatting.hlsl", L"VsMain", L"vs_6_0");
-			pso_desc.VS = { vs_bytecode->GetBufferPointer(), vs_bytecode->GetBufferSize() };
+		ParticlePipeline(PolygonParticleGenerator* owner) : owner_(owner) {}
+
+		Box<Gfx::Pipeline> Build() override {
+			D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_desc{};
+			pso_desc.NodeMask = 1;
+			pso_desc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+			pso_desc.pRootSignature = *owner_->device_->root_signature_;
+			pso_desc.SampleMask = UINT_MAX;
+			pso_desc.NumRenderTargets = 1;
+			pso_desc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+			pso_desc.SampleDesc.Count = 1;
+			pso_desc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
+
+			pso_desc.VS = GetShaderFromShaderFileSource({
+				.file_path = L"../data/sphere_splatting.hlsl",
+				.entrypoint = L"VsMain",
+				.profile= L"vs_6_0"
+				})->GetBytecode();
+
+			pso_desc.PS = GetShaderFromShaderFileSource({
+				.file_path = L"../data/sphere_splatting.hlsl",
+				.entrypoint = L"PsMain",
+				.profile= L"ps_6_0"
+				})->GetBytecode();
+
+			// Create the blending setup
+			{
+				D3D12_BLEND_DESC& desc = pso_desc.BlendState;
+				desc.AlphaToCoverageEnable = false;
+				desc.RenderTarget[0].BlendEnable = false;
+				desc.RenderTarget[0].LogicOpEnable = false;
+				desc.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+			}
+
+			// Create the rasterizer state
+			{
+				D3D12_RASTERIZER_DESC& desc = pso_desc.RasterizerState;
+				desc.FillMode = D3D12_FILL_MODE_SOLID;
+				desc.CullMode = D3D12_CULL_MODE_NONE;
+				desc.FrontCounterClockwise = FALSE;
+				desc.DepthBias = D3D12_DEFAULT_DEPTH_BIAS;
+				desc.DepthBiasClamp = D3D12_DEFAULT_DEPTH_BIAS_CLAMP;
+				desc.SlopeScaledDepthBias = D3D12_DEFAULT_SLOPE_SCALED_DEPTH_BIAS;
+				desc.DepthClipEnable = true;
+				desc.MultisampleEnable = FALSE;
+				desc.AntialiasedLineEnable = FALSE;
+				desc.ForcedSampleCount = 0;
+				desc.ConservativeRaster = D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF;
+			}
+
+			// Create depth-stencil State
+			{
+				D3D12_DEPTH_STENCIL_DESC& desc = pso_desc.DepthStencilState;
+				desc.DepthEnable = false; //
+				desc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+				desc.DepthFunc = D3D12_COMPARISON_FUNC_GREATER_EQUAL;
+				desc.StencilEnable = false;
+				desc.FrontFace.StencilFailOp = desc.FrontFace.StencilDepthFailOp = desc.FrontFace.StencilPassOp = D3D12_STENCIL_OP_KEEP;
+				desc.FrontFace.StencilFunc = D3D12_COMPARISON_FUNC_ALWAYS;
+				desc.BackFace = desc.FrontFace;
+			}
+
+			return Gfx::Pipeline::From(owner_->device_, pso_desc);
 		}
-		
-		Gfx::ShaderBlob* ps_bytecode;
-		{
-			ps_bytecode = Gfx::CompileShaderFromFile(L"../data/sphere_splatting.hlsl", L"../data/sphere_splatting.hlsl", L"PsMain", L"ps_6_0");
-			pso_desc.PS = { ps_bytecode->GetBufferPointer(), ps_bytecode->GetBufferSize() };
-		}
-
-		// Create the blending setup
-		{
-			D3D12_BLEND_DESC& desc = pso_desc.BlendState;
-			desc.AlphaToCoverageEnable = false;
-			desc.RenderTarget[0].BlendEnable = false;
-			desc.RenderTarget[0].LogicOpEnable = false;
-			desc.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
-		}
-
-		// Create the rasterizer state
-		{
-			D3D12_RASTERIZER_DESC& desc = pso_desc.RasterizerState;
-			desc.FillMode = D3D12_FILL_MODE_SOLID;
-			desc.CullMode = D3D12_CULL_MODE_NONE;
-			desc.FrontCounterClockwise = FALSE;
-			desc.DepthBias = D3D12_DEFAULT_DEPTH_BIAS;
-			desc.DepthBiasClamp = D3D12_DEFAULT_DEPTH_BIAS_CLAMP;
-			desc.SlopeScaledDepthBias = D3D12_DEFAULT_SLOPE_SCALED_DEPTH_BIAS;
-			desc.DepthClipEnable = true;
-			desc.MultisampleEnable = FALSE;
-			desc.AntialiasedLineEnable = FALSE;
-			desc.ForcedSampleCount = 0;
-			desc.ConservativeRaster = D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF;
-		}
-
-		// Create depth-stencil State
-		{
-			D3D12_DEPTH_STENCIL_DESC& desc = pso_desc.DepthStencilState;
-			desc.DepthEnable = false; //
-			desc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
-			desc.DepthFunc = D3D12_COMPARISON_FUNC_GREATER_EQUAL;
-			desc.StencilEnable = false;
-			desc.FrontFace.StencilFailOp = desc.FrontFace.StencilDepthFailOp = desc.FrontFace.StencilPassOp = D3D12_STENCIL_OP_KEEP;
-			desc.FrontFace.StencilFunc = D3D12_COMPARISON_FUNC_ALWAYS;
-			desc.BackFace = desc.FrontFace;
-		}
-
-		verify_hr(device_->device_->CreateGraphicsPipelineState(&pso_desc, IID_PPV_ARGS(pipeline_.pipeline_.InitAddress())));
-
-		vs_bytecode->Release();
-		ps_bytecode->Release();
-	}
+	};
 
 	void PolygonParticleGenerator::Init(Gfx::Device * device, i32 max_particles, f32 spawn_rate, f32 max_lifetime) {
 		device_ = device;
@@ -96,7 +99,7 @@ namespace Rendering {
 
 		state_positions_texture_ = device->CreateTexture2D(D3D12_HEAP_TYPE_DEFAULT, {PAGE_SIZE, pages_num}, DXGI_FORMAT_R32G32B32A32_FLOAT, 1, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST);
 
-		_CreatePipelines();
+		pipeline_ = MakeBox<ParticlePipeline>(this);
 	}
 
 	void PolygonParticleGenerator::_UpdateLifetimes(f32 time_delta) {
@@ -126,7 +129,7 @@ namespace Rendering {
 		for(i32 page_index : retire_pages) {
 			for(i32 i = 0; i< active_pages_.Size(); i++) {
 				if(active_pages_[i] == page_index) {
-					active_pages_.RemoveAndSwapWithLast(i);
+					active_pages_.RemoveAtAndSwapWithLast(i);
 					break;
 				}
 			}
@@ -317,7 +320,7 @@ namespace Rendering {
 			encoder->GetCmdList()->IASetVertexBuffers(0, 1, nullptr);
 			encoder->GetCmdList()->IASetIndexBuffer(nullptr);
 			encoder->GetCmdList()->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-			encoder->GetCmdList()->SetPipelineState(*pipeline_.pipeline_);
+			encoder->GetCmdList()->SetPipelineState(pipeline_->GetPSO());
 			encoder->SetGraphicsDescriptors();
 			//encoder->GetCmdList()->Dispatch(static_cast<u32>(active_pages_.Size() * PAGE_SIZE), 1, 1);
 			const D3D12_RECT r = { 0, 0, viewport->resolution.x(), viewport->resolution.y() };

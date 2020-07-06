@@ -1,6 +1,6 @@
-#include "catch/catch.hpp"
-
 #include "bitarray.h"
+
+#include "catch/catch.hpp"
 
 using namespace Containers;
 

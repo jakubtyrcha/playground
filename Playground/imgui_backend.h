@@ -1,6 +1,7 @@
 #pragma once
 
 #include "gfx.h"
+#include "shader.h"
 
 struct ImDrawData;
 
@@ -9,7 +10,7 @@ namespace Rendering {
 	struct ImGuiRenderer : private Pinned<ImGuiRenderer> {
 		Gfx::Resource font_texture_;
 		Gfx::Device* device_ = nullptr;
-		Gfx::Pipeline pipeline_;
+		Box<Gfx::IPipelineBuilder> pipeline_;
 
 		struct FrameData {
 			Gfx::Resource vertex_buffer_;

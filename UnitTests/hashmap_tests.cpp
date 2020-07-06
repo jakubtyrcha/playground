@@ -1,7 +1,7 @@
-#include "catch/catch.hpp"
-
 #include "hashmap.h"
 #include "copy_move.h"
+
+#include "catch/catch.hpp"
 
 using namespace Containers;
 

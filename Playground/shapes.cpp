@@ -5,79 +5,86 @@
 #include "rendering.h"
 
 namespace Rendering {
+	struct ShapesPipeline : public Gfx::IPipelineBuilder {
+		ImmediateModeShapeRenderer* owner_ = nullptr;
+
+		ShapesPipeline(ImmediateModeShapeRenderer* owner) : owner_(owner) {}
+
+		Box<Gfx::Pipeline> Build() override {
+			D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_desc{};
+			pso_desc.NodeMask = 1;
+			pso_desc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
+			pso_desc.pRootSignature = *owner_->device_->root_signature_;
+			pso_desc.SampleMask = UINT_MAX;
+			pso_desc.NumRenderTargets = 1;
+			pso_desc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+			pso_desc.SampleDesc.Count = 1;
+			pso_desc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
+
+			pso_desc.VS = GetShaderFromShaderFileSource({
+				.file_path = L"../data/shape.hlsl",
+				.entrypoint = L"VsMain",
+				.profile= L"vs_6_0"
+				})->GetBytecode();
+
+			pso_desc.PS = GetShaderFromShaderFileSource({
+				.file_path = L"../data/shape.hlsl",
+				.entrypoint = L"PsMain",
+				.profile= L"ps_6_0"
+				})->GetBytecode();
+			
+			// Create the input layout
+			static D3D12_INPUT_ELEMENT_DESC local_layout[] = {
+				{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,   0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+				{ "COLOR",    0, DXGI_FORMAT_R8G8B8A8_UNORM, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+			};
+			pso_desc.InputLayout = { local_layout, _countof(local_layout) };
+			
+			// Create the blending setup
+			{
+				D3D12_BLEND_DESC& desc = pso_desc.BlendState;
+				desc.AlphaToCoverageEnable = false;
+				desc.RenderTarget[0].BlendEnable = false;
+				desc.RenderTarget[0].LogicOpEnable = false;
+				desc.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+			}
+
+			// Create the rasterizer state
+			{
+				D3D12_RASTERIZER_DESC& desc = pso_desc.RasterizerState;
+				desc.FillMode = D3D12_FILL_MODE_SOLID;
+				desc.CullMode = D3D12_CULL_MODE_NONE;
+				desc.FrontCounterClockwise = FALSE;
+				desc.DepthBias = D3D12_DEFAULT_DEPTH_BIAS;
+				desc.DepthBiasClamp = D3D12_DEFAULT_DEPTH_BIAS_CLAMP;
+				desc.SlopeScaledDepthBias = D3D12_DEFAULT_SLOPE_SCALED_DEPTH_BIAS;
+				desc.DepthClipEnable = true;
+				desc.MultisampleEnable = FALSE;
+				desc.AntialiasedLineEnable = FALSE;
+				desc.ForcedSampleCount = 0;
+				desc.ConservativeRaster = D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF;
+			}
+
+			// Create depth-stencil State
+			{
+				D3D12_DEPTH_STENCIL_DESC& desc = pso_desc.DepthStencilState;
+				desc.DepthEnable = false; //
+				desc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+				desc.DepthFunc = D3D12_COMPARISON_FUNC_GREATER_EQUAL;
+				desc.StencilEnable = false;
+				desc.FrontFace.StencilFailOp = desc.FrontFace.StencilDepthFailOp = desc.FrontFace.StencilPassOp = D3D12_STENCIL_OP_KEEP;
+				desc.FrontFace.StencilFunc = D3D12_COMPARISON_FUNC_ALWAYS;
+				desc.BackFace = desc.FrontFace;
+			}
+
+			return Gfx::Pipeline::From(owner_->device_, pso_desc);
+		}
+	};
+
 	void ImmediateModeShapeRenderer::Init(Gfx::Device* device) {
 		device_ = device;
 
-		D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_desc{};
-		pso_desc.NodeMask = 1;
-		pso_desc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
-		pso_desc.pRootSignature = *device_->root_signature_;
-		pso_desc.SampleMask = UINT_MAX;
-		pso_desc.NumRenderTargets = 1;
-		pso_desc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
-		pso_desc.SampleDesc.Count = 1;
-		pso_desc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
-
-		Gfx::ShaderBlob* vs_bytecode;
-		{
-			vs_bytecode = Gfx::CompileShaderFromFile(L"../data/shape.hlsl", L"../data/shape.hlsl", L"VsMain", L"vs_6_0");
-			pso_desc.VS = { vs_bytecode->GetBufferPointer(), vs_bytecode->GetBufferSize() };
-		}
-
-		// Create the input layout
-		static D3D12_INPUT_ELEMENT_DESC local_layout[] = {
-			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT,   0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-			{ "COLOR",    0, DXGI_FORMAT_R8G8B8A8_UNORM, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-		};
-		pso_desc.InputLayout = { local_layout, _countof(local_layout) };
-
-		Gfx::ShaderBlob* ps_bytecode;
-		{
-			ps_bytecode = Gfx::CompileShaderFromFile(L"../data/shape.hlsl", L"../data/shape.hlsl", L"PsMain", L"ps_6_0");
-			pso_desc.PS = { ps_bytecode->GetBufferPointer(), ps_bytecode->GetBufferSize() };
-		}
-
-		// Create the blending setup
-		{
-			D3D12_BLEND_DESC& desc = pso_desc.BlendState;
-			desc.AlphaToCoverageEnable = false;
-			desc.RenderTarget[0].BlendEnable = false;
-			desc.RenderTarget[0].LogicOpEnable = false;
-			desc.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
-		}
-
-		// Create the rasterizer state
-		{
-			D3D12_RASTERIZER_DESC& desc = pso_desc.RasterizerState;
-			desc.FillMode = D3D12_FILL_MODE_SOLID;
-			desc.CullMode = D3D12_CULL_MODE_NONE;
-			desc.FrontCounterClockwise = FALSE;
-			desc.DepthBias = D3D12_DEFAULT_DEPTH_BIAS;
-			desc.DepthBiasClamp = D3D12_DEFAULT_DEPTH_BIAS_CLAMP;
-			desc.SlopeScaledDepthBias = D3D12_DEFAULT_SLOPE_SCALED_DEPTH_BIAS;
-			desc.DepthClipEnable = true;
-			desc.MultisampleEnable = FALSE;
-			desc.AntialiasedLineEnable = FALSE;
-			desc.ForcedSampleCount = 0;
-			desc.ConservativeRaster = D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF;
-		}
-
-		// Create depth-stencil State
-		{
-			D3D12_DEPTH_STENCIL_DESC& desc = pso_desc.DepthStencilState;
-			desc.DepthEnable = false; //
-			desc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
-			desc.DepthFunc = D3D12_COMPARISON_FUNC_GREATER_EQUAL;
-			desc.StencilEnable = false;
-			desc.FrontFace.StencilFailOp = desc.FrontFace.StencilDepthFailOp = desc.FrontFace.StencilPassOp = D3D12_STENCIL_OP_KEEP;
-			desc.FrontFace.StencilFunc = D3D12_COMPARISON_FUNC_ALWAYS;
-			desc.BackFace = desc.FrontFace;
-		}
-
-		verify_hr(device_->device_->CreateGraphicsPipelineState(&pso_desc, IID_PPV_ARGS(pipeline_.pipeline_.InitAddress())));
-
-		vs_bytecode->Release();
-		ps_bytecode->Release();
+		pipeline_ = MakeBox<ShapesPipeline>(this);
 	}
 
 	void ImmediateModeShapeRenderer::Render(Gfx::Encoder* encoder, Viewport* viewport, D3D12_CPU_DESCRIPTOR_HANDLE rtv_handle) {
@@ -118,7 +125,7 @@ namespace Rendering {
 		encoder->GetCmdList()->IASetVertexBuffers(0, 1, &vbv);
 		encoder->GetCmdList()->IASetIndexBuffer(nullptr);
 		encoder->GetCmdList()->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
-		encoder->GetCmdList()->SetPipelineState(*pipeline_.pipeline_);
+		encoder->GetCmdList()->SetPipelineState(pipeline_->GetPSO());
 
 		frame_data.constant_buffers_.PushBackRvalueRef(std::move(device_->CreateBuffer(D3D12_HEAP_TYPE_UPLOAD, AlignedForward(64, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT), DXGI_FORMAT_UNKNOWN, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ)));
 

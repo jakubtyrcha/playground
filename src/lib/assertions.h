@@ -1,5 +1,7 @@
 #pragma once
 
+// TODO: rename assert macros to avoid collision with other APIs 
+
 #include <debug_assert/debug_assert.hpp>
 
 struct default_module
