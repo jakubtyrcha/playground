@@ -104,3 +104,43 @@ TEST_CASE("hashtable can store ptrs", "[hashtable]") {
 
 	h.Insert(nullptr, 0);
 }
+
+TEST_CASE("hashtable can store moveable values", "[hashtable]") {
+	struct MoveMe : private MoveableNonCopyable<MoveMe>
+	{
+		int* ptr = nullptr;
+
+		MoveMe() = default;
+		MoveMe(int* x) : ptr(x) { if (ptr) { (*ptr)++; } }
+		~MoveMe() { if (ptr) { (*ptr)--; } }
+
+		MoveMe(MoveMe&& other) { ptr = other.ptr; other.ptr = nullptr; }
+		MoveMe& operator=(MoveMe&& other) { ptr = other.ptr; other.ptr = nullptr; return *this; }
+	};
+
+	int x = 0;
+
+	Hashmap<i32, MoveMe> h;
+
+	for(int i=0; i< 100; i++) {
+		h.Insert(i, MoveMe{&x});
+	}
+
+	REQUIRE(x == 100);
+
+	for(int i=0; i<80;i++) {
+		h.Remove(i);
+	}
+	
+	REQUIRE(x == 20);
+	
+	i64 old_capacity = h.Capacity();
+
+	h.Shrink();
+	
+	REQUIRE(x == 20);
+	REQUIRE(old_capacity > h.Capacity());
+}
+
+TEST_CASE("hashtable ", "[hashtable]") {
+}

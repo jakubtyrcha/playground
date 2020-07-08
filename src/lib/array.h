@@ -303,7 +303,11 @@ namespace Containers
 					return i;
 				}
 			}
-			return {};
+			return Core::NullOpt;
+		}
+
+		bool Contains(const T& item) const {
+			return bool{Find(item)};
 		}
 
 		T& First() {

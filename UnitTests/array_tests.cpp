@@ -69,3 +69,18 @@ TEST_CASE("arrays can be store moveable objects", "[array]")
 
 	REQUIRE(x == 0);
 }
+
+TEST_CASE("array can searched", "[array]")
+{
+	Array<int> a;
+	a.PushBack(0);
+	a.PushBack(1);
+
+	REQUIRE(a.Contains(0));
+	REQUIRE(a.Contains(1));
+	REQUIRE(!a.Contains(2));
+
+	REQUIRE(a.Find(0) == 0);
+	REQUIRE(a.Find(1) == 1);
+	REQUIRE(a.Find(2) == Core::NullOpt);
+}

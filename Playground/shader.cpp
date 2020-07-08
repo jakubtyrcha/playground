@@ -243,7 +243,7 @@ namespace Gfx {
 
 		Box<IShaderSource> shader = MakeBox<StaticShaderSource>(desc);
 		IShaderSource * ptr = shader.get();
-		shaders_.InsertRvalueRef(hash, std::move(shader));
+		shaders_.Insert(hash, std::move(shader));
 
 		return ptr;
 	}
@@ -260,7 +260,7 @@ namespace Gfx {
 
 		Box<IShaderSource> shader = MakeBox<FileShaderSource>(desc);
 		IShaderSource * ptr = shader.get();
-		shaders_.InsertRvalueRef(hash, std::move(shader));
+		shaders_.Insert(hash, std::move(shader));
 
 		return ptr;
 	}
