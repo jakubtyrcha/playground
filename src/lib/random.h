@@ -1,10 +1,10 @@
 #pragma once
 
-#include "copy_move.h"
+#include "box.h"
 #include "types.h"
 
 namespace Random {
-struct Generator : private Pinned<Generator> {
+struct Generator : private Core::Pinned<Generator> {
     void* state_ = nullptr;
 
     Generator(u32 seed = 0);

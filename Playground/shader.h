@@ -1,4 +1,9 @@
 #pragma once
+#include "Array.h"
+#include "Box.h"
+#include "Gfx.h"
+
+struct D3D12_SHADER_BYTECODE;
 
 // TODO: move to a separate file
 namespace Core {
@@ -41,7 +46,7 @@ struct ShaderFileSourceDesc {
 };
 
 struct StaticShaderSource : public IShaderSource {
-    Array<u8> bytecode_;
+    Containers::Array<u8> bytecode_;
 
     StaticShaderSource(ShaderStaticSourceDesc desc);
 
@@ -59,14 +64,14 @@ struct FileShaderSource : public IShaderSource {
     Core::String profile_;
 
     u64 hash_;
-    Array<u8> bytecode_;
+    Containers::Array<u8> bytecode_;
     Core::Optional<u64> pending_hash_;
-    Core::Optional<Array<u8>> pending_bytecode_;
+    Core::Optional<Containers::Array<u8>> pending_bytecode_;
 
     FileShaderSource(ShaderFileSourceDesc desc);
 
     Core::Optional<u64> Preprocess();
-    Core::Optional<Array<u8>> Compile();
+    Core::Optional<Containers::Array<u8>> Compile();
 
     bool IsTransitionPending() override;
     ShaderReloadResult BeginReload() override;
@@ -77,14 +82,14 @@ struct FileShaderSource : public IShaderSource {
 };
 
 struct IPipelineBuilder {
-    Box<Pipeline> pipeline_;
-    Array<IShaderSource*> shaders_;
+    Core::Box<Pipeline> pipeline_;
+    Containers::Array<IShaderSource*> shaders_;
 
-    Core::Optional<Box<Pipeline>> pending_pipeline_;
+    Core::Optional<Core::Box<Pipeline>> pending_pipeline_;
 
     IPipelineBuilder();
     virtual ~IPipelineBuilder();
-    virtual Box<Pipeline> Build() = 0;
+    virtual Core::Box<Pipeline> Build() = 0;
 
     ShaderReloadResult BeginRecreate();
     void CommitRecreate();

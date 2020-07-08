@@ -4,6 +4,7 @@
 #include "rendering.h"
 #include "shader.h"
 
+using namespace Core;
 using namespace Containers;
 
 namespace Rendering {

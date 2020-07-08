@@ -1,8 +1,9 @@
-#include "copy_move.h"
+#include "box.h"
 #include "hashmap.h"
 
 #include "catch/catch.hpp"
 
+using namespace Core;
 using namespace Containers;
 
 TEST_CASE("hashtable can be inserted and accessed", "[hashtable]")

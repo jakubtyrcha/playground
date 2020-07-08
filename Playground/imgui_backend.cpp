@@ -4,6 +4,9 @@
 #include "shader.h"
 #include <imgui/imgui.h>
 
+using namespace Core;
+using namespace Containers;
+
 namespace Rendering {
 
 struct ImGuiPipeline : public Gfx::IPipelineBuilder {

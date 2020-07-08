@@ -16,7 +16,7 @@ namespace Rendering {
 
 	struct ImmediateModeShapeRenderer {
 		Gfx::Device* device_ = nullptr;
-		Box<Gfx::IPipelineBuilder> pipeline_;
+		Core::Box<Gfx::IPipelineBuilder> pipeline_;
 
 		struct FrameData {
 			Gfx::Resource vertex_buffer_;

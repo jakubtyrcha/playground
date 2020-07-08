@@ -3,6 +3,9 @@
 #include "gfx.h"
 #include "os.h"
 
+using namespace Core;
+using namespace Containers;
+
 namespace Gfx {
 bool SubresourceDesc::operator==(SubresourceDesc other) const
 {

@@ -70,7 +70,7 @@ struct TransitionGraph {
     Hashmap<SubresourceDesc, D3D12_RESOURCE_STATES> last_transitioned_state_;
 
     struct Node {
-        Box<Pass> pass;
+        Core::Box<Pass> pass;
         Node* edge = nullptr;
     };
 
@@ -78,8 +78,8 @@ struct TransitionGraph {
     // poor man's ownership
     // keep history for split barriers
     i32 max_depth_ = 100;
-    Array<Box<Node>> pending_nodes_;
-    Hashmap<Node*, i32> node_index_;
+    Containers::Array<Core::Box<Node>> pending_nodes_;
+    Containers::Hashmap<Node*, i32> node_index_;
 
     Node* root_ = nullptr;
     Node* tail_ = nullptr;
@@ -147,7 +147,7 @@ struct DescriptorHeap {
     // TODO: this is hardcoded for the current shared RootSignature, make this data driven
 };
 
-struct Device : private Pinned<Device> {
+struct Device : private Core::Pinned<Device> {
     Com::Box<IDXGIFactory4> dxgi_factory_;
     Com::Box<IDXGIAdapter1> adapter_;
     Com::Box<ID3D12Device> device_;
@@ -168,14 +168,14 @@ struct Device : private Pinned<Device> {
         i32 generation = 0;
         bool pending = false;
     };
-    Array<WaitableSlot> waitables_pool_;
+    Containers::Array<WaitableSlot> waitables_pool_;
     // TODO: queue candidate
-    Array<Waitable> waitables_pending_;
+    Containers::Array<Waitable> waitables_pending_;
 
-    Array<Com::Box<ID3D12CommandAllocator>> cmd_allocators_;
-    Array<Com::Box<ID3D12CommandList>> cmd_lists_;
+    Containers::Array<Com::Box<ID3D12CommandAllocator>> cmd_allocators_;
+    Containers::Array<Com::Box<ID3D12CommandList>> cmd_lists_;
 
-    Array<Box<Swapchain>> swapchains_;
+    Containers::Array<Core::Box<Swapchain>> swapchains_;
 
     TransitionGraph graph_;
 
@@ -201,12 +201,12 @@ struct Device : private Pinned<Device> {
     Resource CreateTexture2D(D3D12_HEAP_TYPE heap_type, Vector2i size, DXGI_FORMAT format, i32 miplevels, D3D12_RESOURCE_FLAGS flags, D3D12_RESOURCE_STATES initial_state);
 };
 
-struct Encoder : private MoveableNonCopyable<Encoder> {
+struct Encoder : private Core::MoveableNonCopyable<Encoder> {
     Device* device_ = nullptr;
 
     Com::Box<ID3D12CommandAllocator> cmd_allocator_;
     Com::Box<ID3D12CommandList> cmd_list_;
-    Array<Waitable> waitables_to_trigger_;
+    Containers::Array<Waitable> waitables_to_trigger_;
 
     ID3D12GraphicsCommandList* GetCmdList();
 
@@ -226,7 +226,7 @@ struct Encoder : private MoveableNonCopyable<Encoder> {
     void Submit();
 };
 
-struct Swapchain : private Pinned<Swapchain> {
+struct Swapchain : private Core::Pinned<Swapchain> {
     Device* device_ = nullptr;
     Os::Window* window_ = nullptr;
 
@@ -239,7 +239,7 @@ struct Swapchain : private Pinned<Swapchain> {
     void Recreate();
 };
 
-struct Resource : private MoveableNonCopyable<Resource> {
+struct Resource : private Core::MoveableNonCopyable<Resource> {
     Resource() = default;
     ~Resource();
 
@@ -254,10 +254,10 @@ struct Resource : private MoveableNonCopyable<Resource> {
     Com::Box<D3D12MA::Allocation> allocation_;
 };
 
-struct Pipeline : private MoveableNonCopyable<Resource> {
+struct Pipeline : private Core::MoveableNonCopyable<Resource> {
     Com::Box<ID3D12PipelineState> pipeline_;
 
-    static Box<Pipeline> From(Device* device, D3D12_GRAPHICS_PIPELINE_STATE_DESC const& desc);
+    static Core::Box<Pipeline> From(Device* device, D3D12_GRAPHICS_PIPELINE_STATE_DESC const& desc);
 };
 
 struct Pass {

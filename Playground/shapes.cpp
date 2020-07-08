@@ -4,6 +4,8 @@
 #include "shader.h"
 #include "shapes.h"
 
+using namespace Core;
+
 namespace Rendering {
 struct ShapesPipeline : public Gfx::IPipelineBuilder {
     ImmediateModeShapeRenderer* owner_ = nullptr;

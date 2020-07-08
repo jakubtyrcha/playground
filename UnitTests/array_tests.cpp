@@ -1,8 +1,9 @@
 #include "array.h"
-#include "copy_move.h"
+#include "box.h"
 
 #include "catch/catch.hpp"
 
+using namespace Core;
 using namespace Containers;
 
 TEST_CASE("arrays can be resized and accessed", "[array]")

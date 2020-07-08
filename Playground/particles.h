@@ -3,6 +3,7 @@
 #include "gfx.h"
 #include "random.h"
 #include "shader.h"
+#include "box.h"
 
 namespace Rendering {
 struct Viewport;
@@ -29,7 +30,7 @@ struct PolygonParticleGenerator {
     Vector2i resolution_;
     Gfx::Resource state_positions_texture_;
 
-    Box<Gfx::IPipelineBuilder> pipeline_;
+    Core::Box<Gfx::IPipelineBuilder> pipeline_;
 
     Gfx::Pass* update_positions_pass_ = nullptr;
     Gfx::Pass* particle_pass_ = nullptr;
