@@ -26,6 +26,8 @@ namespace Os
 namespace Gfx
 {
 	template<typename T> using Optional = Corrade::Containers::Optional<T>;
+	constexpr Corrade::Containers::NullOptT NullOpt = Corrade::Containers::NullOpt;
+	
 
 	using namespace Containers;
 
@@ -194,6 +196,7 @@ namespace Gfx
 
 		Encoder CreateEncoder();
 		Swapchain* CreateSwapchain(Os::Window*, i32 num_backbuffers);
+
 		Resource CreateBuffer(D3D12_HEAP_TYPE heap_type, i64 size, DXGI_FORMAT format, D3D12_RESOURCE_FLAGS flags, D3D12_RESOURCE_STATES initial_state);
 		Resource CreateTexture1D(D3D12_HEAP_TYPE heap_type, i64 size, DXGI_FORMAT format, i32 miplevels, D3D12_RESOURCE_FLAGS flags, D3D12_RESOURCE_STATES initial_state);
 		Resource CreateTexture2D(D3D12_HEAP_TYPE heap_type, Vector2i size, DXGI_FORMAT format, i32 miplevels, D3D12_RESOURCE_FLAGS flags, D3D12_RESOURCE_STATES initial_state);

@@ -21,6 +21,7 @@ namespace Gfx {
 	struct IShaderSource {
 		u64 identifier_ = 0;
 
+		virtual bool IsTransitionPending() = 0;
 		virtual ShaderReloadResult BeginReload() = 0;
 		virtual void CommitReload() = 0;
 		virtual void DropReload() = 0;
@@ -44,6 +45,7 @@ namespace Gfx {
 
 		StaticShaderSource(ShaderStaticSourceDesc desc);
 
+		bool IsTransitionPending() override;
 		ShaderReloadResult BeginReload() override;
 		void CommitReload() override;
 		void DropReload() override;
@@ -56,12 +58,17 @@ namespace Gfx {
 		Core::String entrypoint_;
 		Core::String profile_;
 
-		Optional<u64> content_hash_;
+		u64 hash_;
 		Array<u8> bytecode_;
+		Optional<u64> pending_hash_;
 		Optional<Array<u8>> pending_bytecode_;
 
 		FileShaderSource(ShaderFileSourceDesc desc);
 
+		Optional<u64> Preprocess();
+		Optional<Array<u8>> Compile();
+
+		bool IsTransitionPending() override;
 		ShaderReloadResult BeginReload() override;
 		void CommitReload() override;
 		void DropReload() override;
@@ -71,6 +78,9 @@ namespace Gfx {
 
 	struct IPipelineBuilder {
 		Box<Pipeline> pipeline_;
+		Array<IShaderSource*> shaders_;
+
+		Optional<Box<Pipeline>> pending_pipeline_;
 
 		IPipelineBuilder();
 		virtual ~IPipelineBuilder();
@@ -85,4 +95,6 @@ namespace Gfx {
 		IShaderSource* GetShaderFromStaticSource(ShaderStaticSourceDesc);
 		IShaderSource* GetShaderFromShaderFileSource(ShaderFileSourceDesc);
 	};
+
+	void ReloadShaders();
 }

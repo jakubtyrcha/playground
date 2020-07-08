@@ -170,7 +170,7 @@ namespace Rendering {
 
 		accumulated_time_ += time_delta;
 
-		while(accumulated_time_ >= inv_spawn_rate_) {
+		while(accumulated_time_ >= inv_spawn_rate_ && num_particles_ < pages_pool_.Size() * PAGE_SIZE) {
 			_SpawnParticle();
 			accumulated_time_ -= inv_spawn_rate_;
 		}

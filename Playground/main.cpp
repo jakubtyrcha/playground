@@ -83,7 +83,7 @@ int main(int argc, char** argv)
 	};
 
 	ScreenResources screen_resources{ .resolution = window->resolution_ };
-	screen_resources.random_access_texture = device.CreateTexture2D(D3D12_HEAP_TYPE_DEFAULT, window->resolution_, DXGI_FORMAT_R8G8B8A8_UNORM, 1, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS | D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	screen_resources.random_access_texture = device.CreateTexture2D(D3D12_HEAP_TYPE_DEFAULT, window->resolution_, DXGI_FORMAT_R8G8B8A8_UNORM, 1, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET, D3D12_RESOURCE_STATE_RENDER_TARGET);
 	screen_resources.depth_buffer = device.CreateTexture2D(D3D12_HEAP_TYPE_DEFAULT, window->resolution_, DXGI_FORMAT_R24G8_TYPELESS, 1, D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL, D3D12_RESOURCE_STATE_DEPTH_WRITE);
 
 	int frames_ctr = 3;
@@ -134,6 +134,14 @@ int main(int argc, char** argv)
 		}
 		if(window->user_input_.keys_down_['D']) {
 			main_viewport.TranslateCamera(main_viewport.GetRightVector() * camera_sensivity);
+		}
+
+		if(window->user_input_.keys_down_['R'] && window->user_input_.keys_down_[0x10]) {
+			while(frame_waitables.Size()) {
+				frame_waitables.RemoveAt(0).Wait();
+			}
+
+			Gfx::ReloadShaders();
 		}
 
 		ImGuiIO& io = ImGui::GetIO();

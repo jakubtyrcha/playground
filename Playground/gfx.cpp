@@ -430,11 +430,17 @@ namespace Gfx
 		D3D12MA::ALLOCATION_DESC allocation_desc = {};
 		allocation_desc.HeapType = heap_type;
 
+		// TODO: make this an arg
+		D3D12_CLEAR_VALUE clear_value {
+			.Format = format,
+			.Color = {}
+		};
+
 		verify_hr(allocator_->CreateResource(
 			&allocation_desc,
 			&resource_desc,
 			initial_state,
-			NULL,
+			!!(resource_desc.Flags & D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET) ? &clear_value : nullptr,
 			result.allocation_.InitAddress(),
 			IID_PPV_ARGS(result.resource_.InitAddress())));
 

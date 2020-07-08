@@ -13,12 +13,14 @@ namespace Gfx {
 		dxc::DxcDllSupport dxc_dll_support_;
 		IDxcCompiler* compiler_ = nullptr;
 		IDxcLibrary* library_ = nullptr;
+		IDxcIncludeHandler* include_handler_ = nullptr;
 
 		Compiler() {
 			dxc_dll_support_.Initialize();
 
 			verify_hr(dxc_dll_support_.CreateInstance(CLSID_DxcCompiler, &compiler_));
 			verify_hr(dxc_dll_support_.CreateInstance(CLSID_DxcLibrary, &library_));
+			verify_hr(library_->CreateIncludeHandler(&include_handler_));
 		}
 
 		~Compiler() {
@@ -29,18 +31,15 @@ namespace Gfx {
 			return instance;
 		}
 
-		IDxcBlob* CompileShader(
+		IDxcBlob* PreprocessShader(
 			IDxcBlob* source,
-			IDxcIncludeHandler* include_handler,
-			const wchar_t* file_name,
-			const wchar_t* entrypoint,
-			const wchar_t* target
+			const wchar_t* file_name
 		)
 		{
 			IDxcOperationResult* operation_result;
 
-			HRESULT hr = compiler_->Compile(source, file_name, entrypoint, target, nullptr, 0,
-				nullptr, 0, include_handler, &operation_result);
+			HRESULT hr = compiler_->Preprocess(source, file_name, nullptr, 0,
+				nullptr, 0, include_handler_, &operation_result);
 			if (SUCCEEDED(hr)) {
 				// TODO: print warning
 				ID3DBlob* error_messages = nullptr;
@@ -54,6 +53,7 @@ namespace Gfx {
 
 				IDxcBlob* bytecode;
 				verify_hr(operation_result->GetResult((IDxcBlob**)&bytecode));
+				operation_result->Release();
 				return bytecode;
 			}
 			else {
@@ -61,6 +61,48 @@ namespace Gfx {
 				verify_hr(operation_result->GetErrorBuffer((IDxcBlobEncoding**)&error_messages));
 				fmt::print("Failed to compile shader: {}", (const char*)error_messages->GetBufferPointer());
 				error_messages->Release();
+				operation_result->Release();
+
+				return nullptr;
+			}
+
+			DEBUG_UNREACHABLE(default_module{});
+			return nullptr;
+		}
+
+		IDxcBlob* CompileShader(
+			IDxcBlob* source,
+			const wchar_t* file_name,
+			const wchar_t* entrypoint,
+			const wchar_t* target
+		)
+		{
+			IDxcOperationResult* operation_result;
+
+			HRESULT hr = compiler_->Compile(source, file_name, entrypoint, target, nullptr, 0,
+				nullptr, 0, include_handler_, &operation_result);
+			if (SUCCEEDED(hr)) {
+				// TODO: print warning
+				ID3DBlob* error_messages = nullptr;
+				if (SUCCEEDED(operation_result->GetErrorBuffer((IDxcBlobEncoding**)&error_messages))) {
+					if (error_messages->GetBufferPointer()) {
+						fmt::print("Compiled shader with warnings: {}", (const char*)error_messages->GetBufferPointer());
+					}
+
+					error_messages->Release();
+				}
+
+				IDxcBlob* bytecode;
+				verify_hr(operation_result->GetResult((IDxcBlob**)&bytecode));
+				operation_result->Release();
+				return bytecode;
+			}
+			else {
+				ID3DBlob* error_messages;
+				verify_hr(operation_result->GetErrorBuffer((IDxcBlobEncoding**)&error_messages));
+				fmt::print("Failed to compile shader: {}", (const char*)error_messages->GetBufferPointer());
+				error_messages->Release();
+				operation_result->Release();
 
 				return nullptr;
 			}
@@ -112,14 +154,38 @@ namespace Gfx {
 	//
 
 	ShaderReloadResult IPipelineBuilder::BeginRecreate() {
-		return ShaderReloadResult::RecompileFail;
+		assert(!pending_pipeline_);
+
+		bool changed = false;
+		for(IShaderSource * source : shaders_) {
+			if(source->IsTransitionPending()) {
+				changed = true;
+				break;
+			}
+		}
+
+		if(!changed) {
+			return ShaderReloadResult::NoChange;
+		}
+
+		pending_pipeline_ = Build();
+
+		if(!pending_pipeline_) {
+			return ShaderReloadResult::RecompileFail;
+		}
+
+		return ShaderReloadResult::RecompileOk;
 	}
 
 	void IPipelineBuilder::CommitRecreate() {
-
+		assert(pending_pipeline_);
+		pipeline_ = std::move(*pending_pipeline_);
+		pending_pipeline_ = NullOpt;
 	}
 
 	void IPipelineBuilder::DropRecreate() {
+		assert(pending_pipeline_);
+		pending_pipeline_ = NullOpt;
 	}
 
 	ID3D12PipelineState * IPipelineBuilder::GetPSO() {
@@ -139,15 +205,26 @@ namespace Gfx {
 		void Register(IPipelineBuilder*);
 		void Deregister(IPipelineBuilder*);
 
+		void Reload();
+
 		static ShaderCache& GetInstance();
 	};
 
 	IShaderSource* IPipelineBuilder::GetShaderFromStaticSource(ShaderStaticSourceDesc desc) {
-		return ShaderCache::GetInstance().GetShaderFromStaticSource(desc);
+		// TODO: time for a set?
+		IShaderSource* shader = ShaderCache::GetInstance().GetShaderFromStaticSource(desc);
+		if(!shaders_.Find(shader)) {
+			shaders_.PushBack(shader);
+		}
+		return shader;
 	}
 
 	IShaderSource* IPipelineBuilder::GetShaderFromShaderFileSource(ShaderFileSourceDesc desc) {
-		return ShaderCache::GetInstance().GetShaderFromShaderFileSource(desc);
+		IShaderSource* shader = ShaderCache::GetInstance().GetShaderFromShaderFileSource(desc);
+		if(!shaders_.Find(shader)) {
+			shaders_.PushBack(shader);
+		}
+		return shader;
 	}
 
 	ShaderCache& ShaderCache::GetInstance() {
@@ -202,70 +279,169 @@ namespace Gfx {
 		}
 	}
 
+	void ShaderCache::Reload() {
+		// TODO: fix iteration
+		//for(Box<IShaderSource>& shader : shaders_) {
+		bool failed = false;
+
+		Array<IShaderSource*> modified_shaders;
+
+		for(decltype(shaders_)::Iterator iter = shaders_.begin(); iter != shaders_.end(); ++iter) {
+			ShaderReloadResult result = iter.Value()->BeginReload();
+			if(result == ShaderReloadResult::RecompileFail) {
+				failed = true;
+				break;
+			}
+			else if(result == ShaderReloadResult::RecompileOk) {
+				modified_shaders.PushBack(iter.Value().get());
+			}
+		}
+
+		if(failed == true) {
+			for(IShaderSource * shader : modified_shaders) {
+				shader->DropReload();
+			}
+			return;
+		}
+
+		Array<IPipelineBuilder*> modified_pipelines;
+		
+		for(IPipelineBuilder * pipeline : pipelines_) {
+			ShaderReloadResult result = pipeline->BeginRecreate();
+			if(result == ShaderReloadResult::RecompileFail) {
+				failed = true;
+				break;
+			}
+			else if(result == ShaderReloadResult::RecompileOk) {
+				modified_pipelines.PushBack(pipeline);
+			}
+		}
+
+		if(failed) {
+			for(IShaderSource * shader : modified_shaders) {
+				shader->DropReload();
+			}
+
+			for(IPipelineBuilder * pipeline : modified_pipelines) {
+				pipeline->DropRecreate();
+			}
+
+			return;
+		}
+
+		for(IShaderSource * shader : modified_shaders) {
+			shader->CommitReload();
+		}
+
+		for(IPipelineBuilder * pipeline : modified_pipelines) {
+			pipeline->CommitRecreate();
+		}
+	}
+
 	//
+
+	Optional<Array<u8>> FileShaderSource::Compile()
+	{
+		IDxcBlobEncoding* source_blob;
+		verify_hr(Compiler::GetInstance().library_->CreateBlobFromFile(file_path_, nullptr, &source_blob));
+
+		IDxcBlob * compiled_blob = Compiler::GetInstance().CompileShader(source_blob, file_path_, entrypoint_, profile_);
+		source_blob->Release();
+
+		if(!compiled_blob) {
+			return {};
+		}
+
+		Array<u8> bytecode = Array<u8>::From(static_cast<u8*>(compiled_blob->GetBufferPointer()), compiled_blob->GetBufferSize());
+		
+		compiled_blob->Release();
+
+		return bytecode;
+	}
+
+	Optional<u64> FileShaderSource::Preprocess() {
+		IDxcBlobEncoding* source_blob = nullptr;
+		// TODO: reading the file twice is a bit wasteful
+		verify_hr(Compiler::GetInstance().library_->CreateBlobFromFile(file_path_, nullptr, &source_blob));
+
+		IDxcBlob * preprocessed_blob = Compiler::GetInstance().PreprocessShader(source_blob, file_path_);
+		source_blob->Release();
+
+		u64 hash = Hash::HashMemory(preprocessed_blob->GetBufferPointer(), preprocessed_blob->GetBufferSize());
+
+		preprocessed_blob->Release();
+		return hash;
+	}
 
 	FileShaderSource::FileShaderSource(ShaderFileSourceDesc desc) :
 		file_path_(desc.file_path),
 		entrypoint_(desc.entrypoint),
 		profile_(desc.profile)
 	{
-		BeginReload();
-		bytecode_ = std::move(*pending_bytecode_);
-		pending_bytecode_ = {};
+		Optional<Array<u8>> maybe_bytecode = Compile();
+		assert(maybe_bytecode);
+		bytecode_ = std::move(*maybe_bytecode);
+		hash_ = *Preprocess();
 	}
 
 	ShaderReloadResult FileShaderSource::BeginReload() {
 		assert(!pending_bytecode_);
 
-		IDxcBlobEncoding* source_blob;
-		verify_hr(Compiler::GetInstance().library_->CreateBlobFromFile(file_path_, nullptr, &source_blob));
-
-		// TODO: hash preprocessed file instead
-		u64 content_hash = Hash::HashMemory(source_blob->GetBufferPointer(), source_blob->GetBufferSize());
-
-		if(content_hash_ && content_hash_ == content_hash) {
+		Optional<u64> hash = Preprocess();
+		if(!hash) {
+			return ShaderReloadResult::RecompileFail;
+		}
+		if(hash == hash_) {
 			return ShaderReloadResult::NoChange;
 		}
 
-		static IDxcIncludeHandler* include_handler;
-		if (!include_handler) {
-			verify_hr(Compiler::GetInstance().library_->CreateIncludeHandler(&include_handler));
-		}
+		pending_bytecode_ = Compile();
 
-		IDxcBlob * compiled_blob = Compiler::GetInstance().CompileShader(source_blob, include_handler, file_path_, entrypoint_, profile_);
-		source_blob->Release();
-
-		if(!compiled_blob) {
+		if(!pending_bytecode_) {
 			return ShaderReloadResult::RecompileFail;
 		}
 
-		pending_bytecode_ = Array<u8>::From(static_cast<u8*>(compiled_blob->GetBufferPointer()), compiled_blob->GetBufferSize());
-		compiled_blob->Release();
+		pending_hash_ = hash;
 
 		return ShaderReloadResult::RecompileOk;
 	}
 
+	bool FileShaderSource::IsTransitionPending() {
+		return bool{pending_bytecode_};
+	}
+
 	void FileShaderSource::CommitReload() {
-		DEBUG_UNREACHABLE(default_module{});
+		assert(pending_bytecode_ && pending_hash_);
+		bytecode_ = std::move(*pending_bytecode_);
+		hash_ = *pending_hash_;
+		pending_bytecode_ = NullOpt;
+		pending_hash_ = NullOpt;
 	}
 
 	void FileShaderSource::DropReload() {
-		DEBUG_UNREACHABLE(default_module{});
+		assert(pending_bytecode_ && pending_hash_);
+		pending_bytecode_ = NullOpt;
+		pending_hash_ = NullOpt;
 	}
 
 	D3D12_SHADER_BYTECODE FileShaderSource::GetBytecode() {
+		if(pending_bytecode_) {
+			return { .pShaderBytecode = pending_bytecode_->Data(), .BytecodeLength = static_cast<u64>(pending_bytecode_->Size()) };
+		}
+
 		return { .pShaderBytecode = bytecode_.Data(), .BytecodeLength = static_cast<u64>(bytecode_.Size()) };
 	}
 
 	StaticShaderSource::StaticShaderSource(ShaderStaticSourceDesc desc) {
 		IDxcBlob * source_blob = Wrap(desc.source, strlen(desc.source));
-
-		IDxcBlob * compiled_blob = Compiler::GetInstance().CompileShader(source_blob, nullptr, L"[static_shader]", desc.entrypoint, desc.profile);
-
+		IDxcBlob * compiled_blob = Compiler::GetInstance().CompileShader(source_blob, L"[static_shader]", desc.entrypoint, desc.profile);
 		bytecode_ = Array<u8>::From(static_cast<u8*>(compiled_blob->GetBufferPointer()), compiled_blob->GetBufferSize());
-
 		source_blob->Release();
 		compiled_blob->Release();
+	}
+
+	bool StaticShaderSource::IsTransitionPending() {
+		return false;
 	}
 
 	ShaderReloadResult StaticShaderSource::BeginReload() {
@@ -290,6 +466,10 @@ namespace Gfx {
 
 	IPipelineBuilder::~IPipelineBuilder() {
 		ShaderCache::GetInstance().Deregister(this);
+	}
+
+	void ReloadShaders() {
+		ShaderCache::GetInstance().Reload();
 	}
 }
 

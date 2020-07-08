@@ -299,7 +299,7 @@ namespace Containers
 
 		Core::Optional<i64> Find(const T& item) const {
 			for(i64 i = 0, N = Size(); i<N; i++) {
-				if(At[i] == item) {
+				if(data_[i] == item) {
 					return i;
 				}
 			}

@@ -177,7 +177,7 @@ PS_OUTPUT PsMain(PS_INPUT input) {
     float3 N = normalize(hit - sphere.center);
     float3 V = -ray_dir;
 
-    output.colour = float4(dot(N, V) * frac(sphere.center), 1.f);
+    output.colour = float4(frac(sphere.center), 1.f);
     output.depth = 1;
     return output;
 }
