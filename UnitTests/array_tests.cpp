@@ -5,82 +5,97 @@
 
 using namespace Containers;
 
-TEST_CASE("arrays can be resized and accessed", "[array]") {
-	Array<int> array;
-	array.ResizeUninitialised(16);
-	for (int i = 0; i < 16; i++)
-	{
-		array.At(i) = i;
-	}
-	array.Reserve(64);
-	array.ResizeUninitialised(50);
-	for (int i = 16; i < 50; i++)
-	{
-		array.At(i) = i;
-	}
+TEST_CASE("arrays can be resized and accessed", "[array]")
+{
+    Array<int> array;
+    array.ResizeUninitialised(16);
+    for (int i = 0; i < 16; i++) {
+        array.At(i) = i;
+    }
+    array.Reserve(64);
+    array.ResizeUninitialised(50);
+    for (int i = 16; i < 50; i++) {
+        array.At(i) = i;
+    }
 
-	for (int i = 0; i < 50; i++)
-	{
-		REQUIRE(array.At(i) == i);
-	}
+    for (int i = 0; i < 50; i++) {
+        REQUIRE(array.At(i) == i);
+    }
 }
 
 TEST_CASE("arrays can be shrinked", "[array]")
 {
-	Array<int> array;
-	array.ResizeUninitialised(1024);
-	array.At(511) = 1;
-	array.ResizeUninitialised(512);
-	array.Shrink();
-	REQUIRE(array.At(511) == 1);
-	REQUIRE(array.Size() == 512);
-	array.ResizeUninitialised(0);
-	array.Shrink();
+    Array<int> array;
+    array.ResizeUninitialised(1024);
+    array.At(511) = 1;
+    array.ResizeUninitialised(512);
+    array.Shrink();
+    REQUIRE(array.At(511) == 1);
+    REQUIRE(array.Size() == 512);
+    array.ResizeUninitialised(0);
+    array.Shrink();
 }
 
 TEST_CASE("arrays can be store moveable objects", "[array]")
 {
-	struct MoveMe : private MoveableNonCopyable<MoveMe>
-	{
-		int* ptr = nullptr;
+    struct MoveMe : private MoveableNonCopyable<MoveMe> {
+        int* ptr = nullptr;
 
-		MoveMe() = default;
-		MoveMe(int* x) : ptr(x) { if (ptr) { (*ptr)++; } }
-		~MoveMe() { if (ptr) { (*ptr)--; } }
+        MoveMe() = default;
+        MoveMe(int* x)
+            : ptr(x)
+        {
+            if (ptr) {
+                (*ptr)++;
+            }
+        }
+        ~MoveMe()
+        {
+            if (ptr) {
+                (*ptr)--;
+            }
+        }
 
-		MoveMe(MoveMe&& other) { ptr = other.ptr; other.ptr = nullptr; }
-		MoveMe& operator=(MoveMe&& other) { ptr = other.ptr; other.ptr = nullptr; return *this; }
-	};
+        MoveMe(MoveMe&& other)
+        {
+            ptr = other.ptr;
+            other.ptr = nullptr;
+        }
+        MoveMe& operator=(MoveMe&& other)
+        {
+            ptr = other.ptr;
+            other.ptr = nullptr;
+            return *this;
+        }
+    };
 
-	int x = 0;
+    int x = 0;
 
-	Array<MoveMe> array;
-	for (int i = 0; i < 1000; i++)
-	{
-		array.PushBackRvalueRef(MoveMe(&x));
-	}
+    Array<MoveMe> array;
+    for (int i = 0; i < 1000; i++) {
+        array.PushBackRvalueRef(MoveMe(&x));
+    }
 
-	REQUIRE(x == 1000);
+    REQUIRE(x == 1000);
 
-	while (array.Size())
-	{
-		array.PopBack();
-	}
+    while (array.Size()) {
+        array.PopBack();
+    }
 
-	REQUIRE(x == 0);
+    REQUIRE(x == 0);
 }
 
 TEST_CASE("array can searched", "[array]")
 {
-	Array<int> a;
-	a.PushBack(0);
-	a.PushBack(1);
+    Array<int> a;
+    a.PushBack(0);
+    a.PushBack(1);
 
-	REQUIRE(a.Contains(0));
-	REQUIRE(a.Contains(1));
-	REQUIRE(!a.Contains(2));
+    REQUIRE(a.Contains(0));
+    REQUIRE(a.Contains(1));
+    REQUIRE(!a.Contains(2));
 
-	REQUIRE(a.Find(0) == 0);
-	REQUIRE(a.Find(1) == 1);
-	REQUIRE(a.Find(2) == Core::NullOpt);
+    REQUIRE(a.Find(0) == 0);
+    REQUIRE(a.Find(1) == 1);
+    REQUIRE(a.Find(2) == Core::NullOpt);
 }

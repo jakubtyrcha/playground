@@ -3,320 +3,325 @@
 #include "containers_shared.h"
 #include <string.h>
 
-namespace Containers
-{
-	template<typename T>
-	struct Array
-	{
-		i64 size_ = 0;
-		i64 max_size_ = 0;
-		T* data_ = nullptr;
+namespace Containers {
+template <typename T>
+struct Array {
+    i64 size_ = 0;
+    i64 max_size_ = 0;
+    T* data_ = nullptr;
 
-		struct Iterator {
-			Array* const array_;
-			i64 index_ = 0;
+    struct Iterator {
+        Array* const array_;
+        i64 index_ = 0;
 
-			Iterator(Array* const array, i64 index) : array_(array), index_(index) {}
+        Iterator(Array* const array, i64 index)
+            : array_(array)
+            , index_(index)
+        {
+        }
 
-			Iterator operator++(int) {
-				index_++;
-				return *this;
-			}
+        Iterator operator++(int)
+        {
+            index_++;
+            return *this;
+        }
 
-			Iterator& operator++() {
-				index_++;
-				return *this;
-			}
+        Iterator& operator++()
+        {
+            index_++;
+            return *this;
+        }
 
-			bool operator ==(Iterator other) const {
-				return array_ == other.array_ && index_ == other.index_;
-			}
+        bool operator==(Iterator other) const
+        {
+            return array_ == other.array_ && index_ == other.index_;
+        }
 
-			bool operator !=(Iterator other) const
-			{
-				return !((*this) == other);
-			}
+        bool operator!=(Iterator other) const
+        {
+            return !((*this) == other);
+        }
 
-			T& operator *() const {
-				return array_->At(index_);
-			}
-		};
+        T& operator*() const
+        {
+            return array_->At(index_);
+        }
+    };
 
-		Array() = default;
+    Array() = default;
 
-		~Array()
-		{
-			Release();
-		}
+    ~Array()
+    {
+        Release();
+    }
 
-		Array(Array const& rhs)
-		{
-			ResizeUninitialised(rhs.Size());
-			memcpy(data_, rhs.data_, sizeof(T) * Size());
-		}
+    Array(Array const& rhs)
+    {
+        ResizeUninitialised(rhs.Size());
+        memcpy(data_, rhs.data_, sizeof(T) * Size());
+    }
 
-		Array& operator =(Array const& rhs)
-		{
-			Release();
-			ResizeUninitialised(rhs.Size());
-			memcpy(data_, rhs.data_, sizeof(T) * Size());
-			return *this;
-		}
+    Array& operator=(Array const& rhs)
+    {
+        Release();
+        ResizeUninitialised(rhs.Size());
+        memcpy(data_, rhs.data_, sizeof(T) * Size());
+        return *this;
+    }
 
-		Array(Array&& rhs)
-		{
-			data_ = rhs.data_;
-			size_ = rhs.size_;
-			max_size_ = rhs.max_size_;
+    Array(Array&& rhs)
+    {
+        data_ = rhs.data_;
+        size_ = rhs.size_;
+        max_size_ = rhs.max_size_;
 
-			rhs.data_ = nullptr;
-			rhs.max_size_ = rhs.size_ = 0;
-		}
+        rhs.data_ = nullptr;
+        rhs.max_size_ = rhs.size_ = 0;
+    }
 
-		Array& operator =(Array&& rhs)
-		{
-			Release();
-			data_ = rhs.data_;
-			size_ = rhs.size_;
-			max_size_ = rhs.max_size_;
+    Array& operator=(Array&& rhs)
+    {
+        Release();
+        data_ = rhs.data_;
+        size_ = rhs.size_;
+        max_size_ = rhs.max_size_;
 
-			rhs.data_ = nullptr;
-			rhs.max_size_ = rhs.size_ = 0;
+        rhs.data_ = nullptr;
+        rhs.max_size_ = rhs.size_ = 0;
 
-			return *this;
-		}
+        return *this;
+    }
 
-		Iterator begin() {
-			return Iterator{ this, 0 };
-		}
+    Iterator begin()
+    {
+        return Iterator { this, 0 };
+    }
 
-		Iterator end() {
-			return Iterator{ this, size_ };
-		}
+    Iterator end()
+    {
+        return Iterator { this, size_ };
+    }
 
-		void Reserve(i64 min_size)
-		{
-			i64 max_size = max_size_;
+    void Reserve(i64 min_size)
+    {
+        i64 max_size = max_size_;
 
-			if (max_size == 0)
-			{
-				max_size = min_size;
-			}
+        if (max_size == 0) {
+            max_size = min_size;
+        }
 
-			while (max_size < min_size)
-			{
-				if (max_size < 1024)
-				{
-					max_size *= 2;
-				}
-				else
-				{
-					max_size = max_size * 3 / 2;
-				}
-			}
+        while (max_size < min_size) {
+            if (max_size < 1024) {
+                max_size *= 2;
+            } else {
+                max_size = max_size * 3 / 2;
+            }
+        }
 
-			if (max_size != max_size_)
-			{
-				max_size_ = max_size;
-				data_ = static_cast<T*>(realloc(data_, sizeof(T) * max_size_));
-			}
-		}
+        if (max_size != max_size_) {
+            max_size_ = max_size;
+            data_ = static_cast<T*>(realloc(data_, sizeof(T) * max_size_));
+        }
+    }
 
-		void _Resize(i64 size, bool initialise)
-		{
-			Reserve(size);
+    void _Resize(i64 size, bool initialise)
+    {
+        Reserve(size);
 
-			if (initialise)
-			{
-				for (i64 i = size_; i < size; i++)
-				{
-					new (data_ + i) T();
-				}
-			}
+        if (initialise) {
+            for (i64 i = size_; i < size; i++) {
+                new (data_ + i) T();
+            }
+        }
 
-			if constexpr (!std::is_trivial_v<T>)
-			{
-				for (i64 i = size_ - 1; i >= size; i--)
-				{
-					(data_ + i)->T::~T();
-				}
-			}
+        if constexpr (!std::is_trivial_v<T>) {
+            for (i64 i = size_ - 1; i >= size; i--) {
+                (data_ + i)->T::~T();
+            }
+        }
 
-			size_ = size;
-		}
+        size_ = size;
+    }
 
-		void ResizeUninitialised(i64 size)
-		{
-			_Resize(size, false);
-		}
+    void ResizeUninitialised(i64 size)
+    {
+        _Resize(size, false);
+    }
 
-		void Resize(i64 size)
-		{
-			_Resize(size, true);
-		}
+    void Resize(i64 size)
+    {
+        _Resize(size, true);
+    }
 
-		void Clear()
-		{
-			Resize(0);
-		}
+    void Clear()
+    {
+        Resize(0);
+    }
 
-		i64 Size() const
-		{
-			return size_;
-		}
+    i64 Size() const
+    {
+        return size_;
+    }
 
-		static Array<T> From(T const* src, i64 num) {
-			Array<T> result;
-			result.Append(src, num);
-			return result;
-		}
+    static Array<T> From(T const* src, i64 num)
+    {
+        Array<T> result;
+        result.Append(src, num);
+        return result;
+    }
 
-		void Append(T const* src, i64 num)
-		{
-			static_assert(std::is_trivially_copyable_v<T>);
-			Reserve(size_ + num);
-			memcpy(data_ + size_, src, num * sizeof(T));
-			size_ += num;
-		}
+    void Append(T const* src, i64 num)
+    {
+        static_assert(std::is_trivially_copyable_v<T>);
+        Reserve(size_ + num);
+        memcpy(data_ + size_, src, num * sizeof(T));
+        size_ += num;
+    }
 
-		void Shrink()
-		{
-			if (max_size_ == size_)
-			{
-				return;
-			}
+    void Shrink()
+    {
+        if (max_size_ == size_) {
+            return;
+        }
 
-			if (size_ == 0)
-			{
-				Release();
-				return;
-			}
+        if (size_ == 0) {
+            Release();
+            return;
+        }
 
-			data_ = static_cast<T*>(realloc(data_, size_ * sizeof(T)));
-			max_size_ = size_;
-		}
+        data_ = static_cast<T*>(realloc(data_, size_ * sizeof(T)));
+        max_size_ = size_;
+    }
 
-		void Release()
-		{
-			Resize(0);
-			free(data_);
-			data_ = nullptr;
-			max_size_ = 0;
-		}
+    void Release()
+    {
+        Resize(0);
+        free(data_);
+        data_ = nullptr;
+        max_size_ = 0;
+    }
 
-		const T* Data()  const
-		{
-			return data_;
-		}
+    const T* Data() const
+    {
+        return data_;
+    }
 
-		T* Data()
-		{
-			return data_;
-		}
+    T* Data()
+    {
+        return data_;
+    }
 
-		const T& At(i64 index) const
-		{
-			//static_assert(std::is_trivially_copyable_v<T>);
-			DEBUG_ASSERT(0 <= index && index < size_, containers_module{});
-			return data_[index];
-		}
+    const T& At(i64 index) const
+    {
+        //static_assert(std::is_trivially_copyable_v<T>);
+        DEBUG_ASSERT(0 <= index && index < size_, containers_module {});
+        return data_[index];
+    }
 
-		T& At(i64 index)
-		{
-			//static_assert(std::is_trivially_copyable_v<T>);
-			DEBUG_ASSERT(0 <= index && index < size_, containers_module{});
-			return data_[index];
-		}
+    T& At(i64 index)
+    {
+        //static_assert(std::is_trivially_copyable_v<T>);
+        DEBUG_ASSERT(0 <= index && index < size_, containers_module {});
+        return data_[index];
+    }
 
-		const T& operator [](i64 index) const
-		{
-			DEBUG_ASSERT(0 <= index && index < size_, containers_module{});
-			return data_[index];
-		}
+    const T& operator[](i64 index) const
+    {
+        DEBUG_ASSERT(0 <= index && index < size_, containers_module {});
+        return data_[index];
+    }
 
-		T& operator [](i64 index)
-		{
-			DEBUG_ASSERT(0 <= index && index < size_, containers_module{});
-			return data_[index];
-		}
+    T& operator[](i64 index)
+    {
+        DEBUG_ASSERT(0 <= index && index < size_, containers_module {});
+        return data_[index];
+    }
 
-		T PopBack() {
-			DEBUG_ASSERT(size_ > 0, containers_module{});
-			size_ -= 1;
-			if constexpr (std::is_trivially_copyable_v<T>)
-			{
-				return data_[size_];
-			}
+    T PopBack()
+    {
+        DEBUG_ASSERT(size_ > 0, containers_module {});
+        size_ -= 1;
+        if constexpr (std::is_trivially_copyable_v<T>) {
+            return data_[size_];
+        }
 
-			static_assert(std::is_move_constructible_v<T>);
-			return std::move(data_[size_]);
-		}
+        static_assert(std::is_move_constructible_v<T>);
+        return std::move(data_[size_]);
+    }
 
-		void PushBack(T t) {
-			static_assert(std::is_trivially_copyable_v<T>);
+    void PushBack(T t)
+    {
+        static_assert(std::is_trivially_copyable_v<T>);
 
-			ResizeUninitialised(size_ + 1);
-			data_[size_ - 1] = t;
-		}
+        ResizeUninitialised(size_ + 1);
+        data_[size_ - 1] = t;
+    }
 
-		void PushBackRvalueRef(T&& t) {
-			static_assert(std::is_move_assignable_v<T>);
+    void PushBackRvalueRef(T&& t)
+    {
+        static_assert(std::is_move_assignable_v<T>);
 
-			Resize(size_ + 1);
-			data_[size_ - 1] = std::move(t);
-		}
+        Resize(size_ + 1);
+        data_[size_ - 1] = std::move(t);
+    }
 
-		T RemoveAt(i64 index) {
-			if constexpr (std::is_trivially_copyable_v<T>) {
-				T obj = At(index);
+    T RemoveAt(i64 index)
+    {
+        if constexpr (std::is_trivially_copyable_v<T>) {
+            T obj = At(index);
 
-				memmove(data_ + index, data_ + index + 1, (size_ - index - 1) * sizeof(T));
-				size_--;
+            memmove(data_ + index, data_ + index + 1, (size_ - index - 1) * sizeof(T));
+            size_--;
 
-				return obj;
-			}
+            return obj;
+        }
 
-			static_assert(std::is_move_assignable_v<T>);
-			T obj = std::move(data_[index]);
+        static_assert(std::is_move_assignable_v<T>);
+        T obj = std::move(data_[index]);
 
-			for (i64 i = index; i < size_ - 1; i++) {
-				data_[i] = std::move(data_[i + 1]);
-			}
+        for (i64 i = index; i < size_ - 1; i++) {
+            data_[i] = std::move(data_[i + 1]);
+        }
 
-			size_--;
-			return obj;
-		}
+        size_--;
+        return obj;
+    }
 
-		void RemoveAtAndSwapWithLast(i64 index) {
-			static_assert(std::is_trivially_copyable_v<T>);
+    void RemoveAtAndSwapWithLast(i64 index)
+    {
+        static_assert(std::is_trivially_copyable_v<T>);
 
-			if(index != size_-1) {
-				data_[index] = data_[size_ - 1];
-			}
+        if (index != size_ - 1) {
+            data_[index] = data_[size_ - 1];
+        }
 
-			size_--;
-		}
+        size_--;
+    }
 
-		Core::Optional<i64> Find(const T& item) const {
-			for(i64 i = 0, N = Size(); i<N; i++) {
-				if(data_[i] == item) {
-					return i;
-				}
-			}
-			return Core::NullOpt;
-		}
+    Core::Optional<i64> Find(const T& item) const
+    {
+        for (i64 i = 0, N = Size(); i < N; i++) {
+            if (data_[i] == item) {
+                return i;
+            }
+        }
+        return Core::NullOpt;
+    }
 
-		bool Contains(const T& item) const {
-			return bool{Find(item)};
-		}
+    bool Contains(const T& item) const
+    {
+        return bool { Find(item) };
+    }
 
-		T& First() {
-			return (*this)[0];
-		}
+    T& First()
+    {
+        return (*this)[0];
+    }
 
-		T& Last() {
-			return (*this)[Size() - 1];
-		}
-	};
+    T& Last()
+    {
+        return (*this)[Size() - 1];
+    }
+};
 
 }
