@@ -60,13 +60,13 @@ namespace Gfx {
 
 		u64 hash_;
 		Array<u8> bytecode_;
-		Optional<u64> pending_hash_;
-		Optional<Array<u8>> pending_bytecode_;
+		Core::Optional<u64> pending_hash_;
+		Core::Optional<Array<u8>> pending_bytecode_;
 
 		FileShaderSource(ShaderFileSourceDesc desc);
 
-		Optional<u64> Preprocess();
-		Optional<Array<u8>> Compile();
+		Core::Optional<u64> Preprocess();
+		Core::Optional<Array<u8>> Compile();
 
 		bool IsTransitionPending() override;
 		ShaderReloadResult BeginReload() override;
@@ -80,7 +80,7 @@ namespace Gfx {
 		Box<Pipeline> pipeline_;
 		Array<IShaderSource*> shaders_;
 
-		Optional<Box<Pipeline>> pending_pipeline_;
+		Core::Optional<Box<Pipeline>> pending_pipeline_;
 
 		IPipelineBuilder();
 		virtual ~IPipelineBuilder();

@@ -5,8 +5,7 @@
 #include "shader.h"
 #include "hash.h"
 
-template<typename T>
-using Optional = Corrade::Containers::Optional<T>;
+using namespace Core;
 
 namespace Gfx {
 	struct Compiler {

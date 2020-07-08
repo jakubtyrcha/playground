@@ -25,10 +25,6 @@ namespace Os
 
 namespace Gfx
 {
-	template<typename T> using Optional = Corrade::Containers::Optional<T>;
-	constexpr Corrade::Containers::NullOptT NullOpt = Corrade::Containers::NullOpt;
-	
-
 	using namespace Containers;
 
 	struct Device;
@@ -165,7 +161,7 @@ namespace Gfx
 		u64 fence_value_ = 0;
 
 		struct WaitableSlot {
-			Optional<u64> value;
+			Core::Optional<u64> value;
 			i32 generation = 0;
 			bool pending = false;
 		};
