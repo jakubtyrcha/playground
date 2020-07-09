@@ -109,9 +109,11 @@ PS_INPUT VsMain(uint VertexID: SV_VertexID, uint InstanceID: SV_InstanceID) {
         Project(frame.projection_matrix, axis_bounds_x.U).x,
         Project(frame.projection_matrix, axis_bounds_y.U).y);
         
+    float z = center.z + radius;
+    float z_postproj = frame.projection_matrix._33 + frame.projection_matrix._34 / z;
 
     PS_INPUT output;
-    output.pos = float4(clipspace_bb.min_max[quad_index < 2].x, clipspace_bb.min_max[(quad_index & 1) == 0].y, 0, 1);
+    output.pos = float4(clipspace_bb.min_max[quad_index < 2].x, clipspace_bb.min_max[(quad_index & 1) == 0].y, z_postproj, 1);
     output.page = page_index;
     output.index = InstanceID;
     return output;
@@ -148,7 +150,7 @@ float RaySphereIntersection(Ray ray, Sphere sphere) {
 
 struct PS_OUTPUT {
     float4 colour : SV_TARGET;
-    float depth : SV_DepthGreaterEqual;
+    float depth : SV_DepthLessEqual;
 };
 
 PS_OUTPUT PsMain(PS_INPUT input) {
@@ -178,6 +180,6 @@ PS_OUTPUT PsMain(PS_INPUT input) {
     float3 V = -ray_dir;
 
     output.colour = float4(frac(sphere.center), 1.f);
-    output.depth = 1;
+    output.depth = input.pos.z;
     return output;
 }

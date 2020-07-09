@@ -202,7 +202,7 @@ void IPipelineBuilder::DropRecreate()
 ID3D12PipelineState* IPipelineBuilder::GetPSO()
 {
     if (!pipeline_) {
-        pipeline_ = Build();
+        pipeline_ = *Build();
     }
 
     return pipeline_->pipeline_.Get();

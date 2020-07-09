@@ -28,7 +28,7 @@ struct ParticlePipeline : public Gfx::IPipelineBuilder {
     {
     }
 
-    Box<Gfx::Pipeline> Build() override
+    Optional<Box<Gfx::Pipeline>> Build() override
     {
         D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_desc {};
         pso_desc.NodeMask = 1;
@@ -37,6 +37,7 @@ struct ParticlePipeline : public Gfx::IPipelineBuilder {
         pso_desc.SampleMask = UINT_MAX;
         pso_desc.NumRenderTargets = 1;
         pso_desc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+        pso_desc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
         pso_desc.SampleDesc.Count = 1;
         pso_desc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
 
@@ -78,9 +79,9 @@ struct ParticlePipeline : public Gfx::IPipelineBuilder {
         // Create depth-stencil State
         {
             D3D12_DEPTH_STENCIL_DESC& desc = pso_desc.DepthStencilState;
-            desc.DepthEnable = false; //
+            desc.DepthEnable = true;
             desc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
-            desc.DepthFunc = D3D12_COMPARISON_FUNC_GREATER_EQUAL;
+            desc.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
             desc.StencilEnable = false;
             desc.FrontFace.StencilFailOp = desc.FrontFace.StencilDepthFailOp = desc.FrontFace.StencilPassOp = D3D12_STENCIL_OP_KEEP;
             desc.FrontFace.StencilFunc = D3D12_COMPARISON_FUNC_ALWAYS;

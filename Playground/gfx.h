@@ -257,7 +257,7 @@ struct Resource : private Core::MoveableNonCopyable<Resource> {
 struct Pipeline : private Core::MoveableNonCopyable<Resource> {
     Com::Box<ID3D12PipelineState> pipeline_;
 
-    static Core::Box<Pipeline> From(Device* device, D3D12_GRAPHICS_PIPELINE_STATE_DESC const& desc);
+    static Core::Optional<Core::Box<Pipeline>> From(Device* device, D3D12_GRAPHICS_PIPELINE_STATE_DESC const& desc);
 };
 
 struct Pass {

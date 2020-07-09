@@ -17,7 +17,7 @@ struct ImGuiPipeline : public Gfx::IPipelineBuilder {
     {
     }
 
-    Box<Gfx::Pipeline> Build() override
+    Optional<Box<Gfx::Pipeline>> Build() override
     {
         D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_desc {};
         pso_desc.NodeMask = 1;

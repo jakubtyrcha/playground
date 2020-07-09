@@ -89,7 +89,7 @@ struct IPipelineBuilder {
 
     IPipelineBuilder();
     virtual ~IPipelineBuilder();
-    virtual Core::Box<Pipeline> Build() = 0;
+    virtual Core::Optional<Core::Box<Pipeline>> Build() = 0;
 
     ShaderReloadResult BeginRecreate();
     void CommitRecreate();

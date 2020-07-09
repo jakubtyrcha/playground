@@ -432,15 +432,20 @@ Resource Device::CreateTexture2D(D3D12_HEAP_TYPE heap_type, Vector2i size, DXGI_
 
     // TODO: make this an arg
     D3D12_CLEAR_VALUE clear_value {
-        .Format = format,
-        .Color = {}
+        .Format = format
     };
+
+    if(!!(resource_desc.Flags & D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL)) {
+        clear_value.DepthStencil.Depth = 1.f;
+    }
+
+    bool use_clear_value = !!(resource_desc.Flags & (D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET | D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL));
 
     verify_hr(allocator_->CreateResource(
         &allocation_desc,
         &resource_desc,
         initial_state,
-        !!(resource_desc.Flags & D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET) ? &clear_value : nullptr,
+        use_clear_value ? &clear_value : nullptr,
         result.allocation_.InitAddress(),
         IID_PPV_ARGS(result.resource_.InitAddress())));
 
@@ -788,10 +793,12 @@ bool Waitable::IsDone()
     return device_->IsDone(*this);
 }
 
-Box<Pipeline> Pipeline::From(Device* device, D3D12_GRAPHICS_PIPELINE_STATE_DESC const& desc)
+Optional<Box<Pipeline>> Pipeline::From(Device* device, D3D12_GRAPHICS_PIPELINE_STATE_DESC const& desc)
 {
     Box<Pipeline> result = MakeBox<Pipeline>();
-    verify_hr(device->device_->CreateGraphicsPipelineState(&desc, IID_PPV_ARGS(result->pipeline_.InitAddress())));
+    if(FAILED(device->device_->CreateGraphicsPipelineState(&desc, IID_PPV_ARGS(result->pipeline_.InitAddress())))) {
+        return NullOpt;
+    }
     return result;
 }
 }
