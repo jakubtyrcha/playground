@@ -288,6 +288,8 @@ void PolygonParticleGenerator::Render(Gfx::Encoder* encoder, Rendering::Viewport
         struct FrameConstants {
             Vector2i resolution;
             Vector2 inv_resolution;
+            Vector2 near_far_planes;
+            Vector2 _;
             Matrix4 view_matrix;
             Matrix4 projection_matrix;
             Matrix4 view_projection_matrix;
@@ -296,7 +298,8 @@ void PolygonParticleGenerator::Render(Gfx::Encoder* encoder, Rendering::Viewport
         };
         FrameConstants constants;
         constants.resolution = viewport->resolution;
-        constants.inv_resolution = 1.f / Vector2(constants.resolution);
+        constants.inv_resolution = 1.f / Vector2{constants.resolution};
+        constants.near_far_planes = Vector2{viewport->near_plane, viewport->far_plane};
         constants.view_matrix = viewport->view_matrix;
         constants.projection_matrix = viewport->projection_matrix;
         constants.view_projection_matrix = viewport->view_projection_matrix;

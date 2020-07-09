@@ -672,6 +672,7 @@ void Encoder::Submit()
     verify_hr(GetCmdList()->Close());
     ID3D12CommandList* cmd_list = GetCmdList();
     device_->cmd_queue_->ExecuteCommandLists(1, &cmd_list);
+    // TODO: allocator reset (we run out of mem...)
     device_->cmd_allocators_.PushBackRvalueRef(std::move(cmd_allocator_));
     device_->cmd_lists_.PushBackRvalueRef(std::move(cmd_list_));
     device_->AdvanceFence();

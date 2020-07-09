@@ -1,6 +1,8 @@
 struct FrameConstants {
     uint2 resolution;
     float2 inv_resolution;
+    float2 near_far_planes;
+    float2 clip_depth_mad;
     float4x4 view_matrix;
     float4x4 projection_matrix;
     float4x4 view_projection_matrix;
@@ -75,7 +77,7 @@ AxisBounds GetBoundForAxis(float3 a, float3 C, float r, float near_z) {
 }
 
 struct AABox2D {
-    float2 min_max[2];
+    float2 min_max[2]; //[0] = min xy, [1] = max xy
 };
 
 AABox2D Xyxy(float x0, float y0, float x1, float y1) {
@@ -101,13 +103,19 @@ PS_INPUT VsMain(uint VertexID: SV_VertexID, uint InstanceID: SV_InstanceID) {
 
     float3 center = mul(frame.view_matrix, float4(wpos_size.xyz,1)).xyz;
     float radius = wpos_size.w;
-    AxisBounds axis_bounds_x = GetBoundForAxis(float3(1,0,0), center, radius, 0.1f);
-    AxisBounds axis_bounds_y = GetBoundForAxis(float3(0,1,0), center, radius, 0.1f);
+    AxisBounds axis_bounds_x = GetBoundForAxis(float3(1,0,0), center, radius, frame.near_far_planes.x);
+    AxisBounds axis_bounds_y = GetBoundForAxis(float3(0,1,0), center, radius, frame.near_far_planes.x);
     AABox2D clipspace_bb = Xyxy(
         Project(frame.projection_matrix, axis_bounds_x.L).x, 
         Project(frame.projection_matrix, axis_bounds_y.L).y,
         Project(frame.projection_matrix, axis_bounds_x.U).x,
         Project(frame.projection_matrix, axis_bounds_y.U).y);
+
+    // aliasing
+    #if 0
+    clipspace_bb.min_max[0] -= frame.inv_resolution;
+    clipspace_bb.min_max[1] += frame.inv_resolution;
+    #endif
         
     float z = center.z + radius;
     float z_postproj = frame.projection_matrix._33 + frame.projection_matrix._34 / z;
@@ -179,7 +187,14 @@ PS_OUTPUT PsMain(PS_INPUT input) {
     float3 N = normalize(hit - sphere.center);
     float3 V = -ray_dir;
 
+    float4 clip_pos = mul(frame.view_projection_matrix, float4(hit, 1.f));
+    float z_postproj = clip_pos.z / clip_pos.w;
+
+    if(z_postproj < 0.f) {
+        discard;
+    }
+
     output.colour = float4(frac(sphere.center), 1.f);
-    output.depth = input.pos.z;
+    output.depth = z_postproj;
     return output;
 }

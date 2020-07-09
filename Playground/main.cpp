@@ -54,12 +54,12 @@ int main(int argc, char** argv)
 
     Rendering::PolygonParticleGenerator particle_generator;
     particle_generator.Init(&device, 100000, 1000.f, 10.f);
-    particle_generator.vertices_.PushBack({ -2, 1, -2 });
-    particle_generator.vertices_.PushBack({ 2, 1, -2 });
-    particle_generator.vertices_.PushBack({ -2, 1, 2 });
-    particle_generator.vertices_.PushBack({ 2, 1, -2 });
-    particle_generator.vertices_.PushBack({ 2, 1, 2 });
-    particle_generator.vertices_.PushBack({ -2, 1, 2 });
+    particle_generator.vertices_.PushBack({ -50, 0, -50 });
+    particle_generator.vertices_.PushBack({ 50, 0, -50 });
+    particle_generator.vertices_.PushBack({ -50, 0, 50 });
+    particle_generator.vertices_.PushBack({ 50, 0, -50 });
+    particle_generator.vertices_.PushBack({ 50, 0, 50 });
+    particle_generator.vertices_.PushBack({ -50, 0, 50 });
 
     //Rendering::SphereTracer sphere_tracer;
     //sphere_tracer.Init(&device);
@@ -156,7 +156,10 @@ int main(int argc, char** argv)
             main_viewport.camera_look_at = main_viewport.camera_position + world_point_to.xyz().normalized();
         }
 
-        particle_generator.Tick(io.DeltaTime);
+        static bool tick_particles = true;
+        if(tick_particles) {
+            particle_generator.Tick(io.DeltaTime);
+        }
 
         ImGui_ImplWin32_NewFrame();
         ImGui::NewFrame();
@@ -184,6 +187,8 @@ int main(int argc, char** argv)
             ImGui::Text("Time: %f ms", io.DeltaTime * 1000.f);
             ImGui::Text("Particles num: %d", particle_generator.NumParticles());
             ImGui::Text("Particles pages: %d", particle_generator.active_pages_.Size());
+            ImGui::Checkbox("Tick", &tick_particles);
+            ImGui::SliderFloat("Near plane", &main_viewport.near_plane, 0.0001f, 1.f);
 
             ImGui::End();
         }
