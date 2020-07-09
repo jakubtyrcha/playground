@@ -54,12 +54,12 @@ int main(int argc, char** argv)
 
     Rendering::PolygonParticleGenerator particle_generator;
     particle_generator.Init(&device, 100000, 1000.f, 10.f);
-    particle_generator.vertices_.PushBack({ -2, 5, -2 });
-    particle_generator.vertices_.PushBack({ 2, 5, -2 });
-    particle_generator.vertices_.PushBack({ -2, 5, 2 });
-    particle_generator.vertices_.PushBack({ 2, 5, -2 });
-    particle_generator.vertices_.PushBack({ 2, 5, 2 });
-    particle_generator.vertices_.PushBack({ -2, 5, 2 });
+    particle_generator.vertices_.PushBack({ -2, 1, -2 });
+    particle_generator.vertices_.PushBack({ 2, 1, -2 });
+    particle_generator.vertices_.PushBack({ -2, 1, 2 });
+    particle_generator.vertices_.PushBack({ 2, 1, -2 });
+    particle_generator.vertices_.PushBack({ 2, 1, 2 });
+    particle_generator.vertices_.PushBack({ -2, 1, 2 });
 
     //Rendering::SphereTracer sphere_tracer;
     //sphere_tracer.Init(&device);
