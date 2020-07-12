@@ -172,6 +172,12 @@ struct Device : private Core::Pinned<Device> {
     // TODO: queue candidate
     Containers::Array<Waitable> waitables_pending_;
 
+    struct PendingCommandAllocator {
+        Com::Box<ID3D12CommandAllocator> allocator;
+        Waitable waitable;
+    };
+
+    Containers::Array<PendingCommandAllocator> cmd_allocators_pending_;
     Containers::Array<Com::Box<ID3D12CommandAllocator>> cmd_allocators_;
     Containers::Array<Com::Box<ID3D12CommandList>> cmd_lists_;
 
@@ -181,6 +187,8 @@ struct Device : private Core::Pinned<Device> {
 
     Device();
     ~Device();
+
+    void _Submit(Encoder && encoder);
 
     void AdvanceFence();
     Waitable GetWaitable();

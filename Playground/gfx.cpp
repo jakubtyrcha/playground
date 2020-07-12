@@ -435,7 +435,7 @@ Resource Device::CreateTexture2D(D3D12_HEAP_TYPE heap_type, Vector2i size, DXGI_
         .Format = format
     };
 
-    if(!!(resource_desc.Flags & D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL)) {
+    if (!!(resource_desc.Flags & D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL)) {
         clear_value.DepthStencil.Depth = 1.f;
     }
 
@@ -667,35 +667,51 @@ Waitable Encoder::GetWaitable()
     return waitables_to_trigger_.Last();
 }
 
+void Device::_Submit(Encoder&& encoder)
+{
+    ID3D12CommandList* cmd_list = encoder.GetCmdList();
+    cmd_queue_->ExecuteCommandLists(1, &cmd_list);
+    AdvanceFence();
+    cmd_allocators_.PushBackRvalueRef(std::move(encoder.cmd_allocator_));
+    cmd_lists_.PushBackRvalueRef(std::move(encoder.cmd_list_));
+
+    for (Waitable waitable : encoder.waitables_to_trigger_) {
+        TriggerWaitable(waitable, fence_value_);
+    }
+    encoder.waitables_to_trigger_.Clear();
+}
+
 void Encoder::Submit()
 {
     verify_hr(GetCmdList()->Close());
-    ID3D12CommandList* cmd_list = GetCmdList();
-    device_->cmd_queue_->ExecuteCommandLists(1, &cmd_list);
-    // TODO: allocator reset (we run out of mem...)
-    device_->cmd_allocators_.PushBackRvalueRef(std::move(cmd_allocator_));
-    device_->cmd_lists_.PushBackRvalueRef(std::move(cmd_list_));
-    device_->AdvanceFence();
 
-    for (Waitable waitable : waitables_to_trigger_) {
-        device_->TriggerWaitable(waitable, device_->fence_value_);
-    }
-    waitables_to_trigger_.Clear();
+    device_->_Submit(std::move(*this));
 
     device_ = nullptr;
 }
 
 void Device::RecycleResources()
 {
-    descriptor_heap_.FenceDescriptors(GetWaitable());
-    rtvs_descriptor_heap_.FenceDescriptors(GetWaitable());
-    dsvs_descriptor_heap_.FenceDescriptors(GetWaitable());
+    Waitable fence = GetWaitable();
+
+    descriptor_heap_.FenceDescriptors(fence);
+    rtvs_descriptor_heap_.FenceDescriptors(fence);
+    dsvs_descriptor_heap_.FenceDescriptors(fence);
+    for (Com::Box<ID3D12CommandAllocator>& allocator : cmd_allocators_) {
+        cmd_allocators_pending_.PushBackRvalueRef(PendingCommandAllocator { .allocator = std::move(allocator), .waitable = fence });
+    }
+    cmd_allocators_.Clear();
 
     while (waitables_pending_.Size() && IsDone(waitables_pending_.First())) {
         i32 handle = waitables_pending_.RemoveAt(0).handle_;
         waitables_pool_[handle].pending = false;
         waitables_pool_[handle].value = {};
         waitables_pool_[handle].generation++;
+    }
+
+    while (cmd_allocators_pending_.Size() && IsDone(cmd_allocators_pending_.First().waitable)) {
+        cmd_allocators_.PushBackRvalueRef(std::move(cmd_allocators_pending_.RemoveAt(0).allocator));
+        verify_hr(cmd_allocators_.Last()->Reset());
     }
 }
 
@@ -797,7 +813,7 @@ bool Waitable::IsDone()
 Optional<Box<Pipeline>> Pipeline::From(Device* device, D3D12_GRAPHICS_PIPELINE_STATE_DESC const& desc)
 {
     Box<Pipeline> result = MakeBox<Pipeline>();
-    if(FAILED(device->device_->CreateGraphicsPipelineState(&desc, IID_PPV_ARGS(result->pipeline_.InitAddress())))) {
+    if (FAILED(device->device_->CreateGraphicsPipelineState(&desc, IID_PPV_ARGS(result->pipeline_.InitAddress())))) {
         return NullOpt;
     }
     return result;
