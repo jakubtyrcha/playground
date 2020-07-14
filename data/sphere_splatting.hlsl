@@ -2,7 +2,7 @@ struct FrameConstants {
     uint2 resolution;
     float2 inv_resolution;
     float2 near_far_planes;
-    float2 clip_depth_mad;
+    float2 clipspace_jitter;
     float4x4 view_matrix;
     float4x4 projection_matrix;
     float4x4 view_projection_matrix;
@@ -111,8 +111,8 @@ PS_INPUT VsMain(uint VertexID: SV_VertexID, uint InstanceID: SV_InstanceID) {
         Project(frame.projection_matrix, axis_bounds_x.U).x,
         Project(frame.projection_matrix, axis_bounds_y.U).y);
 
-    // aliasing
-    #if 0
+    // why do I need this IF the bounds are working correctly?
+    #if 1
     clipspace_bb.min_max[0] -= frame.inv_resolution;
     clipspace_bb.min_max[1] += frame.inv_resolution;
     #endif
@@ -168,7 +168,7 @@ PS_OUTPUT PsMain(PS_INPUT input) {
     sphere.center = wpos_size.xyz;
     sphere.radius = wpos_size.w;
 
-    float2 clip_space_xy = input.pos.xy * frame.inv_resolution * float2(2, -2) + float2(-1, 1);
+    float2 clip_space_xy = input.pos.xy * frame.inv_resolution * float2(2, -2) + float2(-1, 1) + frame.clipspace_jitter;
     float4 ray_dir_wh = mul(frame.inv_view_projection_matrix, float4(clip_space_xy, 1, 1));
     float3 ray_dir = normalize(ray_dir_wh.xyz);
 

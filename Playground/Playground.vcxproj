@@ -216,6 +216,7 @@
     <ClCompile Include="rendering.cpp" />
     <ClCompile Include="shader.cpp" />
     <ClCompile Include="shapes.cpp" />
+    <ClCompile Include="taa.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="geometry.h" />
@@ -228,6 +229,7 @@
     <ClInclude Include="rendering.h" />
     <ClInclude Include="shader.h" />
     <ClInclude Include="shapes.h" />
+    <ClInclude Include="taa.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\PlaygroundLib\PlaygroundLib.vcxproj">

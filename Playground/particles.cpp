@@ -289,7 +289,7 @@ void PolygonParticleGenerator::Render(Gfx::Encoder* encoder, Rendering::Viewport
             Vector2i resolution;
             Vector2 inv_resolution;
             Vector2 near_far_planes;
-            Vector2 _;
+            Vector2 clipspace_jitter;
             Matrix4 view_matrix;
             Matrix4 projection_matrix;
             Matrix4 view_projection_matrix;
@@ -300,6 +300,11 @@ void PolygonParticleGenerator::Render(Gfx::Encoder* encoder, Rendering::Viewport
         constants.resolution = viewport->resolution;
         constants.inv_resolution = 1.f / Vector2{constants.resolution};
         constants.near_far_planes = Vector2{viewport->near_plane, viewport->far_plane};
+        if(viewport->taa_offsets.Size()) {
+            constants.clipspace_jitter = viewport->projection_jitter;
+        } else {
+            constants.clipspace_jitter = {};
+        }
         constants.view_matrix = viewport->view_matrix;
         constants.projection_matrix = viewport->projection_matrix;
         constants.view_projection_matrix = viewport->view_projection_matrix;

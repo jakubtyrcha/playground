@@ -16,6 +16,7 @@
 #include "particles.h"
 #include "rendering.h"
 #include "shapes.h"
+#include "Taa.h"
 
 #include <math.h>
 
@@ -54,12 +55,15 @@ int main(int argc, char** argv)
 
     Rendering::PolygonParticleGenerator particle_generator;
     particle_generator.Init(&device, 100000, 1000.f, 10.f);
-    particle_generator.vertices_.PushBack({ -50, 0, -50 });
-    particle_generator.vertices_.PushBack({ 50, 0, -50 });
-    particle_generator.vertices_.PushBack({ -50, 0, 50 });
-    particle_generator.vertices_.PushBack({ 50, 0, -50 });
-    particle_generator.vertices_.PushBack({ 50, 0, 50 });
-    particle_generator.vertices_.PushBack({ -50, 0, 50 });
+    particle_generator.vertices_.PushBack({ -10, 0, -10 });
+    particle_generator.vertices_.PushBack({ 10, 0, -10 });
+    particle_generator.vertices_.PushBack({ -10, 0, 10 });
+    particle_generator.vertices_.PushBack({ 10, 0, -10 });
+    particle_generator.vertices_.PushBack({ 10, 0, 10 });
+    particle_generator.vertices_.PushBack({ -10, 0, 10 });
+
+    Rendering::TAA taa;
+    taa.Init(&device);
 
     //Rendering::SphereTracer sphere_tracer;
     //sphere_tracer.Init(&device);
@@ -77,14 +81,27 @@ int main(int argc, char** argv)
     ImGui_ImplWin32_Init(window->hwnd_);
 
     struct ScreenResources {
-        Gfx::Resource random_access_texture;
+        Gfx::Device * device = nullptr;
+        Gfx::Resource colour_texture;
+        Gfx::Resource prev_colour_texture;
         Gfx::Resource depth_buffer;
         Vector2i resolution;
+
+        void Resize(Vector2i in_resolution) {
+            if(resolution == in_resolution) {
+                return;
+            }
+
+            resolution = in_resolution;
+
+            colour_texture = device->CreateTexture2D(D3D12_HEAP_TYPE_DEFAULT, resolution, DXGI_FORMAT_R8G8B8A8_UNORM, 1, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET, D3D12_RESOURCE_STATE_RENDER_TARGET);
+            prev_colour_texture = device->CreateTexture2D(D3D12_HEAP_TYPE_DEFAULT, resolution, DXGI_FORMAT_R8G8B8A8_UNORM, 1, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET, D3D12_RESOURCE_STATE_RENDER_TARGET);
+            depth_buffer = device->CreateTexture2D(D3D12_HEAP_TYPE_DEFAULT, resolution, DXGI_FORMAT_D24_UNORM_S8_UINT, 1, D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL, D3D12_RESOURCE_STATE_DEPTH_WRITE);
+        }
     };
 
-    ScreenResources screen_resources { .resolution = window->resolution_ };
-    screen_resources.random_access_texture = device.CreateTexture2D(D3D12_HEAP_TYPE_DEFAULT, window->resolution_, DXGI_FORMAT_R8G8B8A8_UNORM, 1, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET, D3D12_RESOURCE_STATE_RENDER_TARGET);
-    screen_resources.depth_buffer = device.CreateTexture2D(D3D12_HEAP_TYPE_DEFAULT, window->resolution_, DXGI_FORMAT_D24_UNORM_S8_UINT, 1, D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL, D3D12_RESOURCE_STATE_DEPTH_WRITE);
+    ScreenResources screen_resources { .device = &device };
+    screen_resources.Resize(window->resolution_);
 
     int frames_ctr = 3;
 
@@ -100,6 +117,12 @@ int main(int argc, char** argv)
     main_viewport.near_plane = 0.1f;
     main_viewport.far_plane = 1000.f;
 
+    // msaa 4x
+    main_viewport.taa_offsets.PushBack({-2.f/8.f, -6.f/8.f});
+    main_viewport.taa_offsets.PushBack({-6.f/8.f, -2.f/8.f});
+    main_viewport.taa_offsets.PushBack({-6.f/8.f, 2.f/8.f});
+    main_viewport.taa_offsets.PushBack({2.f/8.f, 6.f/8.f});
+
     window->RunMessageLoop([&window,
                                &device,
                                &window_swapchain,
@@ -109,16 +132,12 @@ int main(int argc, char** argv)
                                &frame_waitables,
                                &imgui_renderer,
                                &shape_renderer,
+        &taa,
                                &main_viewport,
                                &particle_generator]() {
         i32 current_backbuffer_index = window_swapchain->swapchain_->GetCurrentBackBufferIndex();
 
-        if (screen_resources.resolution != window->resolution_) {
-            screen_resources.random_access_texture = device.CreateTexture2D(D3D12_HEAP_TYPE_DEFAULT, window->resolution_, DXGI_FORMAT_R8G8B8A8_UNORM, 1, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS | D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-            screen_resources.depth_buffer = device.CreateTexture2D(D3D12_HEAP_TYPE_DEFAULT, window->resolution_, DXGI_FORMAT_R24G8_TYPELESS, 1, D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL, D3D12_RESOURCE_STATE_DEPTH_WRITE);
-            screen_resources.resolution = window->resolution_;
-            main_viewport.resolution = window->resolution_;
-        }
+        screen_resources.Resize(window->resolution_);
 
         f32 camera_sensivity = 0.1f;
         if (window->user_input_.keys_down_['W']) {
@@ -164,12 +183,27 @@ int main(int argc, char** argv)
         ImGui_ImplWin32_NewFrame();
         ImGui::NewFrame();
 
+        main_viewport.prev_view_projection_matrix = main_viewport.view_projection_matrix;
+
         main_viewport.view_matrix = Rendering::LookAtLh(main_viewport.camera_look_at, main_viewport.camera_position, main_viewport.camera_up);
         main_viewport.inv_view_matrix = Rendering::InverseLookAtLh(main_viewport.camera_look_at, main_viewport.camera_position, main_viewport.camera_up);
-        main_viewport.projection_matrix = Rendering::PerspectiveFovLh(main_viewport.GetAspectRatio(), main_viewport.fov_y, main_viewport.near_plane, main_viewport.far_plane);
+        main_viewport.unjittered_projection_matrix = Rendering::PerspectiveFovLh(main_viewport.GetAspectRatio(), main_viewport.fov_y, main_viewport.near_plane, main_viewport.far_plane);
+        main_viewport.projection_matrix = main_viewport.unjittered_projection_matrix;
+
+        if(main_viewport.taa_offsets.Size()) {
+            main_viewport.projection_jitter = main_viewport.taa_offsets[main_viewport.taa_index] / Vector2 {main_viewport.resolution};
+        }
+
+        main_viewport.projection_matrix[2][0] = main_viewport.projection_jitter.x();
+        main_viewport.projection_matrix[2][1] = main_viewport.projection_jitter.y();
+
         main_viewport.inv_projection_matrix = Rendering::InversePerspectiveFovLh(main_viewport.GetAspectRatio(), main_viewport.fov_y, main_viewport.near_plane, main_viewport.far_plane);
         main_viewport.view_projection_matrix = main_viewport.projection_matrix * main_viewport.view_matrix;
         main_viewport.inv_view_projection_matrix = main_viewport.inv_view_matrix * main_viewport.inv_projection_matrix;
+
+        if(main_viewport.taa_offsets.Size()) {
+            main_viewport.taa_index = (main_viewport.taa_index + 1) % main_viewport.taa_offsets.Size();
+        }
 
         Rendering::ShapeVertex vertices[] = {
             { .position = { 0, 0, 0 }, .colour = { 255, 0, 0, 1 } },
@@ -189,6 +223,7 @@ int main(int argc, char** argv)
             ImGui::Text("Particles pages: %d", particle_generator.active_pages_.Size());
             ImGui::Checkbox("Tick", &tick_particles);
             ImGui::SliderFloat("Near plane", &main_viewport.near_plane, 0.0001f, 1.f);
+            ImGui::SliderFloat("TAA", &main_viewport.history_decay, 0.f, 1.f);
 
             ImGui::End();
         }
@@ -196,17 +231,15 @@ int main(int argc, char** argv)
         ID3D12Resource* current_backbuffer = *window_swapchain->backbuffers_[current_backbuffer_index];
 
         Gfx::Pass* clear_bb_pass = device.graph_.AddSubsequentPass(Gfx::PassAttachments {}
-                                                                       .Attach({ .resource = *screen_resources.random_access_texture.resource_ }, D3D12_RESOURCE_STATE_RENDER_TARGET)
+                                                                       .Attach({ .resource = *screen_resources.colour_texture.resource_ }, D3D12_RESOURCE_STATE_RENDER_TARGET)
                                                                        .Attach({ .resource = *screen_resources.depth_buffer.resource_ }, D3D12_RESOURCE_STATE_DEPTH_WRITE));
 
-        particle_generator.AddPassesToGraph(&screen_resources.random_access_texture, &screen_resources.depth_buffer);
+        particle_generator.AddPassesToGraph(&screen_resources.colour_texture, &screen_resources.depth_buffer);
+
+        taa.AddPassesToGraph(current_backbuffer, &screen_resources.colour_texture, &screen_resources.depth_buffer, &screen_resources.prev_colour_texture);
 
         Gfx::Pass* render_ui_pass = device.graph_.AddSubsequentPass(Gfx::PassAttachments {}
-                                                                        .Attach({ .resource = *screen_resources.random_access_texture.resource_ }, D3D12_RESOURCE_STATE_RENDER_TARGET));
-
-        Gfx::Pass* copy_to_backbuffer_pass = device.graph_.AddSubsequentPass(Gfx::PassAttachments {}
-                                                                                 .Attach({ .resource = *screen_resources.random_access_texture.resource_ }, D3D12_RESOURCE_STATE_COPY_SOURCE)
-                                                                                 .Attach({ .resource = current_backbuffer }, D3D12_RESOURCE_STATE_COPY_DEST));
+                                                                        .Attach({ .resource = current_backbuffer }, D3D12_RESOURCE_STATE_RENDER_TARGET));
 
         Gfx::Pass* present_pass = device.graph_.AddSubsequentPass(Gfx::PassAttachments {}
                                                                       .Attach({ .resource = current_backbuffer }, D3D12_RESOURCE_STATE_PRESENT));
@@ -224,7 +257,7 @@ int main(int argc, char** argv)
         };
         D3D12_CPU_DESCRIPTOR_HANDLE rtv_handle = device.rtvs_descriptor_heap_.heap_->GetCPUDescriptorHandleForHeapStart();
         rtv_handle.ptr += device.rtvs_descriptor_heap_.AllocateTable(1) * device.rtvs_descriptor_heap_.increment_;
-        device.device_->CreateRenderTargetView(*screen_resources.random_access_texture.resource_, &rtv_desc, rtv_handle);
+        device.device_->CreateRenderTargetView(*screen_resources.colour_texture.resource_, &rtv_desc, rtv_handle);
 
         f32 clear_colour[4] = {};
         encoder.GetCmdList()->ClearRenderTargetView(rtv_handle, clear_colour, 0, nullptr);
@@ -243,14 +276,21 @@ int main(int argc, char** argv)
 
         //sphere_tracer.Render(&encoder, &main_viewport, rtv_handle);
         particle_generator.Render(&encoder, &main_viewport, rtv_handle, dsv_handle);
-        encoder.SetPass(render_ui_pass);
-        shape_renderer.Render(&encoder, &main_viewport, rtv_handle);
-        imgui_renderer.RenderDrawData(ImGui::GetDrawData(), &encoder, rtv_handle);
 
-        encoder.SetPass(copy_to_backbuffer_pass);
-        encoder.GetCmdList()->CopyResource(current_backbuffer, *screen_resources.random_access_texture.resource_);
+        D3D12_CPU_DESCRIPTOR_HANDLE bb_rtv_handle = device.rtvs_descriptor_heap_.heap_->GetCPUDescriptorHandleForHeapStart();
+        bb_rtv_handle.ptr += device.rtvs_descriptor_heap_.AllocateTable(1) * device.rtvs_descriptor_heap_.increment_;
+        device.device_->CreateRenderTargetView(current_backbuffer, &rtv_desc, bb_rtv_handle);
+
+        taa.Render(&encoder, &main_viewport, bb_rtv_handle);
+
+        encoder.SetPass(render_ui_pass);
+
+        shape_renderer.Render(&encoder, &main_viewport, bb_rtv_handle);
+        imgui_renderer.RenderDrawData(ImGui::GetDrawData(), &encoder, bb_rtv_handle);
 
         encoder.SetPass(present_pass);
+
+        std::swap(screen_resources.colour_texture, screen_resources.prev_colour_texture);
 
         // we should wait for the presenting being done before we access that backbuffer again?
         if (frame_waitables.Size() == backbuffers_num) {
