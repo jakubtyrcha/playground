@@ -169,6 +169,7 @@
     <ClCompile Include="..\external\imgui\imgui.cpp" />
     <ClCompile Include="..\external\imgui\imgui_draw.cpp" />
     <ClCompile Include="..\external\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="Copy.cpp" />
     <ClCompile Include="geometry.cpp" />
     <ClCompile Include="gfx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Use</PrecompiledHeader>
@@ -219,6 +220,7 @@
     <ClCompile Include="taa.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Copy.h" />
     <ClInclude Include="geometry.h" />
     <ClInclude Include="gfx.h" />
     <ClInclude Include="imgui_backend.h" />

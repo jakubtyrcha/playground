@@ -57,6 +57,7 @@ struct PolygonParticleGenerator {
     void _SpawnParticle();
     void _UpdateLifetimes(f32 time_delta);
 
+    void Spawn(i32 num);
     i32 NumParticles() const;
     void Init(Gfx::Device* device, i32 max_particles, f32 spawn_rate, f32 max_lifetime);
     void Tick(f32 time_delta);

@@ -51,12 +51,17 @@ float4 PSMain(PS_INPUT input) : SV_TARGET {
     float4 prev_postproj_pos = mul(frame.prev_view_projection_matrix, float4(pixel_info.ws_position, 1));
     prev_postproj_pos /= prev_postproj_pos.w;
 
+    prev_postproj_pos = input.pos;
+
+    /*
     bool history_off_screen = any(prev_postproj_pos.xy < -1) || any(1 < prev_postproj_pos.xy);
     if(history_off_screen) {
         return colour;
     }
 
     float4 prev_colour = PrevColourTexture[ClipToPixel(prev_postproj_pos.xy)];
+    */
+    float4 prev_colour = PrevColourTexture[prev_postproj_pos.xy];
 
     bool history_hit = true;
 
@@ -64,5 +69,6 @@ float4 PSMain(PS_INPUT input) : SV_TARGET {
         return colour;
     }
 
+    float rate = frame.taa_history_decay;
     return colour * (1 - frame.taa_history_decay) + prev_colour * frame.taa_history_decay;
 }

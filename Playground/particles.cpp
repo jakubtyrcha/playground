@@ -15,6 +15,12 @@ Vector3 RandomPointInTriangle(f32 r1, f32 r2, Vector3 a, Vector3 b, Vector3 c)
     return (1.f - sqrt_r1) * a + sqrt_r1 * (1 - r2) * b + r2 * sqrt_r1 * c;
 }
 
+void PolygonParticleGenerator::Spawn(i32 num) {
+    for(i32 i=0; i<num; i++) {
+        _SpawnParticle();
+    }
+}
+
 i32 PolygonParticleGenerator::NumParticles() const
 {
     return num_particles_;
@@ -36,7 +42,7 @@ struct ParticlePipeline : public Gfx::IPipelineBuilder {
         pso_desc.pRootSignature = *owner_->device_->root_signature_;
         pso_desc.SampleMask = UINT_MAX;
         pso_desc.NumRenderTargets = 1;
-        pso_desc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+        pso_desc.RTVFormats[0] = DXGI_FORMAT_R16G16B16A16_FLOAT;
         pso_desc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
         pso_desc.SampleDesc.Count = 1;
         pso_desc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;

@@ -8,15 +8,13 @@
 namespace Rendering {
 struct Viewport;
 
-struct TAA {
+struct Copy {
     Gfx::Device* device_ = nullptr;
 
     Core::Box<Gfx::IPipelineBuilder> pipeline_;
 
-    Gfx::Pass* taa_pass_ = nullptr;
+    Gfx::Pass* pass_ = nullptr;
     Gfx::Resource* colour_src_ = nullptr;
-    Gfx::Resource* depth_src_ = nullptr;
-    Gfx::Resource* prev_colour_src_ = nullptr;
 
     struct FrameData {
         Containers::Array<Gfx::Resource> constant_buffers_;
@@ -26,7 +24,7 @@ struct TAA {
     Containers::Array<FrameData> frame_data_queue_;
 
     void Init(Gfx::Device* device);
-    void AddPassesToGraph(Gfx::Resource* colour_target, Gfx::Resource* colour_src, Gfx::Resource* depth_src, Gfx::Resource* prev_colour_src);
+    void AddPassesToGraph(ID3D12Resource* colour_target, Gfx::Resource* colour_src);
     void Render(Gfx::Encoder* encoder, Viewport* viewport, D3D12_CPU_DESCRIPTOR_HANDLE colour_target_handle);
 };
 }

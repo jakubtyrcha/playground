@@ -25,7 +25,7 @@ struct TAAPipeline : public Gfx::IPipelineBuilder {
         pso_desc.pRootSignature = *owner_->device_->root_signature_;
         pso_desc.SampleMask = UINT_MAX;
         pso_desc.NumRenderTargets = 1;
-        pso_desc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+        pso_desc.RTVFormats[0] = DXGI_FORMAT_R16G16B16A16_FLOAT;
         pso_desc.SampleDesc.Count = 1;
         pso_desc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
 
@@ -82,10 +82,10 @@ void TAA::Init(Gfx::Device* device)
     pipeline_ = MakeBox<TAAPipeline>(this);
 }
 
-void TAA::AddPassesToGraph(ID3D12Resource* colour_target, Gfx::Resource* colour_src, Gfx::Resource* depth_src, Gfx::Resource* prev_colour_src)
+void TAA::AddPassesToGraph(Gfx::Resource* colour_target, Gfx::Resource* colour_src, Gfx::Resource* depth_src, Gfx::Resource* prev_colour_src)
 {
     taa_pass_ = device_->graph_.AddSubsequentPass(Gfx::PassAttachments {}
-                                                      .Attach({ .resource = colour_target }, D3D12_RESOURCE_STATE_RENDER_TARGET)
+                                                      .Attach({ .resource = *colour_target->resource_ }, D3D12_RESOURCE_STATE_RENDER_TARGET)
                                                       .Attach({ .resource = *colour_src->resource_ }, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE|D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE)
                                                       .Attach({ .resource = *depth_src->resource_ }, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE|D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE)
                                                       .Attach({ .resource = *prev_colour_src->resource_ }, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE|D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
@@ -147,7 +147,7 @@ void TAA::Render(Gfx::Encoder* encoder, Viewport* viewport, D3D12_CPU_DESCRIPTOR
 
     {
         D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc {
-            .Format = DXGI_FORMAT_R8G8B8A8_UNORM,
+            .Format = DXGI_FORMAT_R16G16B16A16_FLOAT,
             .ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D,
             .Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
             .Texture2D = {
@@ -167,7 +167,7 @@ void TAA::Render(Gfx::Encoder* encoder, Viewport* viewport, D3D12_CPU_DESCRIPTOR
     }
     {
         D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc {
-            .Format = DXGI_FORMAT_R8G8B8A8_UNORM,
+            .Format = DXGI_FORMAT_R16G16B16A16_FLOAT,
             .ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D,
             .Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
             .Texture2D = {

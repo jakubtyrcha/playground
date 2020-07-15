@@ -23,7 +23,7 @@ struct ShapesPipeline : public Gfx::IPipelineBuilder {
         pso_desc.pRootSignature = *owner_->device_->root_signature_;
         pso_desc.SampleMask = UINT_MAX;
         pso_desc.NumRenderTargets = 1;
-        pso_desc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+        pso_desc.RTVFormats[0] = DXGI_FORMAT_R16G16B16A16_FLOAT;
         pso_desc.SampleDesc.Count = 1;
         pso_desc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
 
