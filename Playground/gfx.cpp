@@ -6,6 +6,8 @@
 using namespace Core;
 using namespace Containers;
 
+#define DX12_ENABLE_DEBUG_LAYER _DEBUG
+
 namespace Gfx {
 bool SubresourceDesc::operator==(SubresourceDesc other) const
 {
@@ -26,6 +28,10 @@ IDXGIAdapter1* FindAdapter(IDXGIFactory4* dxgi_factory)
     while (dxgi_factory->EnumAdapters1(adapter_index, &adapter) != DXGI_ERROR_NOT_FOUND) {
         DXGI_ADAPTER_DESC1 desc;
         adapter->GetDesc1(&desc);
+
+        if(desc.VendorId == 5140) {
+            desc.Flags = DXGI_ADAPTER_FLAG_SOFTWARE;
+        }
 
         if ((desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) == 0) {
             HRESULT hr = D3D12CreateDevice(adapter, D3D_FEATURE_LEVEL_12_1, _uuidof(ID3D12Device), nullptr);
