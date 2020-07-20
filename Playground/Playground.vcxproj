@@ -193,6 +193,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Use</PrecompiledHeader>
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">pch.h</PrecompiledHeaderFile>
     </ClCompile>
+    <ClCompile Include="MotionVectorDebug.cpp" />
     <ClCompile Include="os.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Use</PrecompiledHeader>
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">pch.h</PrecompiledHeaderFile>
@@ -225,6 +226,7 @@
     <ClInclude Include="gfx.h" />
     <ClInclude Include="imgui_backend.h" />
     <ClInclude Include="imgui_impl_win32.h" />
+    <ClInclude Include="MotionVectorDebug.h" />
     <ClInclude Include="os.h" />
     <ClInclude Include="particles.h" />
     <ClInclude Include="pch.h" />

@@ -8,6 +8,7 @@ struct FrameConstants {
     float4x4 view_projection_matrix;
     float4x4 inv_view_projection_matrix;
     float4x4 inv_view_matrix;
+    float4x4 prev_view_projection_matrix;
 };
 
 cbuffer CB : register(b0) {
@@ -157,8 +158,9 @@ float RaySphereIntersection(Ray ray, Sphere sphere) {
 }
 
 struct PS_OUTPUT {
-    float4 colour : SV_TARGET;
+    float4 colour : SV_TARGET0;
     float depth : SV_DepthLessEqual;
+    float2 motion_vector : SV_TARGET1;
 };
 
 PS_OUTPUT PsMain(PS_INPUT input) {
@@ -196,5 +198,9 @@ PS_OUTPUT PsMain(PS_INPUT input) {
 
     output.colour = float4(frac(sphere.center), 1.f);
     output.depth = z_postproj;
+
+    float4 prev_clip_pos = mul(frame.prev_view_projection_matrix, float4(hit, 1.f));
+
+    output.motion_vector = ((prev_clip_pos.xy / prev_clip_pos.w) - clip_space_xy);
     return output;
 }

@@ -2,17 +2,17 @@
 
 #include "Rendering.h"
 #include "Shader.h"
-#include "Taa.h"
+#include "MotionVectorDebug.h"
 
 using namespace Core;
 using namespace Containers;
 
 namespace Rendering {
 
-struct TAAPipeline : public Gfx::IPipelineBuilder {
-    TAA* owner_ = nullptr;
+struct MotionVectorDebugPipeline : public Gfx::IPipelineBuilder {
+    MotionVectorDebug* owner_ = nullptr;
 
-    TAAPipeline(TAA* owner)
+    MotionVectorDebugPipeline(MotionVectorDebug* owner)
         : owner_(owner)
     {
     }
@@ -21,21 +21,20 @@ struct TAAPipeline : public Gfx::IPipelineBuilder {
     {
         D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_desc {};
         pso_desc.NodeMask = 1;
-        pso_desc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+        pso_desc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
         pso_desc.pRootSignature = *owner_->device_->root_signature_;
         pso_desc.SampleMask = UINT_MAX;
-        pso_desc.NumRenderTargets = 2;
-        pso_desc.RTVFormats[0] = DXGI_FORMAT_R16G16B16A16_FLOAT;
-        pso_desc.RTVFormats[1] = DXGI_FORMAT_R8G8B8A8_UNORM;
+        pso_desc.NumRenderTargets = 1;
+        pso_desc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
         pso_desc.SampleDesc.Count = 1;
         pso_desc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
 
-        pso_desc.VS = GetShaderFromShaderFileSource({ .file_path = L"../data/taa.hlsl",
+        pso_desc.VS = GetShaderFromShaderFileSource({ .file_path = L"../data/motion_debug.hlsl",
                                                         .entrypoint = L"VSMain",
                                                         .profile = L"vs_6_0" })
                           ->GetBytecode();
 
-        pso_desc.PS = GetShaderFromShaderFileSource({ .file_path = L"../data/taa.hlsl",
+        pso_desc.PS = GetShaderFromShaderFileSource({ .file_path = L"../data/motion_debug.hlsl",
                                                         .entrypoint = L"PSMain",
                                                         .profile = L"ps_6_0" })
                           ->GetBytecode();
@@ -76,31 +75,24 @@ struct TAAPipeline : public Gfx::IPipelineBuilder {
     }
 };
 
-void TAA::Init(Gfx::Device* device)
+void MotionVectorDebug::Init(Gfx::Device* device)
 {
     device_ = device;
 
-    pipeline_ = MakeBox<TAAPipeline>(this);
+    pipeline_ = MakeBox<MotionVectorDebugPipeline>(this);
 }
 
-void TAA::AddPassesToGraph(Gfx::Resource* colour_copy_target, ID3D12Resource* colour_target, Gfx::Resource* colour_src, Gfx::Resource* depth_src, Gfx::Resource* prev_colour_src, Gfx::Resource* motion_vector_src)
+void MotionVectorDebug::AddPassesToGraph(ID3D12Resource* colour_target, Gfx::Resource* motion_vector_src)
 {
     pass_ = device_->graph_.AddSubsequentPass(Gfx::PassAttachments {}
-        .Attach({ .resource = *colour_copy_target->resource_ }, D3D12_RESOURCE_STATE_RENDER_TARGET)
                                                       .Attach({ .resource = colour_target }, D3D12_RESOURCE_STATE_RENDER_TARGET)
-                                                      .Attach({ .resource = *colour_src->resource_ }, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE|D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE)
-                                                      .Attach({ .resource = *depth_src->resource_ }, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE|D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE)
-                                                      .Attach({ .resource = *prev_colour_src->resource_ }, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE|D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE)
-        .Attach({ .resource = *motion_vector_src->resource_ }, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE|D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE)
+                                                      .Attach({ .resource = *motion_vector_src->resource_ }, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE|D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE)
     );
 
-    colour_src_ = colour_src;
-    depth_src_ = depth_src;
-    prev_colour_src_ = prev_colour_src;
     motion_vector_src_ = motion_vector_src;
 }
 
-void TAA::Render(Gfx::Encoder* encoder, Viewport* viewport, D3D12_CPU_DESCRIPTOR_HANDLE colour_copy_target_handle, D3D12_CPU_DESCRIPTOR_HANDLE colour_target_handle)
+void MotionVectorDebug::Render(Gfx::Encoder* encoder, Viewport* viewport, D3D12_CPU_DESCRIPTOR_HANDLE colour_target_handle)
 {
     while (frame_data_queue_.Size() && frame_data_queue_.First().waitable_.IsDone()) {
         frame_data_queue_.RemoveAt(0);
@@ -152,50 +144,19 @@ void TAA::Render(Gfx::Encoder* encoder, Viewport* viewport, D3D12_CPU_DESCRIPTOR
 
     {
         D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc {
-            .Format = DXGI_FORMAT_R16G16B16A16_FLOAT,
-            .ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D,
-            .Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
-            .Texture2D = {
-                .MipLevels = 1 }
-        };
-        device_->device_->CreateShaderResourceView(*colour_src_->resource_, &srv_desc, encoder->ReserveGraphicsSlot(Gfx::DescriptorType::SRV, 0));
-    }
-    {
-        D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc {
-            .Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS,
-            .ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D,
-            .Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
-            .Texture2D = {
-                .MipLevels = 1 }
-        };
-        device_->device_->CreateShaderResourceView(*depth_src_->resource_, &srv_desc, encoder->ReserveGraphicsSlot(Gfx::DescriptorType::SRV, 1));
-    }
-    {
-        D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc {
-            .Format = DXGI_FORMAT_R16G16B16A16_FLOAT,
-            .ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D,
-            .Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
-            .Texture2D = {
-                .MipLevels = 1 }
-        };
-        device_->device_->CreateShaderResourceView(*prev_colour_src_->resource_, &srv_desc, encoder->ReserveGraphicsSlot(Gfx::DescriptorType::SRV, 2));
-    }
-    {
-        D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc {
             .Format = DXGI_FORMAT_R16G16_FLOAT,
             .ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D,
             .Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
             .Texture2D = {
                 .MipLevels = 1 }
         };
-        device_->device_->CreateShaderResourceView(*motion_vector_src_->resource_, &srv_desc, encoder->ReserveGraphicsSlot(Gfx::DescriptorType::SRV, 3));
+        device_->device_->CreateShaderResourceView(*motion_vector_src_->resource_, &srv_desc, encoder->ReserveGraphicsSlot(Gfx::DescriptorType::SRV, 1));
     }
 
     encoder->SetPass(pass_);
     pass_ = nullptr;
 
-    D3D12_CPU_DESCRIPTOR_HANDLE rtv_handles[] = {colour_copy_target_handle, colour_target_handle};
-    encoder->GetCmdList()->OMSetRenderTargets(_countof(rtv_handles), rtv_handles, false, nullptr);
+    encoder->GetCmdList()->OMSetRenderTargets(1, &colour_target_handle, false, nullptr);
 
     D3D12_VIEWPORT vp {
         .Width = static_cast<float>(viewport->resolution.x()),
@@ -207,12 +168,18 @@ void TAA::Render(Gfx::Encoder* encoder, Viewport* viewport, D3D12_CPU_DESCRIPTOR
 
     encoder->GetCmdList()->IASetVertexBuffers(0, 1, nullptr);
     encoder->GetCmdList()->IASetIndexBuffer(nullptr);
-    encoder->GetCmdList()->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    encoder->GetCmdList()->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
     encoder->GetCmdList()->SetPipelineState(pipeline_->GetPSO());
     encoder->SetGraphicsDescriptors();
     const D3D12_RECT r = { 0, 0, viewport->resolution.x(), viewport->resolution.y() };
     encoder->GetCmdList()->RSSetScissorRects(1, &r);
-    encoder->GetCmdList()->DrawInstanced(3, 1, 0, 0);
+
+    const i32 RESOLUTION = 32;
+
+    i32 instances_num = (viewport->resolution.x() + RESOLUTION - 1) / RESOLUTION;
+    instances_num *= (viewport->resolution.y() + RESOLUTION - 1) / RESOLUTION;
+
+    encoder->GetCmdList()->DrawInstanced(2, instances_num, 0, 0);
 
     frame_data.waitable_ = encoder->GetWaitable();
 

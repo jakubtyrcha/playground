@@ -3,6 +3,7 @@
 Texture2D<float4> ColourTexture : register(t0);
 Texture2D<float> DepthTexture : register(t1);
 Texture2D<float4> PrevColourTexture : register(t2);
+Texture2D<float2> MotionVectorTexture : register(t3);
 
 float2 TexcoordToClip(float2 uv) {
     return uv * float2( 2.0f, -2.0f ) + float2( -1.0f, 1.0f);
@@ -19,10 +20,6 @@ PS_INPUT VSMain(uint VertexID: SV_VertexID) {
     return output;
 }
 
-float LinearizeDepth(float zbuffer_depth) {
-    return frame.projection_matrix._33 + frame.projection_matrix._34 / zbuffer_depth;
-}
-
 struct PixelInfo {
     float2 cs_coord;
     float3 V;
@@ -34,24 +31,24 @@ PixelInfo GetPixelInfo(float4 postproj_pos, float depth) {
     output.cs_coord = postproj_pos.xy * frame.inv_resolution * float2(2, -2) + float2(-1, 1) + frame.clipspace_jitter;
     float4 ray_dir_wh = mul(frame.inv_view_projection_matrix, float4(output.cs_coord, 1, 1));
     output.V = -normalize(ray_dir_wh.xyz);
-    output.ws_position = GetCameraWPos() + ray_dir_wh.xyz / ray_dir_wh.z * LinearizeDepth(depth);
+    output.ws_position = Frame_GetCameraWPos() + ray_dir_wh.xyz / ray_dir_wh.z * Frame_LinearizeDepth(depth);
     return output;
 }
 
-float2 ClipToPixel(float2 cs) {
-    float2 ts = cs * float2(0.5, -0.5) + 0.5;
-    return ts * frame.resolution;
-}
+struct PS_OUTPUT {
+    float4 colour_copy : SV_TARGET0;
+    float4 colour : SV_TARGET1;
+};
 
-float4 PSMain(PS_INPUT input) : SV_TARGET {
+PS_OUTPUT PSMain(PS_INPUT input) {
+    PS_OUTPUT result;
+
     float depth = DepthTexture[input.pos.xy];
     float4 colour = ColourTexture[input.pos.xy];
     PixelInfo pixel_info = GetPixelInfo(input.pos, depth);
 
-    float4 prev_postproj_pos = mul(frame.prev_view_projection_matrix, float4(pixel_info.ws_position, 1));
-    prev_postproj_pos /= prev_postproj_pos.w;
-
-    prev_postproj_pos = input.pos;
+    float2 motion_vector = MotionVectorTexture[input.pos.xy];
+    float2 prev_pixel_coord = input.pos.xy + motion_vector * float2(0.5, -0.5) * frame.resolution;
 
     /*
     bool history_off_screen = any(prev_postproj_pos.xy < -1) || any(1 < prev_postproj_pos.xy);
@@ -61,14 +58,17 @@ float4 PSMain(PS_INPUT input) : SV_TARGET {
 
     float4 prev_colour = PrevColourTexture[ClipToPixel(prev_postproj_pos.xy)];
     */
-    float4 prev_colour = PrevColourTexture[prev_postproj_pos.xy];
+    float4 prev_colour = PrevColourTexture[prev_pixel_coord.xy];
 
-    bool history_hit = true;
-
-    if(!history_hit) {
-        return colour;
-    }
+    //return all(colour.xyz == prev_colour.xyz);
 
     float rate = frame.taa_history_decay;
-    return colour * (1 - frame.taa_history_decay) + prev_colour * frame.taa_history_decay;
+
+    result.colour_copy = colour * (1 - frame.taa_history_decay) + prev_colour * frame.taa_history_decay;
+    result.colour = result.colour_copy;
+
+    result.colour = dot(prev_colour - colour, prev_colour - colour);
+    result.colour = prev_colour;
+
+    return result;
 }

@@ -16,7 +16,15 @@ cbuffer CB : register(b0) {
     FrameConstants frame;
 };
 
-float3 GetCameraWPos() {
+float3 Frame_GetCameraWPos() {
     return frame.inv_view_matrix._14_24_34;
 }
 
+float Frame_LinearizeDepth(float zbuffer_depth) {
+    return frame.projection_matrix._33 + frame.projection_matrix._34 / zbuffer_depth;
+}
+
+float2 Frame_ClipToPixel(float2 cs) {
+    float2 ts = cs * float2(0.5, -0.5) + 0.5;
+    return ts * frame.resolution;
+}

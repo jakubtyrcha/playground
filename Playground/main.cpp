@@ -12,12 +12,13 @@
 #include "imgui_impl_win32.h"
 #include <imgui/imgui.h>
 
+#include "Copy.h"
+#include "MotionVectorDebug.h"
 #include "Taa.h"
 #include "imgui_backend.h"
 #include "particles.h"
 #include "rendering.h"
 #include "shapes.h"
-#include "Copy.h"
 
 #include <math.h>
 
@@ -107,8 +108,8 @@ int main(int argc, char** argv)
     Rendering::TAA taa;
     taa.Init(&device);
 
-    Rendering::Copy copy;
-    copy.Init(&device);
+    Rendering::MotionVectorDebug motion_debug;
+    motion_debug.Init(&device);
 
     //Rendering::SphereTracer sphere_tracer;
     //sphere_tracer.Init(&device);
@@ -130,6 +131,7 @@ int main(int argc, char** argv)
         Gfx::Resource final_texture;
         Gfx::Resource colour_texture;
         Gfx::Resource prev_colour_texture;
+        Gfx::Resource motion_vectors_texture;
         Gfx::Resource depth_buffer;
         Vector2i resolution;
 
@@ -146,6 +148,7 @@ int main(int argc, char** argv)
             final_texture = device->CreateTexture2D(D3D12_HEAP_TYPE_DEFAULT, resolution, colour_texture_format, 1, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET, D3D12_RESOURCE_STATE_RENDER_TARGET);
             colour_texture = device->CreateTexture2D(D3D12_HEAP_TYPE_DEFAULT, resolution, colour_texture_format, 1, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET, D3D12_RESOURCE_STATE_RENDER_TARGET);
             prev_colour_texture = device->CreateTexture2D(D3D12_HEAP_TYPE_DEFAULT, resolution, colour_texture_format, 1, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET, D3D12_RESOURCE_STATE_RENDER_TARGET);
+            motion_vectors_texture = device->CreateTexture2D(D3D12_HEAP_TYPE_DEFAULT, resolution, DXGI_FORMAT_R16G16_FLOAT, 1, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET, D3D12_RESOURCE_STATE_RENDER_TARGET);
             depth_buffer = device->CreateTexture2D(D3D12_HEAP_TYPE_DEFAULT, resolution, DXGI_FORMAT_D24_UNORM_S8_UINT, 1, D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL, D3D12_RESOURCE_STATE_DEPTH_WRITE);
         }
     };
@@ -181,7 +184,7 @@ int main(int argc, char** argv)
                                &shape_renderer,
                                &taa_pattern,
                                &taa,
-                               &copy,
+                               &motion_debug,
                                &main_viewport,
                                &particle_generator]() {
         i32 current_backbuffer_index = window_swapchain->swapchain_->GetCurrentBackBufferIndex();
@@ -292,13 +295,16 @@ int main(int argc, char** argv)
 
         Gfx::Pass* clear_pass = device.graph_.AddSubsequentPass(Gfx::PassAttachments {}
                                                                     .Attach({ .resource = *screen_resources.colour_texture.resource_ }, D3D12_RESOURCE_STATE_RENDER_TARGET)
+                                                                    .Attach({ .resource = *screen_resources.motion_vectors_texture.resource_ }, D3D12_RESOURCE_STATE_RENDER_TARGET)
                                                                     .Attach({ .resource = *screen_resources.depth_buffer.resource_ }, D3D12_RESOURCE_STATE_DEPTH_WRITE));
 
-        particle_generator.AddPassesToGraph(&screen_resources.colour_texture, &screen_resources.depth_buffer);
+        particle_generator.AddPassesToGraph(&screen_resources.colour_texture, &screen_resources.depth_buffer, &screen_resources.motion_vectors_texture);
 
-        taa.AddPassesToGraph(&screen_resources.final_texture, &screen_resources.colour_texture, &screen_resources.depth_buffer, &screen_resources.prev_colour_texture);
+        taa.AddPassesToGraph(&screen_resources.final_texture, current_backbuffer, &screen_resources.colour_texture, &screen_resources.depth_buffer, &screen_resources.prev_colour_texture, &screen_resources.motion_vectors_texture);
 
-        copy.AddPassesToGraph(current_backbuffer, &screen_resources.final_texture);
+        //copy.AddPassesToGraph(current_backbuffer, &screen_resources.final_texture);
+
+        motion_debug.AddPassesToGraph(current_backbuffer, &screen_resources.motion_vectors_texture);
 
         Gfx::Pass* render_ui_pass = device.graph_.AddSubsequentPass(Gfx::PassAttachments {}
                                                                         .Attach({ .resource = current_backbuffer }, D3D12_RESOURCE_STATE_RENDER_TARGET));
@@ -312,17 +318,36 @@ int main(int argc, char** argv)
 
         encoder.SetPass(clear_pass);
 
-        D3D12_RENDER_TARGET_VIEW_DESC rtv_desc {
-            .Format = DXGI_FORMAT_R16G16B16A16_FLOAT,
-            .ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D,
-            .Texture2D = {}
+        auto create_rtv_handle = [&device](Gfx::Resource* texture, DXGI_FORMAT fmt) -> D3D12_CPU_DESCRIPTOR_HANDLE {
+            D3D12_CPU_DESCRIPTOR_HANDLE rtv_handle = device.rtvs_descriptor_heap_.heap_->GetCPUDescriptorHandleForHeapStart();
+            D3D12_RENDER_TARGET_VIEW_DESC rtv_desc {
+                .Format = fmt,
+                .ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D,
+                .Texture2D = {}
+            };
+            rtv_handle.ptr += device.rtvs_descriptor_heap_.AllocateTable(1) * device.rtvs_descriptor_heap_.increment_;
+            device.device_->CreateRenderTargetView(*texture->resource_, &rtv_desc, rtv_handle);
+            return rtv_handle;
         };
-        D3D12_CPU_DESCRIPTOR_HANDLE rtv_handle = device.rtvs_descriptor_heap_.heap_->GetCPUDescriptorHandleForHeapStart();
-        rtv_handle.ptr += device.rtvs_descriptor_heap_.AllocateTable(1) * device.rtvs_descriptor_heap_.increment_;
-        device.device_->CreateRenderTargetView(*screen_resources.colour_texture.resource_, &rtv_desc, rtv_handle);
+
+        auto create_rtv_handle_ = [&device](ID3D12Resource* texture, DXGI_FORMAT fmt) -> D3D12_CPU_DESCRIPTOR_HANDLE {
+            D3D12_CPU_DESCRIPTOR_HANDLE rtv_handle = device.rtvs_descriptor_heap_.heap_->GetCPUDescriptorHandleForHeapStart();
+            D3D12_RENDER_TARGET_VIEW_DESC rtv_desc {
+                .Format = fmt,
+                .ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D,
+                .Texture2D = {}
+            };
+            rtv_handle.ptr += device.rtvs_descriptor_heap_.AllocateTable(1) * device.rtvs_descriptor_heap_.increment_;
+            device.device_->CreateRenderTargetView(texture, &rtv_desc, rtv_handle);
+            return rtv_handle;
+        };
+
+        D3D12_CPU_DESCRIPTOR_HANDLE rtv_handle = create_rtv_handle(&screen_resources.colour_texture, DXGI_FORMAT_R16G16B16A16_FLOAT);
+        D3D12_CPU_DESCRIPTOR_HANDLE mv_rtv_handle = create_rtv_handle(&screen_resources.motion_vectors_texture, DXGI_FORMAT_R16G16_FLOAT);
 
         f32 clear_colour[4] = {};
         encoder.GetCmdList()->ClearRenderTargetView(rtv_handle, clear_colour, 0, nullptr);
+        encoder.GetCmdList()->ClearRenderTargetView(mv_rtv_handle, clear_colour, 0, nullptr);
 
         D3D12_DEPTH_STENCIL_VIEW_DESC dsv_desc {
             .Format = DXGI_FORMAT_D24_UNORM_S8_UINT,
@@ -337,22 +362,19 @@ int main(int argc, char** argv)
         encoder.GetCmdList()->ClearDepthStencilView(dsv_handle, D3D12_CLEAR_FLAG_DEPTH, 1.f, 0, 0, nullptr);
 
         //sphere_tracer.Render(&encoder, &main_viewport, rtv_handle);
-        particle_generator.Render(&encoder, &main_viewport, rtv_handle, dsv_handle);
+        particle_generator.Render(&encoder, &main_viewport, rtv_handle, dsv_handle, mv_rtv_handle);
 
         shape_renderer.Render(&encoder, &main_viewport, rtv_handle);
 
-        D3D12_CPU_DESCRIPTOR_HANDLE final_rtv_handle = device.rtvs_descriptor_heap_.heap_->GetCPUDescriptorHandleForHeapStart();
-        final_rtv_handle.ptr += device.rtvs_descriptor_heap_.AllocateTable(1) * device.rtvs_descriptor_heap_.increment_;
-        device.device_->CreateRenderTargetView(*screen_resources.final_texture.resource_, &rtv_desc, final_rtv_handle);
+        D3D12_CPU_DESCRIPTOR_HANDLE final_rtv_handle = create_rtv_handle(&screen_resources.final_texture, DXGI_FORMAT_R16G16B16A16_FLOAT);
 
-        taa.Render(&encoder, &main_viewport, final_rtv_handle);
+        D3D12_CPU_DESCRIPTOR_HANDLE bb_rtv_handle = create_rtv_handle_(current_backbuffer, DXGI_FORMAT_R8G8B8A8_UNORM);
 
-        rtv_desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-        D3D12_CPU_DESCRIPTOR_HANDLE bb_rtv_handle = device.rtvs_descriptor_heap_.heap_->GetCPUDescriptorHandleForHeapStart();
-        bb_rtv_handle.ptr += device.rtvs_descriptor_heap_.AllocateTable(1) * device.rtvs_descriptor_heap_.increment_;
-        device.device_->CreateRenderTargetView(current_backbuffer, &rtv_desc, bb_rtv_handle);
+        taa.Render(&encoder, &main_viewport, final_rtv_handle, bb_rtv_handle);
 
-        copy.Render(&encoder, &main_viewport, bb_rtv_handle);
+        //copy.Render(&encoder, &main_viewport, bb_rtv_handle);
+
+        motion_debug.Render(&encoder, &main_viewport, bb_rtv_handle);
 
         encoder.SetPass(render_ui_pass);
 

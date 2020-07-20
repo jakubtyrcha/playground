@@ -15,8 +15,9 @@ Vector3 RandomPointInTriangle(f32 r1, f32 r2, Vector3 a, Vector3 b, Vector3 c)
     return (1.f - sqrt_r1) * a + sqrt_r1 * (1 - r2) * b + r2 * sqrt_r1 * c;
 }
 
-void PolygonParticleGenerator::Spawn(i32 num) {
-    for(i32 i=0; i<num; i++) {
+void PolygonParticleGenerator::Spawn(i32 num)
+{
+    for (i32 i = 0; i < num; i++) {
         _SpawnParticle();
     }
 }
@@ -41,8 +42,9 @@ struct ParticlePipeline : public Gfx::IPipelineBuilder {
         pso_desc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
         pso_desc.pRootSignature = *owner_->device_->root_signature_;
         pso_desc.SampleMask = UINT_MAX;
-        pso_desc.NumRenderTargets = 1;
+        pso_desc.NumRenderTargets = 2;
         pso_desc.RTVFormats[0] = DXGI_FORMAT_R16G16B16A16_FLOAT;
+        pso_desc.RTVFormats[1] = DXGI_FORMAT_R16G16_FLOAT;
         pso_desc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
         pso_desc.SampleDesc.Count = 1;
         pso_desc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
@@ -195,7 +197,7 @@ void PolygonParticleGenerator::Tick(f32 time_delta)
     // UpdateTextures
 }
 
-void PolygonParticleGenerator::AddPassesToGraph(Gfx::Resource* color_target, Gfx::Resource* depth_target)
+void PolygonParticleGenerator::AddPassesToGraph(Gfx::Resource* color_target, Gfx::Resource* depth_target, Gfx::Resource* motion_vectors_target)
 {
     if (updates_.Size()) {
         update_positions_pass_ = device_->graph_.AddSubsequentPass(Gfx::PassAttachments {}
@@ -206,11 +208,12 @@ void PolygonParticleGenerator::AddPassesToGraph(Gfx::Resource* color_target, Gfx
         particle_pass_ = device_->graph_.AddSubsequentPass(Gfx::PassAttachments {}
                                                                .Attach({ .resource = *state_positions_texture_.resource_ }, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE)
                                                                .Attach({ .resource = *depth_target->resource_ }, D3D12_RESOURCE_STATE_DEPTH_WRITE)
-                                                               .Attach({ .resource = *color_target->resource_ }, D3D12_RESOURCE_STATE_RENDER_TARGET));
+                                                               .Attach({ .resource = *color_target->resource_ }, D3D12_RESOURCE_STATE_RENDER_TARGET)
+                                                               .Attach({ .resource = *motion_vectors_target->resource_ }, D3D12_RESOURCE_STATE_RENDER_TARGET));
     }
 }
 
-void PolygonParticleGenerator::Render(Gfx::Encoder* encoder, Rendering::Viewport* viewport, D3D12_CPU_DESCRIPTOR_HANDLE color_target_handle, D3D12_CPU_DESCRIPTOR_HANDLE depth_target_handle)
+void PolygonParticleGenerator::Render(Gfx::Encoder* encoder, Rendering::Viewport* viewport, D3D12_CPU_DESCRIPTOR_HANDLE color_target_handle, D3D12_CPU_DESCRIPTOR_HANDLE depth_target_handle, D3D12_CPU_DESCRIPTOR_HANDLE motion_vectors_target_handle)
 {
     while (frame_data_queue_.Size() && frame_data_queue_.First().waitable_.IsDone()) {
         frame_data_queue_.RemoveAt(0);
@@ -238,6 +241,8 @@ void PolygonParticleGenerator::Render(Gfx::Encoder* encoder, Rendering::Viewport
                 } }
         };
 
+        const float PARTICLE_RADIUS = 0.25f;
+
         D3D12_TEXTURE_COPY_LOCATION copy_dst {
             .pResource = *state_positions_texture_.resource_,
             .Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX
@@ -245,7 +250,7 @@ void PolygonParticleGenerator::Render(Gfx::Encoder* encoder, Rendering::Viewport
         i32 index = 0;
         for (ParticleInitData update : updates_) {
             //memcpy(positions, &update.position, sizeof(update.position));
-            *reinterpret_cast<Vector4*>(positions) = Vector4 { update.position, 0.01f };
+            *reinterpret_cast<Vector4*>(positions) = Vector4 { update.position, PARTICLE_RADIUS };
             positions += 256;
 
             D3D12_BOX src_box { .left = 0, .top = static_cast<u32>(index), .right = 1, .bottom = static_cast<u32>(index + 1), .back = 1 };
@@ -301,12 +306,13 @@ void PolygonParticleGenerator::Render(Gfx::Encoder* encoder, Rendering::Viewport
             Matrix4 view_projection_matrix;
             Matrix4 inv_view_projection_matrix;
             Matrix4 inv_view_matrix;
+            Matrix4 prev_view_projection_matrix;
         };
         FrameConstants constants;
         constants.resolution = viewport->resolution;
-        constants.inv_resolution = 1.f / Vector2{constants.resolution};
-        constants.near_far_planes = Vector2{viewport->near_plane, viewport->far_plane};
-        if(viewport->taa_offsets.Size()) {
+        constants.inv_resolution = 1.f / Vector2 { constants.resolution };
+        constants.near_far_planes = Vector2 { viewport->near_plane, viewport->far_plane };
+        if (viewport->taa_offsets.Size()) {
             constants.clipspace_jitter = viewport->projection_jitter;
         } else {
             constants.clipspace_jitter = {};
@@ -316,6 +322,7 @@ void PolygonParticleGenerator::Render(Gfx::Encoder* encoder, Rendering::Viewport
         constants.view_projection_matrix = viewport->view_projection_matrix;
         constants.inv_view_projection_matrix = viewport->inv_view_projection_matrix;
         constants.inv_view_matrix = viewport->inv_view_matrix;
+        constants.prev_view_projection_matrix = viewport->prev_view_projection_matrix;
 
         frame_data.constant_buffers_.PushBackRvalueRef(std::move(device_->CreateBuffer(D3D12_HEAP_TYPE_UPLOAD, AlignedForward(static_cast<i32>(sizeof(FrameConstants)), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT), DXGI_FORMAT_UNKNOWN, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ)));
         void* cb_dst = nullptr;
@@ -329,7 +336,8 @@ void PolygonParticleGenerator::Render(Gfx::Encoder* encoder, Rendering::Viewport
         };
         device_->device_->CreateConstantBufferView(&cbv_desc, encoder->ReserveGraphicsSlot(Gfx::DescriptorType::CBV, 0));
 
-        encoder->GetCmdList()->OMSetRenderTargets(1, &color_target_handle, false, &depth_target_handle);
+        D3D12_CPU_DESCRIPTOR_HANDLE rtv_handles[] = {color_target_handle, motion_vectors_target_handle};
+        encoder->GetCmdList()->OMSetRenderTargets(_countof(rtv_handles), rtv_handles, false, &depth_target_handle);
 
         D3D12_VIEWPORT vp {
             .Width = static_cast<float>(viewport->resolution.x()),

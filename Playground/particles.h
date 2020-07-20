@@ -61,7 +61,7 @@ struct PolygonParticleGenerator {
     i32 NumParticles() const;
     void Init(Gfx::Device* device, i32 max_particles, f32 spawn_rate, f32 max_lifetime);
     void Tick(f32 time_delta);
-    void AddPassesToGraph(Gfx::Resource* color_target, Gfx::Resource* depth_target);
-    void Render(Gfx::Encoder* encoder, Viewport* viewport, D3D12_CPU_DESCRIPTOR_HANDLE color_target_handle, D3D12_CPU_DESCRIPTOR_HANDLE depth_target_handle);
+    void AddPassesToGraph(Gfx::Resource* color_target, Gfx::Resource* depth_target, Gfx::Resource* motion_vectors_target);
+    void Render(Gfx::Encoder* encoder, Viewport* viewport, D3D12_CPU_DESCRIPTOR_HANDLE color_target_handle, D3D12_CPU_DESCRIPTOR_HANDLE depth_target_handle, D3D12_CPU_DESCRIPTOR_HANDLE motion_vectors_target_handle);
 };
 }
