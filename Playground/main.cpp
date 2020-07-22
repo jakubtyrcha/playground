@@ -364,7 +364,7 @@ int main(int argc, char** argv)
         //sphere_tracer.Render(&encoder, &main_viewport, rtv_handle);
         particle_generator.Render(&encoder, &main_viewport, rtv_handle, dsv_handle, mv_rtv_handle);
 
-        shape_renderer.Render(&encoder, &main_viewport, rtv_handle);
+        shape_renderer.Render(&encoder, &main_viewport, rtv_handle, mv_rtv_handle);
 
         D3D12_CPU_DESCRIPTOR_HANDLE final_rtv_handle = create_rtv_handle(&screen_resources.final_texture, DXGI_FORMAT_R16G16B16A16_FLOAT);
 

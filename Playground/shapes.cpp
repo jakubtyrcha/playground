@@ -22,8 +22,9 @@ struct ShapesPipeline : public Gfx::IPipelineBuilder {
         pso_desc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
         pso_desc.pRootSignature = *owner_->device_->root_signature_;
         pso_desc.SampleMask = UINT_MAX;
-        pso_desc.NumRenderTargets = 1;
+        pso_desc.NumRenderTargets = 2;
         pso_desc.RTVFormats[0] = DXGI_FORMAT_R16G16B16A16_FLOAT;
+        pso_desc.RTVFormats[1] = DXGI_FORMAT_R16G16_FLOAT;
         pso_desc.SampleDesc.Count = 1;
         pso_desc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
 
@@ -92,13 +93,14 @@ void ImmediateModeShapeRenderer::Init(Gfx::Device* device)
     pipeline_ = MakeBox<ShapesPipeline>(this);
 }
 
-void ImmediateModeShapeRenderer::Render(Gfx::Encoder* encoder, Viewport* viewport, D3D12_CPU_DESCRIPTOR_HANDLE rtv_handle)
+void ImmediateModeShapeRenderer::Render(Gfx::Encoder* encoder, Viewport* viewport, D3D12_CPU_DESCRIPTOR_HANDLE rtv_handle, D3D12_CPU_DESCRIPTOR_HANDLE rtv1_handle)
 {
     while (frame_data_queue_.Size() && frame_data_queue_.First().waitable_.IsDone()) {
         frame_data_queue_.RemoveAt(0);
     }
 
-    encoder->GetCmdList()->OMSetRenderTargets(1, &rtv_handle, false, nullptr);
+    D3D12_CPU_DESCRIPTOR_HANDLE rtv_handles[] = { rtv_handle, rtv1_handle };
+    encoder->GetCmdList()->OMSetRenderTargets(_countof(rtv_handles), rtv_handles, false, nullptr);
 
     D3D12_VIEWPORT vp {
         .Width = static_cast<float>(viewport->resolution.x()),
@@ -133,18 +135,43 @@ void ImmediateModeShapeRenderer::Render(Gfx::Encoder* encoder, Viewport* viewpor
     encoder->GetCmdList()->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_LINELIST);
     encoder->GetCmdList()->SetPipelineState(pipeline_->GetPSO());
 
-    frame_data.constant_buffers_.PushBackRvalueRef(std::move(device_->CreateBuffer(D3D12_HEAP_TYPE_UPLOAD, AlignedForward(64, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT), DXGI_FORMAT_UNKNOWN, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ)));
+    struct FrameConstants {
+        Vector2i resolution;
+        Vector2 inv_resolution;
+        Vector2 near_far_planes;
+        Vector2 clipspace_jitter;
+        Matrix4 view_matrix;
+        Matrix4 projection_matrix;
+        Matrix4 view_projection_matrix;
+        Matrix4 inv_view_projection_matrix;
+        Matrix4 inv_view_matrix;
+        Matrix4 prev_view_projection_matrix;
+    };
+    FrameConstants constants;
+    constants.resolution = viewport->resolution;
+    constants.inv_resolution = 1.f / Vector2 { constants.resolution };
+    constants.near_far_planes = Vector2 { viewport->near_plane, viewport->far_plane };
+    if (viewport->taa_offsets.Size()) {
+        constants.clipspace_jitter = viewport->projection_jitter;
+    } else {
+        constants.clipspace_jitter = {};
+    }
+    constants.view_matrix = viewport->view_matrix;
+    constants.projection_matrix = viewport->projection_matrix;
+    constants.view_projection_matrix = viewport->view_projection_matrix;
+    constants.inv_view_projection_matrix = viewport->inv_view_projection_matrix;
+    constants.inv_view_matrix = viewport->inv_view_matrix;
+    constants.prev_view_projection_matrix = viewport->prev_view_projection_matrix;
 
-    Matrix4x4 view_projection_matrix = viewport->view_projection_matrix;
-
+    frame_data.constant_buffers_.PushBackRvalueRef(std::move(device_->CreateBuffer(D3D12_HEAP_TYPE_UPLOAD, AlignedForward(static_cast<i32>(sizeof(FrameConstants)), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT), DXGI_FORMAT_UNKNOWN, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ)));
     void* cb_dst = nullptr;
     verify_hr(frame_data.constant_buffers_.Last().resource_->Map(0, nullptr, &cb_dst));
-    memcpy(cb_dst, &view_projection_matrix, 64);
+    memcpy(cb_dst, &constants, sizeof(FrameConstants));
     frame_data.constant_buffers_.Last().resource_->Unmap(0, nullptr);
 
     D3D12_CONSTANT_BUFFER_VIEW_DESC cbv_desc {
         .BufferLocation = frame_data.constant_buffers_.Last().resource_->GetGPUVirtualAddress(),
-        .SizeInBytes = static_cast<u32>(AlignedForward(64, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT))
+        .SizeInBytes = static_cast<u32>(AlignedForward(static_cast<i32>(sizeof(FrameConstants)), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT))
     };
     device_->device_->CreateConstantBufferView(&cbv_desc, encoder->ReserveGraphicsSlot(Gfx::DescriptorType::CBV, 0));
 

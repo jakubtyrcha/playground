@@ -1,3 +1,5 @@
+#include "Math.hlsli"
+
 struct FrameConstants {
     uint2 resolution;
     float2 inv_resolution;
@@ -27,4 +29,8 @@ float Frame_LinearizeDepth(float zbuffer_depth) {
 float2 Frame_ClipToPixel(float2 cs) {
     float2 ts = cs * float2(0.5, -0.5) + 0.5;
     return ts * frame.resolution;
+}
+
+float2 Frame_PixelPosToJitteredClip(float2 pos) {
+    return TexcoordToClip(pos * frame.inv_resolution) - frame.clipspace_jitter;
 }
