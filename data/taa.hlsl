@@ -5,9 +5,10 @@ Texture2D<float> DepthTexture : register(t1);
 Texture2D<float4> PrevColourTexture : register(t2);
 Texture2D<float2> MotionVectorTexture : register(t3);
 
-float2 TexcoordToClip(float2 uv) {
-    return uv * float2( 2.0f, -2.0f ) + float2( -1.0f, 1.0f);
-}
+#define TAA_TAP_CROSS 0
+#define TAA_TAP_BOX 1
+
+#define TAA_TAP TAA_TAP_BOX
 
 struct PS_INPUT {
     float4 pos : SV_POSITION;
@@ -40,9 +41,21 @@ struct PS_OUTPUT {
     float4 colour : SV_TARGET1;
 };
 
-PS_OUTPUT PSMain(PS_INPUT input) {
+PS_OUTPUT OutputColour(float4 colour) {
     PS_OUTPUT result;
+    result.colour_copy = colour;
+    result.colour = colour;
+    return result;
+}
 
+PS_OUTPUT OutputDebugColour(float4 colour, float4 value) {
+    PS_OUTPUT result;
+    result.colour_copy = colour;
+    result.colour = value;
+    return result;
+}
+
+PS_OUTPUT PSMain(PS_INPUT input) {
     float depth = DepthTexture[input.pos.xy];
     float4 colour = ColourTexture[input.pos.xy];
     PixelInfo pixel_info = GetPixelInfo(input.pos, depth);
@@ -50,25 +63,38 @@ PS_OUTPUT PSMain(PS_INPUT input) {
     float2 motion_vector = MotionVectorTexture[input.pos.xy];
     float2 prev_pixel_coord = input.pos.xy + motion_vector * float2(0.5, -0.5) * frame.resolution;
 
-    /*
-    bool history_off_screen = any(prev_postproj_pos.xy < -1) || any(1 < prev_postproj_pos.xy);
+    bool history_off_screen = any(prev_pixel_coord.xy < 0) || any(frame.resolution < prev_pixel_coord.xy);
     if(history_off_screen) {
-        return colour;
+        return OutputColour(colour);
     }
 
-    float4 prev_colour = PrevColourTexture[ClipToPixel(prev_postproj_pos.xy)];
-    */
     float4 prev_colour = PrevColourTexture[prev_pixel_coord.xy];
 
-    //return all(colour.xyz == prev_colour.xyz);
+    float3 colour_aabb_min = colour.xyz;
+    float3 colour_aabb_max = colour.xyz;
+
+#if TAA_TAP == TAA_TAP_CROSS
+    const float2 neightbour_offset[4] = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
+    for(int i=0; i<4; i++) {
+        float3 neighbour_colour = ColourTexture[input.pos.xy + neightbour_offset[i]].xyz;
+        colour_aabb_min = min(neighbour_colour, colour_aabb_min);
+        colour_aabb_max = max(neighbour_colour, colour_aabb_max);
+    }
+#elif TAA_TAP == TAA_TAP_BOX
+    const float2 neightbour_offset[8] = {{-1, 1}, {0, 1}, {1, 1}, {-1, 0}, {1, 0}, {-1, -1}, {0, -1}, {1, -1} };
+    for(int i=0; i<8; i++) {
+        float3 neighbour_colour = ColourTexture[input.pos.xy + neightbour_offset[i]].xyz;
+        colour_aabb_min = min(neighbour_colour, colour_aabb_min);
+        colour_aabb_max = max(neighbour_colour, colour_aabb_max);
+    }
+#endif
+
+    if(any(prev_colour.xyz < colour_aabb_min) || any(colour_aabb_max < prev_colour.xyz)) {
+        return OutputColour(colour);
+        //return OutputDebugColour(colour, float4(0, 1, 0, 0));
+    }
 
     float rate = frame.taa_history_decay;
 
-    result.colour_copy = colour * (1 - frame.taa_history_decay) + prev_colour * frame.taa_history_decay;
-    result.colour = result.colour_copy;
-
-    result.colour = dot(prev_colour - colour, prev_colour - colour);
-    result.colour = prev_colour;
-
-    return result;
+    return OutputColour(colour * (1 - frame.taa_history_decay) + prev_colour * frame.taa_history_decay);
 }
