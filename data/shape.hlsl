@@ -33,8 +33,15 @@ PS_OUTPUT PsMain(PS_INPUT input) {
 
     float4 prev_clip_pos = mul(frame.prev_view_projection_matrix, float4(input.wpos, 1));
 
-    // TODO: check if jitter should be + or - (splatting)
-    result.motion_vector = ((prev_clip_pos.xy / prev_clip_pos.w) - clip_space_xy);
+    // the problem with TAA for lines seems to be connected to rasterization rules: 
+    // for a triangle pixel center has to be in the triangle, so we know where the
+    // previous location would be just with reprojection; for line to find prev 
+    // location we would have to apply rasterization rules with the prev view proj
+
+    // idea: could figure out line clip location inside the pixel (middle point seems 
+    // natural?) and reproject that instead of the pixel center
+
+    result.motion_vector = 0;// ((prev_clip_pos.xy / prev_clip_pos.w) - clip_space_xy);
 
     return result;
 }

@@ -91,7 +91,6 @@ PS_OUTPUT PSMain(PS_INPUT input) {
 
     if(any(prev_colour.xyz < colour_aabb_min) || any(colour_aabb_max < prev_colour.xyz)) {
         return OutputColour(colour);
-        //return OutputDebugColour(colour, float4(0, 1, 0, 0));
     }
 
     float rate = frame.taa_history_decay;

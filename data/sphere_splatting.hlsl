@@ -1,23 +1,4 @@
-struct FrameConstants {
-    uint2 resolution;
-    float2 inv_resolution;
-    float2 near_far_planes;
-    float2 clipspace_jitter;
-    float4x4 view_matrix;
-    float4x4 projection_matrix;
-    float4x4 view_projection_matrix;
-    float4x4 inv_view_projection_matrix;
-    float4x4 inv_view_matrix;
-    float4x4 prev_view_projection_matrix;
-};
-
-cbuffer CB : register(b0) {
-    FrameConstants frame;
-};
-
-float3 ReadCameraPos() {
-    return frame.inv_view_matrix._14_24_34;
-}
+#include "frame.hlsli"
 
 struct PS_INPUT {
     linear sample float4 pos : SV_POSITION;
@@ -170,12 +151,13 @@ PS_OUTPUT PsMain(PS_INPUT input) {
     sphere.center = wpos_size.xyz;
     sphere.radius = wpos_size.w;
 
-    float2 clip_space_xy = input.pos.xy * frame.inv_resolution * float2(2, -2) + float2(-1, 1) + frame.clipspace_jitter;
+    // convert to jittered clip (clip including jitter?) so we can apply inv viewproj of the unjittered view projection to recover world pos
+    float2 clip_space_xy = Frame_PixelPosToJitteredClip(input.pos.xy);
     float4 ray_dir_wh = mul(frame.inv_view_projection_matrix, float4(clip_space_xy, 1, 1));
     float3 ray_dir = normalize(ray_dir_wh.xyz);
 
     Ray screen_ray;
-    screen_ray.origin = ReadCameraPos();
+    screen_ray.origin = Frame_GetCameraWPos();
     screen_ray.direction = ray_dir;
 
     float t = RaySphereIntersection(screen_ray, sphere);

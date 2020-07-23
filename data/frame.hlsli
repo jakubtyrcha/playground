@@ -32,5 +32,5 @@ float2 Frame_ClipToPixel(float2 cs) {
 }
 
 float2 Frame_PixelPosToJitteredClip(float2 pos) {
-    return TexcoordToClip(pos * frame.inv_resolution) - frame.clipspace_jitter;
+    return TexcoordToClip(pos * frame.inv_resolution) + frame.clipspace_jitter;
 }
