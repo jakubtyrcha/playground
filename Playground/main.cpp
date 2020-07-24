@@ -229,6 +229,7 @@ int main(int argc, char** argv)
         }
 
         static bool tick_particles = true;
+        static bool show_motionvectors = false;
         if (tick_particles) {
             particle_generator.Tick(io.DeltaTime);
         }
@@ -274,18 +275,30 @@ int main(int argc, char** argv)
         shape_renderer.vertices_.Append(vertices, _countof(vertices));
 
         {
-            ImGui::Begin("Particles");
-
+            ImGui::Begin("Perf");
             ImGui::Text("Time: %f ms", io.DeltaTime * 1000.f);
-            ImGui::Text("Particles num: %d", particle_generator.NumParticles());
-            ImGui::Text("Particles pages: %d", particle_generator.active_pages_.Size());
-            ImGui::Checkbox("Tick", &tick_particles);
-            ImGui::SliderFloat("Near plane", &main_viewport.near_plane, 0.0001f, 1.f);
-            ImGui::SliderFloat("TAA", &main_viewport.history_decay, 0.f, 1.f);
-            ImGui::SliderInt("TAA sample", &override_taa_sample, -1, static_cast<i32>(main_viewport.taa_offsets.Size()) - 1);
-            const char* items[] = { "4x", "8x" };
-            if (ImGui::Combo("TAA pattern", &taa_pattern, items, _countof(items))) {
-                SetPattern(main_viewport, static_cast<Rendering::TAAPattern>(taa_pattern));
+            ImGui::End();
+
+            ImGui::Begin("Controls");
+
+            if(ImGui::CollapsingHeader("View")) {
+                ImGui::SliderFloat("Near plane", &main_viewport.near_plane, 0.0001f, 1.f);
+                ImGui::SliderFloat("TAA", &main_viewport.history_decay, 0.f, 1.f);
+                ImGui::SliderInt("TAA sample", &override_taa_sample, -1, static_cast<i32>(main_viewport.taa_offsets.Size()) - 1);
+                const char* items[] = { "4x", "8x" };
+                if (ImGui::Combo("TAA pattern", &taa_pattern, items, _countof(items))) {
+                    SetPattern(main_viewport, static_cast<Rendering::TAAPattern>(taa_pattern));
+                }
+            }
+
+            if(ImGui::CollapsingHeader("Debug")) {
+                ImGui::Checkbox("Motion vectors", &show_motionvectors);
+            }
+
+            if(ImGui::CollapsingHeader("Particles")) {
+                ImGui::Text("Particles num: %d", particle_generator.NumParticles());
+                ImGui::Text("Particles pages: %d", particle_generator.active_pages_.Size());
+                ImGui::Checkbox("Tick", &tick_particles);
             }
 
             ImGui::End();
@@ -304,7 +317,9 @@ int main(int argc, char** argv)
 
         //copy.AddPassesToGraph(current_backbuffer, &screen_resources.final_texture);
 
-        motion_debug.AddPassesToGraph(current_backbuffer, &screen_resources.motion_vectors_texture);
+        if(show_motionvectors) {
+            motion_debug.AddPassesToGraph(current_backbuffer, &screen_resources.motion_vectors_texture);
+        }
 
         Gfx::Pass* render_ui_pass = device.graph_.AddSubsequentPass(Gfx::PassAttachments {}
                                                                         .Attach({ .resource = current_backbuffer }, D3D12_RESOURCE_STATE_RENDER_TARGET));
@@ -374,7 +389,9 @@ int main(int argc, char** argv)
 
         //copy.Render(&encoder, &main_viewport, bb_rtv_handle);
 
-        motion_debug.Render(&encoder, &main_viewport, bb_rtv_handle);
+        if(show_motionvectors) {
+            motion_debug.Render(&encoder, &main_viewport, bb_rtv_handle);
+        }
 
         encoder.SetPass(render_ui_pass);
 
