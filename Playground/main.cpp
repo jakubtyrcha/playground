@@ -14,11 +14,12 @@
 
 #include "Copy.h"
 #include "MotionVectorDebug.h"
+#include "Particles.h"
+#include "Pointset.h"
+#include "Rendering.h"
+#include "Shapes.h"
 #include "Taa.h"
 #include "imgui_backend.h"
-#include "particles.h"
-#include "rendering.h"
-#include "shapes.h"
 
 #include <math.h>
 
@@ -95,15 +96,17 @@ int main(int argc, char** argv)
     Rendering::ImmediateModeShapeRenderer shape_renderer;
     shape_renderer.Init(&device);
 
-    Rendering::PolygonParticleGenerator particle_generator;
-    particle_generator.Init(&device, 100000, 0.f, std::numeric_limits<f32>::infinity());
-    particle_generator.vertices_.PushBack({ -10, 0, -10 });
-    particle_generator.vertices_.PushBack({ 10, 0, -10 });
-    particle_generator.vertices_.PushBack({ -10, 0, 10 });
-    particle_generator.vertices_.PushBack({ 10, 0, -10 });
-    particle_generator.vertices_.PushBack({ 10, 0, 10 });
-    particle_generator.vertices_.PushBack({ -10, 0, 10 });
-    particle_generator.Spawn(2000);
+    Rendering::Pointset pointset;
+    for (i32 x = -5; x <= 5; x++) {
+        for (i32 y = -5; y <= 5; y++) {
+            pointset.Add({ f32(x), 0, f32(y) }, 0.25f, { 127, 180, 127, 255 });
+        }
+    }
+
+    Rendering::PointsetRenderer pointset_renderer;
+    pointset_renderer.Init(&device);
+
+    pointset_renderer.pointset_ = &pointset;
 
     Rendering::TAA taa;
     taa.Init(&device);
@@ -125,6 +128,10 @@ int main(int argc, char** argv)
     // this is here, because WndProc needs the mappings ready
     window->Init();
     ImGui_ImplWin32_Init(window->hwnd_);
+
+    Containers::Array<Rendering::FrameData> frame_data_queue;
+
+    i32 max_frames_queued_ = 3;
 
     struct ScreenResources {
         Gfx::Device* device = nullptr;
@@ -179,6 +186,7 @@ int main(int argc, char** argv)
                                &screen_resources,
                                backbuffers_num,
                                &frames_ctr,
+                               &frame_data_queue,
                                &frame_waitables,
                                &imgui_renderer,
                                &shape_renderer,
@@ -186,7 +194,8 @@ int main(int argc, char** argv)
                                &taa,
                                &motion_debug,
                                &main_viewport,
-                               &particle_generator]() {
+                               &pointset,
+                               &pointset_renderer]() {
         i32 current_backbuffer_index = window_swapchain->swapchain_->GetCurrentBackBufferIndex();
 
         screen_resources.Resize(window->resolution_);
@@ -223,16 +232,13 @@ int main(int argc, char** argv)
             //
             Vector4 clip_space_point_to { delta_x * 2.f, delta_y * 2.f, 1.f, 1.f };
 
-            Vector4 world_point_to = main_viewport.inv_view_projection_matrix * clip_space_point_to;
+            Vector4 world_point_to = main_viewport.GetInvViewProjectionMatrix() * clip_space_point_to;
 
             main_viewport.camera_look_at = main_viewport.camera_position + world_point_to.xyz().normalized();
         }
 
-        static bool tick_particles = true;
         static bool show_motionvectors = false;
-        if (tick_particles) {
-            particle_generator.Tick(io.DeltaTime);
-        }
+        static bool show_axes_helper = true;
 
         ImGui_ImplWin32_NewFrame();
         ImGui::NewFrame();
@@ -242,37 +248,19 @@ int main(int argc, char** argv)
             main_viewport.taa_index = override_taa_sample;
         }
 
-        main_viewport.prev_view_projection_matrix = main_viewport.view_projection_matrix;
+        Rendering::ViewportRenderContext viewport_render_context = Rendering::BuildViewportRenderContext(&device, &main_viewport);
 
-        main_viewport.view_matrix = Rendering::LookAtLh(main_viewport.camera_look_at, main_viewport.camera_position, main_viewport.camera_up);
-        main_viewport.inv_view_matrix = Rendering::InverseLookAtLh(main_viewport.camera_look_at, main_viewport.camera_position, main_viewport.camera_up);
-        main_viewport.unjittered_projection_matrix = Rendering::PerspectiveFovLh(main_viewport.GetAspectRatio(), main_viewport.fov_y, main_viewport.near_plane, main_viewport.far_plane);
-        main_viewport.projection_matrix = main_viewport.unjittered_projection_matrix;
-
-        if (main_viewport.taa_offsets.Size()) {
-            main_viewport.projection_jitter = main_viewport.taa_offsets[main_viewport.taa_index] / Vector2 { main_viewport.resolution };
+        if (show_axes_helper) {
+            Rendering::ShapeVertex vertices[] = {
+                { .position = { 0, 0, 0 }, .colour = { 255, 0, 0, 1 } },
+                { .position = { 1, 0, 0 }, .colour = { 255, 0, 0, 1 } },
+                { .position = { 0, 0, 0 }, .colour = { 0, 255, 0, 1 } },
+                { .position = { 0, 1, 0 }, .colour = { 0, 255, 0, 1 } },
+                { .position = { 0, 0, 0 }, .colour = { 0, 0, 255, 1 } },
+                { .position = { 0, 0, 1 }, .colour = { 0, 0, 255, 1 } },
+            };
+            shape_renderer.vertices_.Append(vertices, _countof(vertices));
         }
-
-        main_viewport.projection_matrix[2][0] = main_viewport.projection_jitter.x();
-        main_viewport.projection_matrix[2][1] = main_viewport.projection_jitter.y();
-
-        main_viewport.inv_projection_matrix = Rendering::InversePerspectiveFovLh(main_viewport.GetAspectRatio(), main_viewport.fov_y, main_viewport.near_plane, main_viewport.far_plane);
-        main_viewport.view_projection_matrix = main_viewport.projection_matrix * main_viewport.view_matrix;
-        main_viewport.inv_view_projection_matrix = main_viewport.inv_view_matrix * main_viewport.inv_projection_matrix;
-
-        if (main_viewport.taa_offsets.Size()) {
-            main_viewport.taa_index = (main_viewport.taa_index + 1) % main_viewport.taa_offsets.Size();
-        }
-
-        Rendering::ShapeVertex vertices[] = {
-            { .position = { 0, 0, 0 }, .colour = { 255, 0, 0, 1 } },
-            { .position = { 1, 0, 0 }, .colour = { 255, 0, 0, 1 } },
-            { .position = { 0, 0, 0 }, .colour = { 0, 255, 0, 1 } },
-            { .position = { 0, 1, 0 }, .colour = { 0, 255, 0, 1 } },
-            { .position = { 0, 0, 0 }, .colour = { 0, 0, 255, 1 } },
-            { .position = { 0, 0, 1 }, .colour = { 0, 0, 255, 1 } },
-        };
-        shape_renderer.vertices_.Append(vertices, _countof(vertices));
 
         {
             ImGui::Begin("Perf");
@@ -281,24 +269,19 @@ int main(int argc, char** argv)
 
             ImGui::Begin("Controls");
 
-            if(ImGui::CollapsingHeader("View")) {
+            if (ImGui::CollapsingHeader("View")) {
                 ImGui::SliderFloat("Near plane", &main_viewport.near_plane, 0.0001f, 1.f);
-                ImGui::SliderFloat("TAA", &main_viewport.history_decay, 0.f, 1.f);
+                ImGui::SliderFloat("TAA decay", &main_viewport.history_decay, 0.f, 1.f);
                 ImGui::SliderInt("TAA sample", &override_taa_sample, -1, static_cast<i32>(main_viewport.taa_offsets.Size()) - 1);
-                const char* items[] = { "4x", "8x" };
+                const char* items[] = { "MSAA 4x", "MSAA 8x" };
                 if (ImGui::Combo("TAA pattern", &taa_pattern, items, _countof(items))) {
                     SetPattern(main_viewport, static_cast<Rendering::TAAPattern>(taa_pattern));
                 }
             }
 
-            if(ImGui::CollapsingHeader("Debug")) {
+            if (ImGui::CollapsingHeader("Debug")) {
+                ImGui::Checkbox("Axes", &show_axes_helper);
                 ImGui::Checkbox("Motion vectors", &show_motionvectors);
-            }
-
-            if(ImGui::CollapsingHeader("Particles")) {
-                ImGui::Text("Particles num: %d", particle_generator.NumParticles());
-                ImGui::Text("Particles pages: %d", particle_generator.active_pages_.Size());
-                ImGui::Checkbox("Tick", &tick_particles);
             }
 
             ImGui::End();
@@ -311,13 +294,16 @@ int main(int argc, char** argv)
                                                                     .Attach({ .resource = *screen_resources.motion_vectors_texture.resource_ }, D3D12_RESOURCE_STATE_RENDER_TARGET)
                                                                     .Attach({ .resource = *screen_resources.depth_buffer.resource_ }, D3D12_RESOURCE_STATE_DEPTH_WRITE));
 
-        particle_generator.AddPassesToGraph(&screen_resources.colour_texture, &screen_resources.depth_buffer, &screen_resources.motion_vectors_texture);
+        pointset_renderer.colour_target_ = &screen_resources.colour_texture;
+        pointset_renderer.depth_buffer_ = &screen_resources.depth_buffer;
+        pointset_renderer.motionvec_target_ = &screen_resources.motion_vectors_texture;
+        //pointset_renderer.AddPassesToGraph();
 
         taa.AddPassesToGraph(&screen_resources.final_texture, current_backbuffer, &screen_resources.colour_texture, &screen_resources.depth_buffer, &screen_resources.prev_colour_texture, &screen_resources.motion_vectors_texture);
 
         //copy.AddPassesToGraph(current_backbuffer, &screen_resources.final_texture);
 
-        if(show_motionvectors) {
+        if (show_motionvectors) {
             motion_debug.AddPassesToGraph(current_backbuffer, &screen_resources.motion_vectors_texture);
         }
 
@@ -377,20 +363,22 @@ int main(int argc, char** argv)
         encoder.GetCmdList()->ClearDepthStencilView(dsv_handle, D3D12_CLEAR_FLAG_DEPTH, 1.f, 0, 0, nullptr);
 
         //sphere_tracer.Render(&encoder, &main_viewport, rtv_handle);
-        particle_generator.Render(&encoder, &main_viewport, rtv_handle, dsv_handle, mv_rtv_handle);
+        //particle_generator.Render(&encoder, &main_viewport, rtv_handle, dsv_handle, mv_rtv_handle);
+        D3D12_CPU_DESCRIPTOR_HANDLE handles[] = { rtv_handle, mv_rtv_handle };
+        //pointset_renderer.Render(&encoder, &viewport_render_context, handles, dsv_handle);
 
-        shape_renderer.Render(&encoder, &main_viewport, rtv_handle, mv_rtv_handle);
+        shape_renderer.Render(&encoder, &viewport_render_context, rtv_handle, mv_rtv_handle);
 
         D3D12_CPU_DESCRIPTOR_HANDLE final_rtv_handle = create_rtv_handle(&screen_resources.final_texture, DXGI_FORMAT_R16G16B16A16_FLOAT);
 
         D3D12_CPU_DESCRIPTOR_HANDLE bb_rtv_handle = create_rtv_handle_(current_backbuffer, DXGI_FORMAT_R8G8B8A8_UNORM);
 
-        taa.Render(&encoder, &main_viewport, final_rtv_handle, bb_rtv_handle);
+        taa.Render(&encoder, &viewport_render_context, final_rtv_handle, bb_rtv_handle);
 
         //copy.Render(&encoder, &main_viewport, bb_rtv_handle);
 
-        if(show_motionvectors) {
-            motion_debug.Render(&encoder, &main_viewport, bb_rtv_handle);
+        if (show_motionvectors) {
+            motion_debug.Render(&encoder, &viewport_render_context, bb_rtv_handle);
         }
 
         encoder.SetPass(render_ui_pass);
@@ -410,8 +398,10 @@ int main(int argc, char** argv)
         device.AdvanceFence();
         device.RecycleResources();
 
-        frame_waitables.PushBack(device.GetWaitable());
-
+        Gfx::Waitable frame_end_fence = device.GetWaitable();
+        frame_waitables.PushBack(frame_end_fence);
+        viewport_render_context.frame_payload.waitable_ = frame_end_fence;
+        frame_data_queue.PushBackRvalueRef(std::move(viewport_render_context.frame_payload));
         current_backbuffer_index = (current_backbuffer_index + 1) % backbuffers_num;
 
         std::swap(screen_resources.final_texture, screen_resources.prev_colour_texture);

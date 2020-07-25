@@ -215,6 +215,8 @@
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">pch.h</PrecompiledHeaderFile>
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">pch.h</PrecompiledHeaderFile>
     </ClCompile>
+    <ClCompile Include="Pointset.cpp" />
+    <ClCompile Include="RenderComponent.cpp" />
     <ClCompile Include="rendering.cpp" />
     <ClCompile Include="shader.cpp" />
     <ClCompile Include="shapes.cpp" />
@@ -230,6 +232,8 @@
     <ClInclude Include="os.h" />
     <ClInclude Include="particles.h" />
     <ClInclude Include="pch.h" />
+    <ClInclude Include="Pointset.h" />
+    <ClInclude Include="RenderComponent.h" />
     <ClInclude Include="rendering.h" />
     <ClInclude Include="shader.h" />
     <ClInclude Include="shapes.h" />

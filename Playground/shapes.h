@@ -30,7 +30,7 @@ namespace Rendering {
 		Containers::Array<ShapeVertex> vertices_;
 
 		void Init(Gfx::Device* device);
-		void Render(Gfx::Encoder* encoder, Viewport* viewport, D3D12_CPU_DESCRIPTOR_HANDLE rtv_handle, D3D12_CPU_DESCRIPTOR_HANDLE rtv1_handle);
+		void Render(Gfx::Encoder* encoder, ViewportRenderContext* viewport_ctx, D3D12_CPU_DESCRIPTOR_HANDLE rtv_handle, D3D12_CPU_DESCRIPTOR_HANDLE rtv1_handle);
 		void Shutdown();
 		void AddLine(Vector3 a, Vector3 b, ColourR8G8B8A8U colour);
 	};

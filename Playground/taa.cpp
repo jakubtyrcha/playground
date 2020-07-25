@@ -100,55 +100,9 @@ void TAA::AddPassesToGraph(Gfx::Resource* colour_copy_target, ID3D12Resource* co
     motion_vector_src_ = motion_vector_src;
 }
 
-void TAA::Render(Gfx::Encoder* encoder, Viewport* viewport, D3D12_CPU_DESCRIPTOR_HANDLE colour_copy_target_handle, D3D12_CPU_DESCRIPTOR_HANDLE colour_target_handle)
+void TAA::Render(Gfx::Encoder* encoder, ViewportRenderContext* viewport_ctx, D3D12_CPU_DESCRIPTOR_HANDLE colour_copy_target_handle, D3D12_CPU_DESCRIPTOR_HANDLE colour_target_handle)
 {
-    while (frame_data_queue_.Size() && frame_data_queue_.First().waitable_.IsDone()) {
-        frame_data_queue_.RemoveAt(0);
-    }
-
-    FrameData frame_data;
-
-    struct FrameConstants {
-        Vector2i resolution;
-        Vector2 inv_resolution;
-        Vector2 near_far_planes;
-        Vector2 clipspace_jitter;
-        Matrix4 view_matrix;
-        Matrix4 projection_matrix;
-        Matrix4 view_projection_matrix;
-        Matrix4 inv_view_projection_matrix;
-        Matrix4 inv_view_matrix;
-        Matrix4 prev_view_projection_matrix;
-        float taa_history_decay;
-    };
-    FrameConstants constants;
-    constants.resolution = viewport->resolution;
-    constants.inv_resolution = 1.f / Vector2 { constants.resolution };
-    constants.near_far_planes = Vector2 { viewport->near_plane, viewport->far_plane };
-    if (viewport->taa_offsets.Size()) {
-        constants.clipspace_jitter = viewport->projection_jitter;
-    } else {
-        constants.clipspace_jitter = {};
-    }
-    constants.view_matrix = viewport->view_matrix;
-    constants.projection_matrix = viewport->projection_matrix;
-    constants.view_projection_matrix = viewport->view_projection_matrix;
-    constants.inv_view_projection_matrix = viewport->inv_view_projection_matrix;
-    constants.inv_view_matrix = viewport->inv_view_matrix;
-    constants.prev_view_projection_matrix = viewport->prev_view_projection_matrix;
-    constants.taa_history_decay = viewport->history_decay;
-
-    frame_data.constant_buffers_.PushBackRvalueRef(std::move(device_->CreateBuffer(D3D12_HEAP_TYPE_UPLOAD, AlignedForward(static_cast<i32>(sizeof(FrameConstants)), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT), DXGI_FORMAT_UNKNOWN, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ)));
-    void* cb_dst = nullptr;
-    verify_hr(frame_data.constant_buffers_.Last().resource_->Map(0, nullptr, &cb_dst));
-    memcpy(cb_dst, &constants, sizeof(FrameConstants));
-    frame_data.constant_buffers_.Last().resource_->Unmap(0, nullptr);
-
-    D3D12_CONSTANT_BUFFER_VIEW_DESC cbv_desc {
-        .BufferLocation = frame_data.constant_buffers_.Last().resource_->GetGPUVirtualAddress(),
-        .SizeInBytes = static_cast<u32>(AlignedForward(static_cast<i32>(sizeof(FrameConstants)), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT))
-    };
-    device_->device_->CreateConstantBufferView(&cbv_desc, encoder->ReserveGraphicsSlot(Gfx::DescriptorType::CBV, 0));
+    encoder->SetGraphicsDescriptor(Gfx::DescriptorType::CBV, 0, viewport_ctx->frame_cbv_handle);
 
     {
         D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc {
@@ -197,26 +151,14 @@ void TAA::Render(Gfx::Encoder* encoder, Viewport* viewport, D3D12_CPU_DESCRIPTOR
     D3D12_CPU_DESCRIPTOR_HANDLE rtv_handles[] = {colour_copy_target_handle, colour_target_handle};
     encoder->GetCmdList()->OMSetRenderTargets(_countof(rtv_handles), rtv_handles, false, nullptr);
 
-    D3D12_VIEWPORT vp {
-        .Width = static_cast<float>(viewport->resolution.x()),
-        .Height = static_cast<float>(viewport->resolution.y()),
-        .MinDepth = 0.f,
-        .MaxDepth = 1.f
-    };
-    encoder->GetCmdList()->RSSetViewports(1, &vp);
+    viewport_ctx->SetViewportAndScissorRect(encoder);
 
     encoder->GetCmdList()->IASetVertexBuffers(0, 1, nullptr);
     encoder->GetCmdList()->IASetIndexBuffer(nullptr);
     encoder->GetCmdList()->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     encoder->GetCmdList()->SetPipelineState(pipeline_->GetPSO());
     encoder->SetGraphicsDescriptors();
-    const D3D12_RECT r = { 0, 0, viewport->resolution.x(), viewport->resolution.y() };
-    encoder->GetCmdList()->RSSetScissorRects(1, &r);
     encoder->GetCmdList()->DrawInstanced(3, 1, 0, 0);
-
-    frame_data.waitable_ = encoder->GetWaitable();
-
-    frame_data_queue_.PushBackRvalueRef(std::move(frame_data));
 }
 
 }

@@ -17,6 +17,8 @@ struct String {
 }
 
 namespace Gfx {
+struct Pipeline;
+
 enum class ShaderReloadResult {
     NoChange,
     RecompileOk,

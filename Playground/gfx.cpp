@@ -166,15 +166,19 @@ Device::Device()
     verify_hr(device_->CreateRootSignature(0, serialized_root_sig->GetBufferPointer(), serialized_root_sig->GetBufferSize(), IID_PPV_ARGS(root_signature_.InitAddress())));
 
     {
-        D3D12_DESCRIPTOR_HEAP_DESC heap_desc {
+        frame_descriptor_heap_.Init(*device_, {
+            .Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
+            .NumDescriptors = D3D12_MAX_SHADER_VISIBLE_DESCRIPTOR_HEAP_SIZE_TIER_1,
+            .Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE
+        });
+    }
+
+    {
+        descriptor_heap_.Init(*device_, {
             .Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
             .NumDescriptors = D3D12_MAX_SHADER_VISIBLE_DESCRIPTOR_HEAP_SIZE_TIER_1,
             .Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE
-        };
-        verify_hr(device_->CreateDescriptorHeap(&heap_desc, IID_PPV_ARGS(descriptor_heap_.heap_.InitAddress())));
-
-        descriptor_heap_.increment_ = device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-        descriptor_heap_.max_slots_ = heap_desc.NumDescriptors;
+        });
 
         descriptor_heap_.graphics_tables.srv.Resize(8);
         descriptor_heap_.graphics_tables.uav.Resize(8);
@@ -188,27 +192,19 @@ Device::Device()
     //
 
     {
-        D3D12_DESCRIPTOR_HEAP_DESC heap_desc {
+        rtvs_descriptor_heap_.Init(*device_, {
             .Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
             .NumDescriptors = 4096
-        };
-        verify_hr(device_->CreateDescriptorHeap(&heap_desc, IID_PPV_ARGS(rtvs_descriptor_heap_.heap_.InitAddress())));
-
-        rtvs_descriptor_heap_.max_slots_ = heap_desc.NumDescriptors;
-        rtvs_descriptor_heap_.increment_ = device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+        });
     }
 
     //
 
     {
-        D3D12_DESCRIPTOR_HEAP_DESC heap_desc {
+        dsvs_descriptor_heap_.Init(*device_, {
             .Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV,
             .NumDescriptors = 4096
-        };
-        verify_hr(device_->CreateDescriptorHeap(&heap_desc, IID_PPV_ARGS(dsvs_descriptor_heap_.heap_.InitAddress())));
-
-        dsvs_descriptor_heap_.max_slots_ = heap_desc.NumDescriptors;
-        dsvs_descriptor_heap_.increment_ = device_->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
+        });
     }
 
     waitables_pool_.Resize(4096);
@@ -329,6 +325,23 @@ Swapchain* Device::CreateSwapchain(Os::Window* window, i32 backbuffers_num)
     window->swapchain_ = result;
 
     return result;
+}
+
+DescriptorHandle Device::CreateDescriptor(D3D12_CONSTANT_BUFFER_VIEW_DESC& cbv_desc, Lifetime lifetime)
+{
+    assert(lifetime == Lifetime::Frame); // because used with frame_descriptor_heap_
+
+    D3D12_CPU_DESCRIPTOR_HANDLE handle = frame_descriptor_heap_.heap_->GetCPUDescriptorHandleForHeapStart();
+    handle.ptr += frame_descriptor_heap_.AllocateTable(1) * frame_descriptor_heap_.increment_;
+
+    device_->CreateConstantBufferView(&cbv_desc, handle);
+
+    return { handle.ptr };
+}
+
+D3D12_CPU_DESCRIPTOR_HANDLE Device::_GetSrcHandle(DescriptorHandle handle)
+{
+    return {.ptr = handle.handle };
 }
 
 bool IsHeapTypeStateFixed(D3D12_HEAP_TYPE heap_type)
@@ -505,6 +518,14 @@ void Encoder::SetPass(Pass* pass)
     }
 }
 
+void DescriptorHeap::Init(ID3D12Device * device, D3D12_DESCRIPTOR_HEAP_DESC heap_desc)
+{
+    verify_hr(device->CreateDescriptorHeap(&heap_desc, IID_PPV_ARGS(heap_.InitAddress())));
+
+    increment_ = device->GetDescriptorHandleIncrementSize(heap_desc.Type);
+    max_slots_ = heap_desc.NumDescriptors;
+}
+
 void DescriptorHeap::FenceDescriptors(Waitable waitable)
 {
     fences_.PushBack({ .offset = next_slot_, .waitable = waitable });
@@ -581,6 +602,11 @@ D3D12_CPU_DESCRIPTOR_HANDLE Encoder::ReserveComputeSlot(DescriptorType type, i32
         DEBUG_UNREACHABLE(gfx_module {});
         return {};
     }
+}
+
+void Encoder::SetGraphicsDescriptor(DescriptorType type, i32 slot_index, DescriptorHandle handle)
+{
+    device_->device_->CopyDescriptorsSimple(1, ReserveGraphicsSlot(type, slot_index), device_->_GetSrcHandle(handle), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 }
 
 template <typename F, typename F1>
@@ -698,13 +724,14 @@ void Encoder::Submit()
 
 void Device::RecycleResources()
 {
-    Waitable fence = GetWaitable();
+    Waitable frame_end_fence = GetWaitable();
 
-    descriptor_heap_.FenceDescriptors(fence);
-    rtvs_descriptor_heap_.FenceDescriptors(fence);
-    dsvs_descriptor_heap_.FenceDescriptors(fence);
+    descriptor_heap_.FenceDescriptors(frame_end_fence);
+    frame_descriptor_heap_.FenceDescriptors(frame_end_fence);
+    rtvs_descriptor_heap_.FenceDescriptors(frame_end_fence);
+    dsvs_descriptor_heap_.FenceDescriptors(frame_end_fence);
     for (Com::Box<ID3D12CommandAllocator>& allocator : cmd_allocators_) {
-        cmd_allocators_pending_.PushBackRvalueRef(PendingCommandAllocator { .allocator = std::move(allocator), .waitable = fence });
+        cmd_allocators_pending_.PushBackRvalueRef(PendingCommandAllocator { .allocator = std::move(allocator), .waitable = frame_end_fence });
     }
     cmd_allocators_.Clear();
 

@@ -6,6 +6,7 @@
 #include "com.h"
 #include "copy_move.h"
 #include "hashmap.h"
+#include "shader.h"
 #include <magnum/CorradeOptional.h>
 
 struct gfx_module
@@ -50,6 +51,14 @@ struct SubresourceDesc {
     u32 subresource;
 
     bool operator==(SubresourceDesc other) const;
+};
+
+struct DescriptorHandle {
+    u64 handle;
+};
+
+enum class Lifetime {
+    Frame
 };
 
 struct Attachment {
@@ -116,6 +125,8 @@ struct DescriptorHeap {
     };
     Array<Fence> fences_;
 
+    void Init(ID3D12Device* device, D3D12_DESCRIPTOR_HEAP_DESC desc);
+
     // important to call periodically to release older descriptors and avoid deadlock
     // clears all previous usages
     void FenceDescriptors(Waitable waitable);
@@ -152,6 +163,7 @@ struct Device : private Core::Pinned<Device> {
     Com::Box<ID3D12CommandQueue> cmd_queue_;
     Com::Box<D3D12MA::Allocator> allocator_;
 
+    DescriptorHeap frame_descriptor_heap_;
     DescriptorHeap descriptor_heap_;
     DescriptorHeap rtvs_descriptor_heap_;
     DescriptorHeap dsvs_descriptor_heap_;
@@ -186,7 +198,7 @@ struct Device : private Core::Pinned<Device> {
     Device();
     ~Device();
 
-    void _Submit(Encoder && encoder);
+    void _Submit(Encoder&& encoder);
 
     void AdvanceFence();
     Waitable GetWaitable();
@@ -201,6 +213,9 @@ struct Device : private Core::Pinned<Device> {
 
     Encoder CreateEncoder();
     Swapchain* CreateSwapchain(Os::Window*, i32 num_backbuffers);
+
+    DescriptorHandle CreateDescriptor(D3D12_CONSTANT_BUFFER_VIEW_DESC& cbv_desc, Lifetime lifetime);
+    D3D12_CPU_DESCRIPTOR_HANDLE _GetSrcHandle(DescriptorHandle handle);
 
     Resource CreateBuffer(D3D12_HEAP_TYPE heap_type, i64 size, DXGI_FORMAT format, D3D12_RESOURCE_FLAGS flags, D3D12_RESOURCE_STATES initial_state);
     Resource CreateTexture1D(D3D12_HEAP_TYPE heap_type, i64 size, DXGI_FORMAT format, i32 miplevels, D3D12_RESOURCE_FLAGS flags, D3D12_RESOURCE_STATES initial_state);
@@ -220,6 +235,8 @@ struct Encoder : private Core::MoveableNonCopyable<Encoder> {
 
     D3D12_CPU_DESCRIPTOR_HANDLE ReserveGraphicsSlot(DescriptorType type, i32 slot_index);
     D3D12_CPU_DESCRIPTOR_HANDLE ReserveComputeSlot(DescriptorType type, i32 slot_index);
+
+    void SetGraphicsDescriptor(DescriptorType type, i32 slot_index, DescriptorHandle handle);
 
     // Currently this "forgets" all the previously reserved slots, as I keep only one shader-visible heap
     // and it can't be used as a copy src. With a second cpu-visible heap that tracks all the descriptors

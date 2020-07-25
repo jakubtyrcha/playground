@@ -1,7 +1,7 @@
 #include "pch.h"
 
 #include "imgui_backend.h"
-#include "shader.h"
+#include "gfx.h"
 #include <imgui/imgui.h>
 
 using namespace Core;
