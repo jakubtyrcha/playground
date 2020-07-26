@@ -99,6 +99,10 @@ void ImmediateModeShapeRenderer::Render(Gfx::Encoder* encoder, ViewportRenderCon
         frame_data_queue_.RemoveAt(0);
     }
 
+    if(!vertices_.Size()) {
+        return;
+    }
+
     D3D12_CPU_DESCRIPTOR_HANDLE rtv_handles[] = { rtv_handle, rtv1_handle };
     encoder->GetCmdList()->OMSetRenderTargets(_countof(rtv_handles), rtv_handles, false, nullptr);
 
