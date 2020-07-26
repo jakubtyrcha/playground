@@ -14,7 +14,6 @@
 
 #include "Copy.h"
 #include "MotionVectorDebug.h"
-#include "Particles.h"
 #include "Pointset.h"
 #include "Rendering.h"
 #include "Shapes.h"
@@ -99,7 +98,7 @@ int main(int argc, char** argv)
     Rendering::Pointset pointset;
     for (i32 x = -5; x <= 5; x++) {
         for (i32 y = -5; y <= 5; y++) {
-            pointset.Add({ f32(x), 0, f32(y) }, 0.25f, { 127, 180, 127, 255 });
+            pointset.Add({ f32(x), 0, f32(y) }, 0.25f, { u8(120 + x * 10), 180, u8(120 + y * 10), 255 });
         }
     }
 
