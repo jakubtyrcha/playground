@@ -14,6 +14,11 @@ struct ParticleData {
     uint colour_packed;
 };
 
+float4 UnpackColourUint(uint value)
+{
+    return (uint4(value, value >> 8, value >> 16, value >> 24) & 0xFF) / 255.f;
+}
+
 StructuredBuffer<ParticleData> ParticlesBuffer : register(t0);
 
 PS_INPUT VsMain(uint VertexID: SV_VertexID, uint InstanceID: SV_InstanceID) {
@@ -86,7 +91,7 @@ PS_OUTPUT PsMain(PS_INPUT input) {
         discard;
     }
 
-    output.colour = float4(frac(particle.position / 5.f), 1.f);
+    output.colour = UnpackColourUint(particle.colour_packed);
     output.depth = z_postproj;
 
     float3 velocity = particle.position - particle.prev_position;
