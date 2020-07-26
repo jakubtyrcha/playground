@@ -58,7 +58,8 @@ struct DescriptorHandle {
 };
 
 enum class Lifetime {
-    Frame
+    Frame,
+    Manual
 };
 
 struct Attachment {
@@ -156,7 +157,23 @@ struct DescriptorHeap {
     // TODO: this is hardcoded for the current shared RootSignature, make this data driven
 };
 
+struct FreeList {
+    i32 next_ = 0;
+    Containers::Array<i32> freelist_;
+
+    i32 Allocate();
+    void Free(i32);
+};
+
 struct Device : private Core::Pinned<Device> {
+    struct ReleaseSet {
+        Waitable waitable;
+        Containers::Array<Resource> resources;
+        Containers::Array<DescriptorHandle> handles;
+    };
+
+    Containers::Array<ReleaseSet> release_sets_queue_;
+
     Com::Box<IDXGIFactory4> dxgi_factory_;
     Com::Box<IDXGIAdapter1> adapter_;
     Com::Box<ID3D12Device> device_;
@@ -164,6 +181,10 @@ struct Device : private Core::Pinned<Device> {
     Com::Box<D3D12MA::Allocator> allocator_;
 
     DescriptorHeap frame_descriptor_heap_;
+
+    FreeList manual_descriptor_heap_freelist_;
+    DescriptorHeap manual_descriptor_heap_;
+
     DescriptorHeap descriptor_heap_;
     DescriptorHeap rtvs_descriptor_heap_;
     DescriptorHeap dsvs_descriptor_heap_;
@@ -208,13 +229,17 @@ struct Device : private Core::Pinned<Device> {
     void Wait(Waitable);
     bool IsDone(Waitable);
 
+    void ReleaseWhenCurrentFrameIsDone(Resource &&);
+    void ReleaseWhenCurrentFrameIsDone(DescriptorHandle);
+
     // has to be called from time to time (once per frame) to free older waitables, descriptors etc
     void RecycleResources();
 
     Encoder CreateEncoder();
     Swapchain* CreateSwapchain(Os::Window*, i32 num_backbuffers);
 
-    DescriptorHandle CreateDescriptor(D3D12_CONSTANT_BUFFER_VIEW_DESC& cbv_desc, Lifetime lifetime);
+    DescriptorHandle CreateDescriptor(Resource *, D3D12_SHADER_RESOURCE_VIEW_DESC const& desc, Lifetime lifetime);
+    DescriptorHandle CreateDescriptor(D3D12_CONSTANT_BUFFER_VIEW_DESC const& desc, Lifetime lifetime);
     D3D12_CPU_DESCRIPTOR_HANDLE _GetSrcHandle(DescriptorHandle handle);
 
     Resource CreateBuffer(D3D12_HEAP_TYPE heap_type, i64 size, DXGI_FORMAT format, D3D12_RESOURCE_FLAGS flags, D3D12_RESOURCE_STATES initial_state);

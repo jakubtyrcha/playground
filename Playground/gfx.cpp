@@ -48,6 +48,20 @@ IDXGIAdapter1* FindAdapter(IDXGIFactory4* dxgi_factory)
     return adapter;
 }
 
+i32 FreeList::Allocate()
+{
+    if(!freelist_.Size()) {
+        return next_++;
+    }
+
+    return freelist_.PopBack();
+}
+
+void FreeList::Free(i32 index)
+{
+    freelist_.PushBack(index);
+}
+
 Device::Device()
 {
     verify_hr(CreateDXGIFactory1(IID_PPV_ARGS(dxgi_factory_.InitAddress())));
@@ -164,6 +178,14 @@ Device::Device()
     assert_hr(hr);
 
     verify_hr(device_->CreateRootSignature(0, serialized_root_sig->GetBufferPointer(), serialized_root_sig->GetBufferSize(), IID_PPV_ARGS(root_signature_.InitAddress())));
+
+    {
+        manual_descriptor_heap_.Init(*device_, {
+            .Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
+            .NumDescriptors = D3D12_MAX_SHADER_VISIBLE_DESCRIPTOR_HEAP_SIZE_TIER_1,
+            .Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE
+        });
+    }
 
     {
         frame_descriptor_heap_.Init(*device_, {
@@ -283,6 +305,22 @@ bool Device::IsDone(Waitable waitable)
     return fence_->GetCompletedValue() >= *waitables_pool_[waitable.handle_].value;
 }
 
+void Device::ReleaseWhenCurrentFrameIsDone(Resource && resource)
+{
+    if(release_sets_queue_.Size() == 0) {
+        release_sets_queue_.PushBackRvalueRef({});
+    }
+    release_sets_queue_.Last().resources.PushBackRvalueRef(std::move(resource));
+}
+
+void Device::ReleaseWhenCurrentFrameIsDone(DescriptorHandle h)
+{
+    if(release_sets_queue_.Size() == 0) {
+        release_sets_queue_.PushBackRvalueRef({});
+    }
+    release_sets_queue_.Last().handles.PushBack(h);
+}
+
 Encoder Device::CreateEncoder()
 {
     Encoder result {};
@@ -327,7 +365,19 @@ Swapchain* Device::CreateSwapchain(Os::Window* window, i32 backbuffers_num)
     return result;
 }
 
-DescriptorHandle Device::CreateDescriptor(D3D12_CONSTANT_BUFFER_VIEW_DESC& cbv_desc, Lifetime lifetime)
+DescriptorHandle Device::CreateDescriptor(Resource * resource, D3D12_SHADER_RESOURCE_VIEW_DESC const& srv_desc, Lifetime lifetime)
+{
+    assert(lifetime == Lifetime::Manual); // because used with manual_descriptor_heap_
+
+    D3D12_CPU_DESCRIPTOR_HANDLE handle = manual_descriptor_heap_.heap_->GetCPUDescriptorHandleForHeapStart();
+    handle.ptr += manual_descriptor_heap_freelist_.Allocate() * manual_descriptor_heap_.increment_;
+
+    device_->CreateShaderResourceView(*resource->resource_, &srv_desc, handle);
+
+    return { handle.ptr };
+}
+
+DescriptorHandle Device::CreateDescriptor(D3D12_CONSTANT_BUFFER_VIEW_DESC const& cbv_desc, Lifetime lifetime)
 {
     assert(lifetime == Lifetime::Frame); // because used with frame_descriptor_heap_
 
@@ -352,7 +402,7 @@ bool IsHeapTypeStateFixed(D3D12_HEAP_TYPE heap_type)
 Resource Device::CreateBuffer(D3D12_HEAP_TYPE heap_type, i64 size, DXGI_FORMAT format, D3D12_RESOURCE_FLAGS flags, D3D12_RESOURCE_STATES initial_state)
 {
     Resource result {};
-    result.type_ = ResourceType::Texture2D;
+    result.type_ = ResourceType::Buffer;
     result.device_ = this;
     result.heap_type_ = heap_type;
 
@@ -725,6 +775,20 @@ void Encoder::Submit()
 void Device::RecycleResources()
 {
     Waitable frame_end_fence = GetWaitable();
+
+    if(release_sets_queue_.Size()) {
+        release_sets_queue_.Last().waitable = frame_end_fence;
+    }
+    while(release_sets_queue_.Size() && release_sets_queue_.First().waitable.IsDone()) {
+        for(DescriptorHandle h : release_sets_queue_.First().handles) {
+            i32 index = static_cast<i32>((h.handle - manual_descriptor_heap_.heap_->GetCPUDescriptorHandleForHeapStart().ptr) / manual_descriptor_heap_.increment_);
+            manual_descriptor_heap_freelist_.Free(index);
+        }
+
+        release_sets_queue_.RemoveAt(0);
+    }
+
+    release_sets_queue_.PushBackRvalueRef({});
 
     descriptor_heap_.FenceDescriptors(frame_end_fence);
     frame_descriptor_heap_.FenceDescriptors(frame_end_fence);

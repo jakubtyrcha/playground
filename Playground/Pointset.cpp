@@ -5,12 +5,20 @@
 
 using namespace Core;
 using namespace Containers;
+using namespace Gfx;
 
 namespace Rendering {
 
 void Pointset::Add(Vector3 position, float size, Color4ub colour)
 {
-    points_.PushBack({ .position = position, .size = size, .colour = colour });
+    points_.PushBack({ .position = position, .size = size, .prev_position = position, .colour = colour });
+
+    dirty_ = true;
+}
+
+i64 Pointset::Size() const
+{
+    return points_.Size();
 }
 
 template <typename RenderComponent>
@@ -105,6 +113,17 @@ struct PointsetRendererPipeline : public RenderComponentPipeline<PointsetRendere
                                                         .profile = L"ps_6_0" })
                           ->GetBytecode();
 
+        {
+            D3D12_DEPTH_STENCIL_DESC& desc = pso_desc.DepthStencilState;
+            desc.DepthEnable = true;
+            desc.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+            desc.DepthFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
+            desc.StencilEnable = false;
+            desc.FrontFace.StencilFailOp = desc.FrontFace.StencilDepthFailOp = desc.FrontFace.StencilPassOp = D3D12_STENCIL_OP_KEEP;
+            desc.FrontFace.StencilFunc = D3D12_COMPARISON_FUNC_ALWAYS;
+            desc.BackFace = desc.FrontFace;
+        }
+
         return Gfx::Pipeline::From(owner_->device_, pso_desc);
     }
 };
@@ -114,17 +133,47 @@ void PointsetRenderer::Init(Gfx::Device* device)
     RenderComponent::Init(device);
 
     pipeline_ = MakeBox<PointsetRendererPipeline>(this);
-
-    points_buffer_ = device->CreateBuffer(D3D12_HEAP_TYPE_DEFAULT, 1, DXGI_FORMAT_UNKNOWN, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST);
 }
+
+struct ParticleData_GPU {
+    Vector3 position;
+    f32 size;
+    Vector3 prev_position;
+    Color4ub colour;
+};
 
 void PointsetRenderer::AddPassesToGraph()
 {
-    update_pass_ = device_->graph_.AddSubsequentPass(Gfx::PassAttachments {}
-                                                         .Attach({ .resource = *points_buffer_.resource_ }, D3D12_RESOURCE_STATE_COPY_DEST));
+    // TODO: probably not the best spot to resize the buffer, add some tick function?...
+
+    if (i32(current_capacity_) < pointset_->Size()) {
+        if (points_buffer_) {
+            device_->ReleaseWhenCurrentFrameIsDone(std::move(*points_buffer_));
+            device_->ReleaseWhenCurrentFrameIsDone(points_buffer_srv_);
+        }
+
+        current_capacity_ = static_cast<u32>(pointset_->Size());
+
+        points_buffer_ = device_->CreateBuffer(D3D12_HEAP_TYPE_DEFAULT, sizeof(ParticleData_GPU) * current_capacity_, DXGI_FORMAT_UNKNOWN, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST);
+
+        points_buffer_srv_ = device_->CreateDescriptor(&*points_buffer_, D3D12_SHADER_RESOURCE_VIEW_DESC { .Format = DXGI_FORMAT_UNKNOWN, .ViewDimension = D3D12_SRV_DIMENSION_BUFFER, .Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING, .Buffer = {
+                                                                                                                                                                                                                                                                .NumElements = static_cast<u32>(current_capacity_),
+                                                                                                                                                                                                                                                                .StructureByteStride = sizeof(ParticleData_GPU),
+                                                                                                                                                                                                                                                            } },
+            Lifetime::Manual);
+    }
+
+    if (!points_buffer_) {
+        return;
+    }
+
+    if (pointset_->dirty_) {
+        update_pass_ = device_->graph_.AddSubsequentPass(Gfx::PassAttachments {}
+                                                             .Attach({ .resource = *points_buffer_->resource_ }, D3D12_RESOURCE_STATE_COPY_DEST));
+    }
 
     particle_pass_ = device_->graph_.AddSubsequentPass(Gfx::PassAttachments {}
-                                                           .Attach({ .resource = *points_buffer_.resource_ }, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE)
+                                                           .Attach({ .resource = *points_buffer_->resource_ }, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE)
                                                            .Attach({ .resource = *depth_buffer_->resource_ }, D3D12_RESOURCE_STATE_DEPTH_WRITE)
                                                            .Attach({ .resource = *colour_target_->resource_ }, D3D12_RESOURCE_STATE_RENDER_TARGET)
                                                            .Attach({ .resource = *motionvec_target_->resource_ }, D3D12_RESOURCE_STATE_RENDER_TARGET));
@@ -132,40 +181,52 @@ void PointsetRenderer::AddPassesToGraph()
 
 void PointsetRenderer::Render(Gfx::Encoder* encoder, ViewportRenderContext* viewport_ctx, D3D12_CPU_DESCRIPTOR_HANDLE* rtv_handles, D3D12_CPU_DESCRIPTOR_HANDLE dsv_handle)
 {
-    while (frame_data_queue_.Size() && frame_data_queue_.First().waitable_.IsDone()) {
-        frame_data_queue_.RemoveAt(0);
+    if (!points_buffer_) {
+        return;
     }
-
-    FrameData frame_data;
 
     const i64 points_num = pointset_->points_.Size();
 
-    encoder->SetPass(update_pass_);
+    if (pointset_->dirty_) {
+        encoder->SetPass(update_pass_);
+
+        Gfx::Resource upload_buffer = device_->CreateBuffer(D3D12_HEAP_TYPE_UPLOAD, sizeof(ParticleData_GPU) * pointset_->Size(), DXGI_FORMAT_UNKNOWN, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ);
+
+        ParticleData_GPU* mapped_ptr = nullptr;
+        verify_hr(upload_buffer.resource_->Map(0, nullptr, reinterpret_cast<void**>(&mapped_ptr)));
+
+        for (i64 i = 0, N = pointset_->Size(); i < N; i++) {
+            Pointset::PointPayload const& p = pointset_->points_[i];
+            mapped_ptr[i] = ParticleData_GPU { .position = p.position, .size = p.size, .prev_position = p.prev_position, .colour = p.colour };
+        }
+
+        upload_buffer.resource_->Unmap(0, nullptr);
+
+        encoder->GetCmdList()->CopyBufferRegion(*points_buffer_->resource_, 0, *upload_buffer.resource_, 0, sizeof(ParticleData_GPU) * pointset_->Size());
+
+        device_->ReleaseWhenCurrentFrameIsDone(std::move(upload_buffer));
+
+        pointset_->dirty_ = false;
+    }
+
+    // copy particles?
 
     encoder->SetPass(particle_pass_);
 
     encoder->GetCmdList()->OMSetRenderTargets(2, rtv_handles, false, &dsv_handle);
 
-    D3D12_VIEWPORT vp {
-        .Width = static_cast<float>(viewport_ctx->viewport->resolution.x()),
-        .Height = static_cast<float>(viewport_ctx->viewport->resolution.y()),
-        .MinDepth = 0.f,
-        .MaxDepth = 1.f
-    };
-    encoder->GetCmdList()->RSSetViewports(1, &vp);
+    viewport_ctx->SetViewportAndScissorRect(encoder);
 
     encoder->GetCmdList()->IASetVertexBuffers(0, 1, nullptr);
     encoder->GetCmdList()->IASetIndexBuffer(nullptr);
     encoder->GetCmdList()->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
     encoder->GetCmdList()->SetPipelineState(pipeline_->GetPSO());
+
+    encoder->SetGraphicsDescriptor(DescriptorType::CBV, 0, viewport_ctx->frame_cbv_handle);
+    encoder->SetGraphicsDescriptor(DescriptorType::SRV, 0, points_buffer_srv_);
+
     encoder->SetGraphicsDescriptors();
-    const D3D12_RECT r = { 0, 0, viewport_ctx->viewport->resolution.x(), viewport_ctx->viewport->resolution.y() };
-    encoder->GetCmdList()->RSSetScissorRects(1, &r);
     encoder->GetCmdList()->DrawInstanced(4, u32(points_num), 0, 0);
-
-    frame_data.waitable_ = encoder->GetWaitable();
-
-    frame_data_queue_.PushBackRvalueRef(std::move(frame_data));
 }
 
 }

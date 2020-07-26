@@ -297,7 +297,7 @@ int main(int argc, char** argv)
         pointset_renderer.colour_target_ = &screen_resources.colour_texture;
         pointset_renderer.depth_buffer_ = &screen_resources.depth_buffer;
         pointset_renderer.motionvec_target_ = &screen_resources.motion_vectors_texture;
-        //pointset_renderer.AddPassesToGraph();
+        pointset_renderer.AddPassesToGraph();
 
         taa.AddPassesToGraph(&screen_resources.final_texture, current_backbuffer, &screen_resources.colour_texture, &screen_resources.depth_buffer, &screen_resources.prev_colour_texture, &screen_resources.motion_vectors_texture);
 
@@ -365,7 +365,7 @@ int main(int argc, char** argv)
         //sphere_tracer.Render(&encoder, &main_viewport, rtv_handle);
         //particle_generator.Render(&encoder, &main_viewport, rtv_handle, dsv_handle, mv_rtv_handle);
         D3D12_CPU_DESCRIPTOR_HANDLE handles[] = { rtv_handle, mv_rtv_handle };
-        //pointset_renderer.Render(&encoder, &viewport_render_context, handles, dsv_handle);
+        pointset_renderer.Render(&encoder, &viewport_render_context, handles, dsv_handle);
 
         shape_renderer.Render(&encoder, &viewport_render_context, rtv_handle, mv_rtv_handle);
 

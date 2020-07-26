@@ -9,29 +9,26 @@ struct Pointset {
     struct PointPayload {
         Vector3 position;
         float size;
+        Vector3 prev_position;
         Color4ub colour;
     };
 
     Containers::Array<PointPayload> points_;
+    bool dirty_ = false;
 
     void Add(Vector3 position, float size, Color4ub colour);
+    i64 Size() const;
 };
 
 struct PointsetRenderer : public RenderComponent {
     Core::Box<Gfx::IPipelineBuilder> pipeline_;
 
-    struct FrameData {
-        Gfx::Resource upload_buffer_;
-        Containers::Array<Gfx::Resource> constant_buffers_;
-        Gfx::Waitable waitable_;
-    };
-
-    Containers::Array<FrameData> frame_data_queue_;
-
     Gfx::Pass* update_pass_ = nullptr;
     Gfx::Pass* particle_pass_ = nullptr;
 
-    Gfx::Resource points_buffer_;
+    u32 current_capacity_ = 0;
+    Core::Optional<Gfx::Resource> points_buffer_;
+    Gfx::DescriptorHandle points_buffer_srv_;
     Gfx::Resource* colour_target_ = nullptr;
     Gfx::Resource* depth_buffer_ = nullptr;
     Gfx::Resource* motionvec_target_ = nullptr;
