@@ -1,7 +1,7 @@
 #include "pch.h"
 
-#include "imgui_backend.h"
 #include "gfx.h"
+#include "imgui_backend.h"
 #include <imgui/imgui.h>
 
 using namespace Core;
@@ -149,7 +149,7 @@ void ImGuiRenderer::Init(Gfx::Device* device)
     //io.BackendFlags |= ImGuiBackendFlags_RendererHasViewports;
 
     ImGuiViewport* main_viewport = ImGui::GetMainViewport();
-    main_viewport->RendererUserData = &main_viewport_;
+    main_viewport->RendererUserData = nullptr;
 
     // Setup back-end capabilities flags
     //io.BackendFlags |= ImGuiBackendFlags_RendererHasViewports;
@@ -168,6 +168,12 @@ void ImGuiRenderer::Shutdown()
 
     frame_data_queue_.Clear();
 }
+ImTextureID ImGuiRenderer::RegisterHandle(Gfx::DescriptorHandle srv)
+{
+    ImTextureID result = reinterpret_cast<ImTextureID>(handles_.Size());
+    handles_.Insert(result, srv);
+    return result;
+}
 
 void ImGuiRenderer::_CreateFontsTexture()
 {
@@ -180,7 +186,7 @@ void ImGuiRenderer::_CreateFontsTexture()
 
     i32 upload_pitch = AlignedForward(width * 4, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
     D3D12_RESOURCE_DESC desc = font_texture_.resource_->GetDesc();
-    Gfx::Resource upload_buffer = device_->CreateBuffer(D3D12_HEAP_TYPE_UPLOAD, width * upload_pitch, DXGI_FORMAT_UNKNOWN, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ);
+    Gfx::Resource upload_buffer = device_->CreateBuffer(D3D12_HEAP_TYPE_UPLOAD, height * upload_pitch, DXGI_FORMAT_UNKNOWN, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ);
 
     u8* mapped_memory = nullptr;
     verify_hr(upload_buffer.resource_->Map(0, nullptr, reinterpret_cast<void**>(&mapped_memory)));
@@ -216,9 +222,10 @@ void ImGuiRenderer::_CreateFontsTexture()
     encoder.Submit();
     device_->GetWaitable().Wait();
 
-    // Store our identifier
-    //static_assert(sizeof(ImTextureID) >= sizeof(g_hFontSrvGpuDescHandle.ptr), "Can't pack descriptor handle into TexID, 32-bit not supported yet.");
-    //io.Fonts->TexID = (ImTextureID)g_hFontSrvGpuDescHandle.ptr;
+    font_texture_srv_ = device_->CreateDescriptor(&font_texture_, D3D12_SHADER_RESOURCE_VIEW_DESC { .Format = DXGI_FORMAT_R8G8B8A8_UNORM, .ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D, .Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING, .Texture2D = { .MipLevels = 1 } },
+        Gfx::Lifetime::Manual);
+
+    io.Fonts->TexID = RegisterHandle(font_texture_srv_);
 }
 
 void ImGuiRenderer::_SetupRenderState(ImDrawData* draw_data, Gfx::Encoder* encoder, FrameData* frame_data)
@@ -293,8 +300,6 @@ void ImGuiRenderer::RenderDrawData(ImDrawData* draw_data, Gfx::Encoder* encoder,
         frame_data_queue_.RemoveAt(0);
     }
 
-    ViewportData* render_data = (ViewportData*)draw_data->OwnerViewport->RendererUserData;
-
     encoder->GetCmdList()->OMSetRenderTargets(1, &rtv_handle, false, nullptr);
 
     FrameData frame_data;
@@ -336,15 +341,9 @@ void ImGuiRenderer::RenderDrawData(ImDrawData* draw_data, Gfx::Encoder* encoder,
                 }
             } else {
                 // Apply Scissor, Bind texture, Draw
-                const D3D12_RECT r = { (LONG)(pcmd->ClipRect.x - clip_off.x), (LONG)(pcmd->ClipRect.y - clip_off.y), (LONG)(pcmd->ClipRect.z - clip_off.x), (LONG)(pcmd->ClipRect.w - clip_off.y) };
-                //ctx->SetGraphicsRootDescriptorTable(1, *(D3D12_GPU_DESCRIPTOR_HANDLE*)&pcmd->TextureId);
-                D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc {
-                    .Format = DXGI_FORMAT_R8G8B8A8_UNORM,
-                    .ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D,
-                    .Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
-                    .Texture2D = { .MipLevels = 1 }
-                };
-                device_->device_->CreateShaderResourceView(*font_texture_.resource_, &srv_desc, encoder->ReserveGraphicsSlot(Gfx::DescriptorType::SRV, 0));
+                const D3D12_RECT r = { (LONG)(pcmd->ClipRect.x - clip_off.x), (LONG)(pcmd->ClipRect.y - clip_off.y), (LONG)(pcmd->ClipRect.z - clip_off.x), (LONG)(pcmd->ClipRect.w - clip_off.y) };                
+                encoder->SetGraphicsDescriptor(Gfx::DescriptorType::SRV, 0, handles_.At(pcmd->TextureId));
+
                 encoder->GetCmdList()->RSSetScissorRects(1, &r);
                 encoder->SetGraphicsDescriptors();
                 encoder->GetCmdList()->DrawIndexedInstanced(pcmd->ElemCount, 1, pcmd->IdxOffset + global_idx_offset, pcmd->VtxOffset + global_vtx_offset, 0);

@@ -4,13 +4,16 @@
 #include "shader.h"
 
 struct ImDrawData;
+typedef void* ImTextureID; 
 
 namespace Rendering {
 
 struct ImGuiRenderer : private Core::Pinned<ImGuiRenderer> {
-    Gfx::Resource font_texture_;
     Gfx::Device* device_ = nullptr;
     Core::Box<Gfx::IPipelineBuilder> pipeline_;
+
+    Gfx::Resource font_texture_;
+    Gfx::DescriptorHandle font_texture_srv_;
 
     struct FrameData {
         Gfx::Resource vertex_buffer_;
@@ -18,17 +21,13 @@ struct ImGuiRenderer : private Core::Pinned<ImGuiRenderer> {
         Containers::Array<Gfx::Resource> constant_buffers_;
         Gfx::Waitable waitable_;
     };
-
-    i32 max_frames_queued_ = 3;
     Containers::Array<FrameData> frame_data_queue_;
-
-    struct ViewportData {
-    };
-
-    ViewportData main_viewport_;
-
+    
     void Init(Gfx::Device* device);
     void Shutdown();
+
+    Containers::Hashmap<ImTextureID, Gfx::DescriptorHandle> handles_;
+    ImTextureID RegisterHandle(Gfx::DescriptorHandle srv);
 
     void _CreateFontsTexture();
     void _CreatePipeline();

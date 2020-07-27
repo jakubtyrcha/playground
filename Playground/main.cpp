@@ -208,6 +208,57 @@ Containers::Array<Vector2> Generate2DGridSamplesPoissonDisk(Vector2 v0, Vector2 
     return output;
 }
 
+namespace Gfx {
+void UpdateTexture2D(Device * device, Resource * resource, Vector2i resource_size, DXGI_FORMAT fmt, const void * src, i32 src_pitch, i32 rows)
+{
+    i32 upload_pitch = AlignedForward(src_pitch, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
+    i64 upload_size = upload_pitch * rows; 
+
+    Gfx::Resource upload_buffer = device->CreateBuffer(
+        D3D12_HEAP_TYPE_UPLOAD, 
+        upload_size, 
+        DXGI_FORMAT_UNKNOWN, 
+        D3D12_RESOURCE_FLAG_NONE, 
+        D3D12_RESOURCE_STATE_GENERIC_READ);
+
+    u8* mapped_memory = nullptr;
+    verify_hr(upload_buffer.resource_->Map(0, nullptr, reinterpret_cast<void**>(&mapped_memory)));
+    for (i64 r = 0; r < resource_size.y(); r++) {
+        memcpy(mapped_memory + r * upload_pitch, reinterpret_cast<const u8*>(src) + r * src_pitch, src_pitch);
+    }
+
+    upload_buffer.resource_->Unmap(0, nullptr);
+
+    Gfx::Encoder encoder = device->CreateEncoder();
+    D3D12_TEXTURE_COPY_LOCATION copy_src {
+        .pResource = *upload_buffer.resource_,
+        .Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT,
+        .PlacedFootprint = {
+            .Footprint = {
+                .Format = fmt,
+                .Width = static_cast<u32>(resource_size.x()),
+                .Height = static_cast<u32>(resource_size.y()),
+                .Depth = 1,
+                .RowPitch = static_cast<u32>(upload_pitch) } }
+    };
+    D3D12_TEXTURE_COPY_LOCATION copy_dst {
+        .pResource = *resource->resource_,
+        .Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
+        .SubresourceIndex = 0
+    };
+
+    Gfx::Pass* copy_to_pass = device->graph_.AddSubsequentPass(Gfx::PassAttachments {}.Attach({ .resource = *resource->resource_ }, D3D12_RESOURCE_STATE_COPY_DEST));
+    encoder.SetPass(copy_to_pass);
+    encoder.GetCmdList()->CopyTextureRegion(&copy_dst, 0, 0, 0, &copy_src, nullptr);
+
+    Gfx::Pass* transition_to_readable_pass = device->graph_.AddSubsequentPass(Gfx::PassAttachments {}.Attach({ .resource = *resource->resource_ }, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
+    encoder.SetPass(transition_to_readable_pass);
+    encoder.Submit();
+
+    device->ReleaseWhenCurrentFrameIsDone(std::move(upload_buffer));
+}
+}
+
 int main(int argc, char** argv)
 {
     Gfx::Device device;
@@ -230,12 +281,14 @@ int main(int argc, char** argv)
     f32 pointsize = 0.125f * span / sqrtf(static_cast<f32>( N ));
     //for (Vector2 p : Generate2DGridSamples(N, v0, v1)) 
     FastNoise noise_gen;
-    noise_gen.SetNoiseType(FastNoise::Simplex);
+    noise_gen.SetNoiseType(FastNoise::SimplexFractal);
+    noise_gen.SetFrequency(0.5f);
 
-    for (Vector2 p : Generate2DGridSamplesPoissonDisk(v0, v1, pointsize * 5.f, 30)) 
+    for (Vector2 p : Generate2DGridSamplesPoissonDisk(v0, v1, pointsize, 30)) 
     {
         Vector2 c = ((p - v0) / (v1 - v0));
-        pointset.Add({ p.x(), noise_gen.GetNoise(10 * p.x(), 10 * p.y()), p.y() }, pointsize, Color4 { c.x(), c.y(), 0.05f, 1.f });
+        f32 y = noise_gen.GetNoise(p.x(), p.y());
+        pointset.Add({ p.x(), y, p.y() }, pointsize, Color4 { 0.5f, y * 0.5f + 0.5f, 0.5f, 1.f });
     }
 
     Rendering::PointsetRenderer pointset_renderer;
@@ -312,14 +365,24 @@ int main(int argc, char** argv)
     main_viewport.near_plane = 0.1f;
     main_viewport.far_plane = 1000.f;
 
+    struct NoiseWidget {
+        Core::Optional<Gfx::Resource> noise_texture;
+        Gfx::DescriptorHandle noise_texture_srv_handle;
+        ImTextureID im_tex_handle;
+    };
+
+    NoiseWidget noise_widget;
+
     i32 taa_pattern = 0;
     SetPattern(main_viewport, static_cast<Rendering::TAAPattern>(taa_pattern));
 
+    // TODO: change to pump message func, remove functor
     window->RunMessageLoop([&window,
                                &device,
                                &window_swapchain,
                                &screen_resources,
                                backbuffers_num,
+                               &noise_widget,
                                &frames_ctr,
                                &frame_data_queue,
                                &frame_waitables,
@@ -417,6 +480,98 @@ int main(int argc, char** argv)
             if (ImGui::CollapsingHeader("Debug")) {
                 ImGui::Checkbox("Axes", &show_axes_helper);
                 ImGui::Checkbox("Motion vectors", &show_motionvectors);
+            }
+
+            ImGui::End();
+
+            ImGui::Begin("Noise");
+            {
+                struct NoiseTypeString {
+                    FastNoise::NoiseType type;
+                    const char* str;
+                };
+                constexpr NoiseTypeString noise_type_items[] = {
+                    { FastNoise::Value, "Value" },
+                    { FastNoise::ValueFractal, "ValueFractal" },
+                    { FastNoise::Perlin, "Perlin" },
+                    { FastNoise::PerlinFractal, "PerlinFractal" },
+                    { FastNoise::Simplex, "Simplex" },
+                    { FastNoise::SimplexFractal, "SimplexFractal" },
+                    { FastNoise::Cellular, "Cellular" },
+                    { FastNoise::WhiteNoise, "WhiteNoise" },
+                    { FastNoise::Cubic, "Cubic" },
+                    { FastNoise::CubicFractal, "CubicFractal" },
+                };
+
+                struct FractalTypeString {
+                    FastNoise::FractalType type;
+                    const char * str;
+                };
+                constexpr FractalTypeString fractal_type_items[] = {
+                    { FastNoise::FBM, "FBM" },
+                    { FastNoise::Billow, "Billow" },
+                    { FastNoise::RigidMulti, "RigidMulti" },
+                };
+
+                static bool dirty = true;
+                static i32 noise_type_index = 0;
+                static f32 noise_freq = 0.01f;
+                static i32 fractal_type_index = 0;
+                static i32 tex_res = 512;
+
+                {
+                    Array<const char*> combo_items;
+                    for (NoiseTypeString item : noise_type_items) {
+                        combo_items.PushBack(item.str);
+                    }
+
+                    if (ImGui::Combo("Noise type", &noise_type_index, combo_items.Data(), static_cast<i32>(combo_items.Size()))) {
+                        dirty = true;
+                    }
+                }
+                if (ImGui::SliderFloat("Frequency", &noise_freq, 0.01f, 1.f)) {
+                    dirty = true;
+                }
+                {
+                    Array<const char*> combo_items;
+                    for (FractalTypeString item : fractal_type_items) {
+                        combo_items.PushBack(item.str);
+                    }
+
+                    if (ImGui::Combo("Fractal type", &fractal_type_index, combo_items.Data(), static_cast<i32>(combo_items.Size()))) {
+                        dirty = true;
+                    }
+                }
+
+                if (dirty) {
+                    dirty = false;
+
+                    FastNoise fn;
+                    fn.SetNoiseType(noise_type_items[noise_type_index].type);
+                    fn.SetFrequency(noise_freq);
+                    fn.SetFractalType(fractal_type_items[fractal_type_index].type);
+
+                    if (!noise_widget.noise_texture) {
+                        noise_widget.noise_texture = device.CreateTexture2D(D3D12_HEAP_TYPE_DEFAULT, { tex_res, tex_res }, DXGI_FORMAT_R32_FLOAT, 1, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST);
+                        noise_widget.noise_texture_srv_handle = device.CreateDescriptor(&*noise_widget.noise_texture, D3D12_SHADER_RESOURCE_VIEW_DESC { .Format = DXGI_FORMAT_R32_FLOAT, .ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D, .Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING, .Texture2D = { .MipLevels = 1 } },
+                            Gfx::Lifetime::Manual);
+
+                        noise_widget.im_tex_handle = imgui_renderer.RegisterHandle(noise_widget.noise_texture_srv_handle);
+                    }
+
+                    Containers::Array<f32> data;
+                    data.Reserve(tex_res * tex_res);
+                    for (i32 y = 0; y < tex_res; y++) {
+                        for (i32 x = 0; x < tex_res; x++) {
+                            data.PushBack(fn.GetNoise(static_cast<f32>(x), static_cast<f32>(y)) * 0.5f + 0.5f);
+                        }
+                    }
+
+                    Gfx::UpdateTexture2D(&device, &*noise_widget.noise_texture, { tex_res, tex_res }, DXGI_FORMAT_R32_FLOAT, data.Data(), sizeof(f32) * tex_res, tex_res );
+                }
+
+                ImGui::Image(noise_widget.im_tex_handle, { static_cast<f32>( tex_res ), static_cast<f32>( tex_res ) });
+                ImGui::Text("( %f, %f )", static_cast<f32>( tex_res ) * noise_freq, static_cast<f32>( tex_res ) * noise_freq);
             }
 
             ImGui::End();
