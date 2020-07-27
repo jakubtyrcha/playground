@@ -10,7 +10,7 @@ struct default_module
 {
 };
 
-#define assert(x) DEBUG_ASSERT((x), default_module {});
+#define assert(x) DEBUG_ASSERT(static_cast<bool>(x), default_module {});
 #define verify(x)                                     \
     {                                                 \
         bool __verify_ok = (x);                       \
