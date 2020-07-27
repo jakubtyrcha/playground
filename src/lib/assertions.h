@@ -10,6 +10,7 @@ struct default_module
 {
 };
 
+// todo: fix redef warning
 #define assert(x) DEBUG_ASSERT(static_cast<bool>(x), default_module {});
 #define verify(x)                                     \
     {                                                 \

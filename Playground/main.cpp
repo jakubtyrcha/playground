@@ -222,17 +222,20 @@ int main(int argc, char** argv)
 
     Rendering::Pointset pointset;
 
-    i32 N = 10000;
+    i32 N = 1000;
     Vector2 v0 { -5.f, -5.f };
     Vector2 v1 { 5.f, 5.f };
 
     f32 span = Min((v1-v0).x(), (v1-v0).y());
     f32 pointsize = 0.125f * span / sqrtf(static_cast<f32>( N ));
     //for (Vector2 p : Generate2DGridSamples(N, v0, v1)) 
+    FastNoise noise_gen;
+    noise_gen.SetNoiseType(FastNoise::Simplex);
+
     for (Vector2 p : Generate2DGridSamplesPoissonDisk(v0, v1, pointsize * 5.f, 30)) 
     {
         Vector2 c = ((p - v0) / (v1 - v0));
-        pointset.Add({ p.x(), 0, p.y() }, pointsize, Color4 { c.x(), c.y(), 0.05f, 1.f });
+        pointset.Add({ p.x(), noise_gen.GetNoise(10 * p.x(), 10 * p.y()), p.y() }, pointsize, Color4 { c.x(), c.y(), 0.05f, 1.f });
     }
 
     Rendering::PointsetRenderer pointset_renderer;
