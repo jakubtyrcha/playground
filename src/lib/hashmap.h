@@ -184,7 +184,7 @@ struct Hashmap {
 
     i64 MaxProbeCount() const
     {
-        return Algorithms::min(static_cast<i64>(FastLog2(static_cast<u32>(capacity_))), capacity_ - 1);
+        return Algorithms::Min(static_cast<i64>(FastLog2(static_cast<u32>(capacity_))), capacity_ - 1);
     }
 
     Iterator begin() const

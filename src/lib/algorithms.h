@@ -23,7 +23,7 @@ i64 LowerBound(const T* array, i64 size, T value)
 }
 
 template <typename T, typename = std::enable_if<std::is_trivially_copyable_v<T>>::type>
-T min(T l, T r)
+T Min(T l, T r)
 {
     if (r < l) {
         return r;
@@ -32,7 +32,7 @@ T min(T l, T r)
 }
 
 template <typename T, typename = std::enable_if<!std::is_trivially_copyable_v<T>>::type>
-const T& min(T const& l, T const& r)
+const T& Min(T const& l, T const& r)
 {
     if (r < l) {
         return r;
@@ -41,7 +41,7 @@ const T& min(T const& l, T const& r)
 }
 
 template <typename T, typename = std::enable_if<std::is_trivially_copyable_v<T>>::type>
-T max(T l, T r)
+T Max(T l, T r)
 {
     if (r > l) {
         return r;
@@ -50,7 +50,7 @@ T max(T l, T r)
 }
 
 template <typename T, typename = std::enable_if<!std::is_trivially_copyable_v<T>>::type>
-const T& max(T const& l, T const& r)
+const T& Max(T const& l, T const& r)
 {
     if (r > l) {
         return r;

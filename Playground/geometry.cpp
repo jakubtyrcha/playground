@@ -8,8 +8,8 @@ using namespace Algorithms;
 namespace Geometry {
 AABox2D AABox2D::Xyxy(Vector2 xy0, Vector2 xy1)
 {
-    return { .vec_min = { min(xy0.x(), xy1.x()), min(xy0.y(), xy1.y()) },
-        .vec_max = { max(xy0.x(), xy1.x()), max(xy0.y(), xy1.y()) } };
+    return { .vec_min = { Min(xy0.x(), xy1.x()), Min(xy0.y(), xy1.y()) },
+        .vec_max = { Max(xy0.x(), xy1.x()), Max(xy0.y(), xy1.y()) } };
 }
 
 f32 AABox2D::Area() const
