@@ -19,10 +19,12 @@
 #include "Shapes.h"
 #include "Taa.h"
 #include "imgui_backend.h"
+#include <fastnoise/FastNoise.h>
 
 #include <math.h>
 
 using namespace Containers;
+using namespace Algorithms;
 using namespace IO;
 
 void InitImgui()
@@ -83,6 +85,129 @@ void SetPattern(Rendering::Viewport& viewport, TAAPattern pattern)
 }
 }
 
+
+
+Containers::Array<Vector2> Generate2DGridSamples(i32 N, Vector2 v0, Vector2 v1)
+{
+    Containers::Array<Vector2> output;
+    output.Reserve(N);
+
+    Random::Generator gen {};
+    
+    for (i32 i = 0; i < N; i++) {
+        output.PushBack({ gen.F32UniformInRange(v0.x(), v1.x()), gen.F32UniformInRange(v0.y(), v1.y()) });
+    }
+
+    return output;
+}
+
+Vector2 RandomPointInAnnulus(f32 r0, f32 r1, Vector2 z) {
+    assert(r0 < r1);
+
+    f32 theta = 2.f * Magnum::Math::Constants<f32>::pi() * z.x();
+    f32 d = sqrtf(z.y() * (r1 * r1 - r0 * r0) + r0 * r0);
+
+    return d * Vector2{ cosf(theta), sinf(theta) };
+}
+
+// Robert Bridson algorithm
+Containers::Array<Vector2> Generate2DGridSamplesPoissonDisk(Vector2 v0, Vector2 v1, float min_distance, i32 samples_before_rejection)
+{
+    Containers::Array<Vector2> output;
+    Random::Generator gen {};
+    
+    constexpr i32 DIM = 2;
+    const i32 k = samples_before_rejection;
+    const f32 r = min_distance;
+    const f32 r2 = r * r;
+
+    const f32 cell_size = r / sqrtf(DIM);
+
+    const Vector2 span = v1 - v0;
+    const Vector2i grid_cells = Vector2i { Math::ceil((span / cell_size)) };
+    const f32 inv_cell_size = 1.f / cell_size;
+
+    Containers::Array<i32> grid;
+    grid.ResizeUninitialised(grid_cells.x() * grid_cells.y());
+
+    output.Reserve(grid.Size());
+
+    for(i32 i=0; i < grid_cells.x() * grid_cells.y(); i++) {
+        grid[i] = -1;
+    }
+
+    Vector2 x0 { gen.F32UniformInRange(0.f, span.x()), gen.F32UniformInRange(0.f, span.y()) };
+    Vector2i grid_coord = Vector2i { Math::floor(x0 * inv_cell_size) };
+
+    output.PushBack(x0);
+    grid[grid_coord.x() + grid_coord.y() * grid_cells.x()] = 0;
+
+    Containers::Array<i32> active_list;
+    active_list.PushBack(0);
+    
+    while (active_list.Size()) {
+        i32 index = gen.I32UniformInRange(0, static_cast<i32>( active_list.Size()));
+        Vector2 xi = output[active_list[index]];
+
+        int tries = k;
+        while(tries) {
+            Vector2 offset = RandomPointInAnnulus(r, 2.f * r, { gen.F32Uniform(), gen.F32Uniform() });
+            Vector2 s = xi + offset;
+
+            bool rejected = false;
+            Vector2i grid_coord = Vector2i { Math::floor(s * inv_cell_size) };
+
+            assert(grid_coord != Vector2i { Math::floor(xi * inv_cell_size) });
+
+            if(((s < Vector2{0.f}) || (span <= s)).any() ) {
+                rejected = true;
+                goto break_double_loop;
+            }
+
+            assert((Vector2i { 0, 0 } <= grid_coord && grid_coord < grid_cells).all());
+
+            for (i32 x = Max(0, grid_coord.x() - 2); x < Min(grid_cells.x(), grid_coord.x() + 3); x++) {
+                for (i32 y = Max(0, grid_coord.y() - 2); y < Min(grid_cells.y(), grid_coord.y() + 3); y++) {
+                    i32 tested_index = x + y * grid_cells.x();
+
+                    if(grid[tested_index] == -1) {
+                        continue;
+                    }
+                    
+                    if((s - output[grid[tested_index]]).dot() < r2) {
+                        rejected = true;
+                        goto break_double_loop;
+                    }
+                }
+            }
+
+        break_double_loop:
+            if(rejected) {
+                tries--;
+                continue;
+            }
+            
+            i32 next_sample_index = static_cast<i32>(output.Size());
+            assert(grid[grid_coord.x() + grid_coord.y() * grid_cells.x()] == -1);
+            grid[grid_coord.x() + grid_coord.y() * grid_cells.x()] = next_sample_index;
+            active_list.PushBack(next_sample_index);
+            output.PushBack(s);
+            assert(tries);
+            break;
+        }
+
+        if(tries == 0) {
+            active_list.RemoveAtAndSwapWithLast(index);
+        }
+    }
+
+    for(Vector2 & p : output) {
+        p += v0;
+    }
+
+    return output;
+}
+
 int main(int argc, char** argv)
 {
     Gfx::Device device;
@@ -96,10 +221,18 @@ int main(int argc, char** argv)
     shape_renderer.Init(&device);
 
     Rendering::Pointset pointset;
-    for (i32 x = -5; x <= 5; x++) {
-        for (i32 y = -5; y <= 5; y++) {
-            pointset.Add({ f32(x), 0, f32(y) }, 0.25f, { u8(120 + x * 10), 180, u8(120 + y * 10), 255 });
-        }
+
+    i32 N = 10000;
+    Vector2 v0 { -5.f, -5.f };
+    Vector2 v1 { 5.f, 5.f };
+
+    f32 span = Min((v1-v0).x(), (v1-v0).y());
+    f32 pointsize = 0.125f * span / sqrtf(static_cast<f32>( N ));
+    //for (Vector2 p : Generate2DGridSamples(N, v0, v1)) 
+    for (Vector2 p : Generate2DGridSamplesPoissonDisk(v0, v1, pointsize * 5.f, 30)) 
+    {
+        Vector2 c = ((p - v0) / (v1 - v0));
+        pointset.Add({ p.x(), 0, p.y() }, pointsize, Color4 { c.x(), c.y(), 0.05f, 1.f });
     }
 
     Rendering::PointsetRenderer pointset_renderer;
