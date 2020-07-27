@@ -1,8 +1,7 @@
 #include "pch.h"
 
-#include "shader.h"
-#include "gfx.h"
-#include "hash.h"
+#include "Shader.h"
+#include "Hash.h"
 #include <dxcapi.h>
 #include <dxil/inc/dxcapi.use.h>
 

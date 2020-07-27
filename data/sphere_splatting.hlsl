@@ -16,7 +16,7 @@ struct ParticleData {
 
 float4 UnpackColourUint(uint value)
 {
-    return (uint4(value, value >> 8, value >> 16, value >> 24) & 0xFF) / 255.f;
+    return (uint4(value >> 24, value >> 16, value >> 8, value) & 0xFF) / 255.f;
 }
 
 StructuredBuffer<ParticleData> ParticlesBuffer : register(t0);

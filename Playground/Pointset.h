@@ -10,13 +10,13 @@ struct Pointset {
         Vector3 position;
         float size;
         Vector3 prev_position;
-        Color4ub colour;
+        Color4 colour;
     };
 
     Containers::Array<PointPayload> points_;
     bool dirty_ = false;
 
-    void Add(Vector3 position, float size, Color4ub colour);
+    void Add(Vector3 position, float size, Color4 colour);
     i64 Size() const;
 };
 

@@ -9,7 +9,7 @@ using namespace Gfx;
 
 namespace Rendering {
 
-void Pointset::Add(Vector3 position, float size, Color4ub colour)
+void Pointset::Add(Vector3 position, float size, Color4 colour)
 {
     points_.PushBack({ .position = position, .size = size, .prev_position = position, .colour = colour });
 
@@ -139,7 +139,7 @@ struct ParticleData_GPU {
     Vector3 position;
     f32 size;
     Vector3 prev_position;
-    Color4ub colour;
+    u32 colour_packed;
 };
 
 void PointsetRenderer::AddPassesToGraph()
@@ -197,7 +197,7 @@ void PointsetRenderer::Render(Gfx::Encoder* encoder, ViewportRenderContext* view
 
         for (i64 i = 0, N = pointset_->Size(); i < N; i++) {
             Pointset::PointPayload const& p = pointset_->points_[i];
-            mapped_ptr[i] = ParticleData_GPU { .position = p.position, .size = p.size, .prev_position = p.prev_position, .colour = p.colour };
+            mapped_ptr[i] = ParticleData_GPU { .position = p.position, .size = p.size, .prev_position = p.prev_position, .colour_packed = p.colour.toSrgbAlphaInt() };
         }
 
         upload_buffer.resource_->Unmap(0, nullptr);
