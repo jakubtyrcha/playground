@@ -1,5 +1,7 @@
 #pragma once
 
+struct D3D12_CPU_DESCRIPTOR_HANDLE;
+
 namespace Playground {
 
 namespace Gfx {

@@ -52,9 +52,6 @@
 #define NOMCX
 
 #include <Windows.h>
-
-#undef assert
-
 #include <type_traits>
 
 #endif //PCH_H
