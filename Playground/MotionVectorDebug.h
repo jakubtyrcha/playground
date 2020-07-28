@@ -1,8 +1,6 @@
 #pragma once
 
 #include "gfx.h"
-#include "random.h"
-#include "shader.h"
 #include "box.h"
 #include "RenderComponent.h"
 

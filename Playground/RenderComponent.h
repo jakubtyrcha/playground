@@ -8,6 +8,7 @@ namespace Gfx {
 namespace Rendering {
 struct ViewportRenderContext;
 
+// TODO: split on component and instance (fire-forget instance)
 struct RenderComponent {
     Gfx::Device* device_ = nullptr;
 
