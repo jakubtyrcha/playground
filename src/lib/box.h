@@ -2,7 +2,13 @@
 
 #include <magnum/CorradePointer.h>
 
-namespace Core {
+namespace Playground {
+
+template <typename T>
+T AlignedForward(T v, T a)
+{
+    return (v + (a - 1)) & ~(a - 1);
+}
 
 template <typename T>
 using Box = Corrade::Containers::Pointer<T>;

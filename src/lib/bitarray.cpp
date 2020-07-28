@@ -5,7 +5,7 @@
 #include <intrin.h>
 #include <string.h>
 
-namespace Containers
+namespace Playground
 {
 	void Bitarray::Resize(i64 size)
 	{

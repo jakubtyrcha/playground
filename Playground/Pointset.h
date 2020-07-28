@@ -3,7 +3,7 @@
 #include "RenderComponent.h"
 #include "gfx.h"
 
-namespace Rendering {
+namespace Playground {
 
 struct Pointset {
     struct PointPayload {
@@ -13,7 +13,7 @@ struct Pointset {
         Color4 colour;
     };
 
-    Containers::Array<PointPayload> points_;
+    Array<PointPayload> points_;
     bool dirty_ = false;
 
     void Add(Vector3 position, float size, Color4 colour);
@@ -21,13 +21,13 @@ struct Pointset {
 };
 
 struct PointsetRenderer : public RenderComponent {
-    Core::Box<Gfx::IPipelineBuilder> pipeline_;
+    Box<Gfx::IPipelineBuilder> pipeline_;
 
     Gfx::Pass* update_pass_ = nullptr;
     Gfx::Pass* particle_pass_ = nullptr;
 
     u32 current_capacity_ = 0;
-    Core::Optional<Gfx::Resource> points_buffer_;
+    Optional<Gfx::Resource> points_buffer_;
     Gfx::DescriptorHandle points_buffer_srv_;
     Gfx::Resource* colour_target_ = nullptr;
     Gfx::Resource* depth_buffer_ = nullptr;
@@ -37,7 +37,7 @@ struct PointsetRenderer : public RenderComponent {
 
     void Init(Gfx::Device* device) override;
     void AddPassesToGraph() override;
-    void Render(Gfx::Encoder* encoder, ViewportRenderContext * viewport_ctx, D3D12_CPU_DESCRIPTOR_HANDLE* rtv_handles, D3D12_CPU_DESCRIPTOR_HANDLE dsv_handle) override;
+    void Render(Gfx::Encoder* encoder, ViewportRenderContext* viewport_ctx, D3D12_CPU_DESCRIPTOR_HANDLE* rtv_handles, D3D12_CPU_DESCRIPTOR_HANDLE dsv_handle) override;
 };
 
 }

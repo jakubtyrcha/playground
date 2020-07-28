@@ -2,7 +2,7 @@
 
 #include "types.h"
 
-namespace Algorithms {
+namespace Playground {
 template <typename T>
 i64 LowerBound(const T* array, i64 size, T value)
 {

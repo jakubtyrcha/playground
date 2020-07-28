@@ -3,12 +3,12 @@
 #include "box.h"
 #include "types.h"
 
-namespace Random {
-struct Generator : private Core::Pinned<Generator> {
+namespace Playground {
+struct Rng : private Pinned<Rng> {
     void* state_ = nullptr;
 
-    Generator(u32 seed = 0);
-    ~Generator();
+    Rng(u32 seed = 0);
+    ~Rng();
 
     u32 U32Uniform();
     i32 I32UniformInRange(i32 from, i32 to);

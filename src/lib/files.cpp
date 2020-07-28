@@ -1,9 +1,9 @@
 #include "pch.h"
 #include "files.h"
 
-namespace IO
+namespace Playground
 {
-	Containers::Array<char> GetFileContent(LPCWSTR path)
+	Array<char> GetFileContent(LPCWSTR path)
 	{
 		HANDLE handle = CreateFile(path, GENERIC_READ, 0, nullptr, OPEN_EXISTING, 0, 0);
 		if (handle == 0)
@@ -11,7 +11,7 @@ namespace IO
 			return {};
 		}
 
-		Containers::Array<char> result;
+		Array<char> result;
 
 		DWORD bytes_read;
 		char buffer[1024];

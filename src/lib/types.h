@@ -25,7 +25,7 @@ using namespace Magnum;
 
 #include <magnum/CorradeOptional.h>
 
-namespace Core {
+namespace Playground {
 template <typename T>
 using Optional = Corrade::Containers::Optional<T>;
 constexpr Corrade::Containers::NullOptT NullOpt = Corrade::Containers::NullOpt;

@@ -6,11 +6,11 @@
 struct ImDrawData;
 typedef void* ImTextureID; 
 
-namespace Rendering {
+namespace Playground {
 
-struct ImGuiRenderer : private Core::Pinned<ImGuiRenderer> {
+struct ImGuiRenderer : private Pinned<ImGuiRenderer> {
     Gfx::Device* device_ = nullptr;
-    Core::Box<Gfx::IPipelineBuilder> pipeline_;
+    Box<Gfx::IPipelineBuilder> pipeline_;
 
     Gfx::Resource font_texture_;
     Gfx::DescriptorHandle font_texture_srv_;
@@ -18,15 +18,15 @@ struct ImGuiRenderer : private Core::Pinned<ImGuiRenderer> {
     struct FrameData {
         Gfx::Resource vertex_buffer_;
         Gfx::Resource index_buffer_;
-        Containers::Array<Gfx::Resource> constant_buffers_;
+        Array<Gfx::Resource> constant_buffers_;
         Gfx::Waitable waitable_;
     };
-    Containers::Array<FrameData> frame_data_queue_;
+    Array<FrameData> frame_data_queue_;
     
     void Init(Gfx::Device* device);
     void Shutdown();
 
-    Containers::Hashmap<ImTextureID, Gfx::DescriptorHandle> handles_;
+    Hashmap<ImTextureID, Gfx::DescriptorHandle> handles_;
     ImTextureID RegisterHandle(Gfx::DescriptorHandle srv);
 
     void _CreateFontsTexture();

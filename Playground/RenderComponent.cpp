@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "RenderComponent.h"
 
-namespace Rendering {
+namespace Playground {
 RenderComponent::~RenderComponent() {}
 
 void RenderComponent::Init(Gfx::Device* device)

@@ -3,11 +3,9 @@
 #include "Pointset.h"
 #include "rendering.h"
 
-using namespace Core;
-using namespace Containers;
-using namespace Gfx;
+namespace Playground {
 
-namespace Rendering {
+using namespace Gfx;
 
 void Pointset::Add(Vector3 position, float size, Color4 colour)
 {

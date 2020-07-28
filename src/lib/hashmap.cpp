@@ -3,7 +3,7 @@
 #include "hashmap.h"
 #include "algorithms.h"
 
-namespace Containers
+namespace Playground
 {
 	i64 GetHashmapSize(i64 slots)
 	{
@@ -16,7 +16,7 @@ namespace Containers
 
 		DEBUG_ASSERT(slots <= sizes[_countof(sizes) - 1], containers_module{});
 
-		return sizes[Algorithms::LowerBound(sizes, _countof(sizes), slots)];
+		return sizes[LowerBound(sizes, _countof(sizes), slots)];
 	}
 
 	i64 HashmapSlot(u64 hash, i64 mod)

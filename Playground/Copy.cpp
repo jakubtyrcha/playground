@@ -1,13 +1,10 @@
 #include "Pch.h"
 
+#include "Copy.h"
 #include "Rendering.h"
 #include "Shader.h"
-#include "Copy.h"
 
-using namespace Core;
-using namespace Containers;
-
-namespace Rendering {
+namespace Playground {
 
 struct CopyPipeline : public Gfx::IPipelineBuilder {
     Copy* owner_ = nullptr;
@@ -85,9 +82,8 @@ void Copy::Init(Gfx::Device* device)
 void Copy::AddPassesToGraph(ID3D12Resource* colour_target, Gfx::Resource* colour_src)
 {
     pass_ = device_->graph_.AddSubsequentPass(Gfx::PassAttachments {}
-                                                      .Attach({ .resource = colour_target }, D3D12_RESOURCE_STATE_RENDER_TARGET)
-                                                      .Attach({ .resource = *colour_src->resource_ }, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE|D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE)
-    );
+                                                  .Attach({ .resource = colour_target }, D3D12_RESOURCE_STATE_RENDER_TARGET)
+                                                  .Attach({ .resource = *colour_src->resource_ }, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
 
     colour_src_ = colour_src;
 }

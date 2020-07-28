@@ -4,10 +4,7 @@
 #include "Shader.h"
 #include "Taa.h"
 
-using namespace Core;
-using namespace Containers;
-
-namespace Rendering {
+namespace Playground {
 
 struct TAAPipeline : public Gfx::IPipelineBuilder {
     TAA* owner_ = nullptr;

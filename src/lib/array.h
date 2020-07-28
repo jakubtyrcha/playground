@@ -3,7 +3,7 @@
 #include "containers_shared.h"
 #include <string.h>
 
-namespace Containers {
+namespace Playground {
 template <typename T>
 struct Array {
     i64 size_ = 0;
@@ -298,14 +298,14 @@ struct Array {
         size_--;
     }
 
-    Core::Optional<i64> Find(const T& item) const
+    Optional<i64> Find(const T& item) const
     {
         for (i64 i = 0, N = Size(); i < N; i++) {
             if (data_[i] == item) {
                 return i;
             }
         }
-        return Core::NullOpt;
+        return NullOpt;
     }
 
     bool Contains(const T& item) const

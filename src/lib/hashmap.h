@@ -9,7 +9,7 @@
 // heavily inspired by https://probablydance.com/2017/02/26/i-wrote-the-fastest-hashtable/
 // TODO: this is a bit messy, make sure all cominations of trivially copyable and movable keys and values work
 
-namespace Containers {
+namespace Playground {
 template <typename T>
 constexpr bool HashKeysByValue()
 {
@@ -184,7 +184,7 @@ struct Hashmap {
 
     i64 MaxProbeCount() const
     {
-        return Algorithms::Min(static_cast<i64>(FastLog2(static_cast<u32>(capacity_))), capacity_ - 1);
+        return Min(static_cast<i64>(FastLog2(static_cast<u32>(capacity_))), capacity_ - 1);
     }
 
     Iterator begin() const
@@ -445,7 +445,7 @@ struct Hashmap {
         return values_[index];
     }
 
-    Core::Optional<i64> _FindIndex(K key) const
+    Optional<i64> _FindIndex(K key) const
     {
         if (capacity_ == 0 || size_ == 0) {
             return {};
@@ -482,10 +482,10 @@ struct Hashmap {
         return values_[index];
     }
 
-    Core::Optional<V*> Find(K key) const
+    Optional<V*> Find(K key) const
     {
         //static_assert(std::is_trivially_copyable_v<V>);
-        Core::Optional<i64> maybe_index = _FindIndex(key);
+        Optional<i64> maybe_index = _FindIndex(key);
 
         if (!maybe_index) {
             return {};

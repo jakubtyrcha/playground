@@ -4,10 +4,7 @@
 #include "imgui_backend.h"
 #include <imgui/imgui.h>
 
-using namespace Core;
-using namespace Containers;
-
-namespace Rendering {
+namespace Playground {
 
 struct ImGuiPipeline : public Gfx::IPipelineBuilder {
     ImGuiRenderer* owner_ = nullptr;

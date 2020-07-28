@@ -3,7 +3,7 @@
 #include "Array.h"
 #include "gfx.h"
 
-namespace Rendering {
+namespace Playground {
 
 struct Viewport {
     Vector2i resolution;
@@ -15,7 +15,7 @@ struct Viewport {
     f32 far_plane;
     f32 history_decay = 0.9f;
 
-    Containers::Array<Vector2> taa_offsets;
+    Array<Vector2> taa_offsets;
     i32 taa_index = 0;
 
     Matrix4 saved_view_projection_matrix;
@@ -35,7 +35,7 @@ Matrix4 PerspectiveFovLhReversedZ(f32 aspect_ratio, f32 fov_y, f32 near, f32 far
 Matrix4 InversePerspectiveFovLhReversedZ(f32 aspect_ratio, f32 fov_y, f32 near, f32 far);
 
 struct FrameData {
-    Containers::Array<Gfx::Resource> frame_resources_;
+    Array<Gfx::Resource> frame_resources_;
     Gfx::Waitable waitable_;
 };
 

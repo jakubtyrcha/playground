@@ -4,7 +4,7 @@
 #include "array.h"
 #include "shader.h"
 
-namespace Rendering {
+namespace Playground {
 	struct Viewport;
 
 	using ColourR8G8B8A8U = Magnum::Math::Vector4<u8>;
@@ -16,18 +16,18 @@ namespace Rendering {
 
 	struct ImmediateModeShapeRenderer {
 		Gfx::Device* device_ = nullptr;
-		Core::Box<Gfx::IPipelineBuilder> pipeline_;
+		Box<Gfx::IPipelineBuilder> pipeline_;
 
 		struct FrameData {
 			Gfx::Resource vertex_buffer_;
 			Gfx::Resource index_buffer_;
-			Containers::Array<Gfx::Resource> constant_buffers_;
+			Array<Gfx::Resource> constant_buffers_;
 			Gfx::Waitable waitable_;
 		};
 
 		i32 max_frames_queued_ = 3;
-		Containers::Array<FrameData> frame_data_queue_;
-		Containers::Array<ShapeVertex> vertices_;
+		Array<FrameData> frame_data_queue_;
+		Array<ShapeVertex> vertices_;
 
 		void Init(Gfx::Device* device);
 		void Render(Gfx::Encoder* encoder, ViewportRenderContext* viewport_ctx, D3D12_CPU_DESCRIPTOR_HANDLE rtv_handle, D3D12_CPU_DESCRIPTOR_HANDLE rtv1_handle);

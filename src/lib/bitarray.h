@@ -3,7 +3,7 @@
 #include "array.h"
 #include "containers_shared.h"
 
-namespace Containers {
+namespace Playground {
 struct Bitarray {
     Array<i64> data_;
     i64 size_ = 0;

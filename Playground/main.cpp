@@ -23,9 +23,7 @@
 
 #include <math.h>
 
-using namespace Containers;
-using namespace Algorithms;
-using namespace IO;
+using namespace Playground;
 
 void InitImgui()
 {
@@ -45,14 +43,14 @@ void InitImgui()
     }
 }
 
-namespace Rendering {
+namespace Playground {
 
 enum class TAAPattern {
     Standard4x,
     Standard8x
 };
 
-void SetPattern(Rendering::Viewport& viewport, TAAPattern pattern)
+void SetPattern(Viewport& viewport, TAAPattern pattern)
 {
     viewport.taa_offsets.Clear();
 
@@ -83,17 +81,14 @@ void SetPattern(Rendering::Viewport& viewport, TAAPattern pattern)
 
     viewport.taa_index = 0;
 }
-}
 
-
-
-Containers::Array<Vector2> Generate2DGridSamples(i32 N, Vector2 v0, Vector2 v1)
+Array<Vector2> Generate2DGridSamples(i32 N, Vector2 v0, Vector2 v1)
 {
-    Containers::Array<Vector2> output;
+    Array<Vector2> output;
     output.Reserve(N);
 
-    Random::Generator gen {};
-    
+    Rng gen {};
+
     for (i32 i = 0; i < N; i++) {
         output.PushBack({ gen.F32UniformInRange(v0.x(), v1.x()), gen.F32UniformInRange(v0.y(), v1.y()) });
     }
@@ -101,21 +96,22 @@ Containers::Array<Vector2> Generate2DGridSamples(i32 N, Vector2 v0, Vector2 v1)
     return output;
 }
 
-Vector2 RandomPointInAnnulus(f32 r0, f32 r1, Vector2 z) {
+Vector2 RandomPointInAnnulus(f32 r0, f32 r1, Vector2 z)
+{
     assert(r0 < r1);
 
     f32 theta = 2.f * Magnum::Math::Constants<f32>::pi() * z.x();
     f32 d = sqrtf(z.y() * (r1 * r1 - r0 * r0) + r0 * r0);
 
-    return d * Vector2{ cosf(theta), sinf(theta) };
+    return d * Vector2 { cosf(theta), sinf(theta) };
 }
 
 // Robert Bridson algorithm
-Containers::Array<Vector2> Generate2DGridSamplesPoissonDisk(Vector2 v0, Vector2 v1, float min_distance, i32 samples_before_rejection)
+Array<Vector2> Generate2DGridSamplesPoissonDisk(Vector2 v0, Vector2 v1, float min_distance, i32 samples_before_rejection)
 {
-    Containers::Array<Vector2> output;
-    Random::Generator gen {};
-    
+    Array<Vector2> output;
+    Rng gen {};
+
     constexpr i32 DIM = 2;
     const i32 k = samples_before_rejection;
     const f32 r = min_distance;
@@ -127,12 +123,12 @@ Containers::Array<Vector2> Generate2DGridSamplesPoissonDisk(Vector2 v0, Vector2 
     const Vector2i grid_cells = Vector2i { Math::ceil((span / cell_size)) };
     const f32 inv_cell_size = 1.f / cell_size;
 
-    Containers::Array<i32> grid;
+    Array<i32> grid;
     grid.ResizeUninitialised(grid_cells.x() * grid_cells.y());
 
     output.Reserve(grid.Size());
 
-    for(i32 i=0; i < grid_cells.x() * grid_cells.y(); i++) {
+    for (i32 i = 0; i < grid_cells.x() * grid_cells.y(); i++) {
         grid[i] = -1;
     }
 
@@ -142,15 +138,15 @@ Containers::Array<Vector2> Generate2DGridSamplesPoissonDisk(Vector2 v0, Vector2 
     output.PushBack(x0);
     grid[grid_coord.x() + grid_coord.y() * grid_cells.x()] = 0;
 
-    Containers::Array<i32> active_list;
+    Array<i32> active_list;
     active_list.PushBack(0);
-    
+
     while (active_list.Size()) {
-        i32 index = gen.I32UniformInRange(0, static_cast<i32>( active_list.Size()));
+        i32 index = gen.I32UniformInRange(0, static_cast<i32>(active_list.Size()));
         Vector2 xi = output[active_list[index]];
 
         int tries = k;
-        while(tries) {
+        while (tries) {
             Vector2 offset = RandomPointInAnnulus(r, 2.f * r, { gen.F32Uniform(), gen.F32Uniform() });
             Vector2 s = xi + offset;
 
@@ -159,7 +155,7 @@ Containers::Array<Vector2> Generate2DGridSamplesPoissonDisk(Vector2 v0, Vector2 
 
             assert(grid_coord != Vector2i { Math::floor(xi * inv_cell_size) });
 
-            if(((s < Vector2{0.f}) || (span <= s)).any() ) {
+            if (((s < Vector2 { 0.f }) || (span <= s)).any()) {
                 rejected = true;
                 goto break_double_loop;
             }
@@ -170,11 +166,11 @@ Containers::Array<Vector2> Generate2DGridSamplesPoissonDisk(Vector2 v0, Vector2 
                 for (i32 y = Max(0, grid_coord.y() - 2); y < Min(grid_cells.y(), grid_coord.y() + 3); y++) {
                     i32 tested_index = x + y * grid_cells.x();
 
-                    if(grid[tested_index] == -1) {
+                    if (grid[tested_index] == -1) {
                         continue;
                     }
-                    
-                    if((s - output[grid[tested_index]]).dot() < r2) {
+
+                    if ((s - output[grid[tested_index]]).dot() < r2) {
                         rejected = true;
                         goto break_double_loop;
                     }
@@ -182,11 +178,11 @@ Containers::Array<Vector2> Generate2DGridSamplesPoissonDisk(Vector2 v0, Vector2 
             }
 
         break_double_loop:
-            if(rejected) {
+            if (rejected) {
                 tries--;
                 continue;
             }
-            
+
             i32 next_sample_index = static_cast<i32>(output.Size());
             assert(grid[grid_coord.x() + grid_coord.y() * grid_cells.x()] == -1);
             grid[grid_coord.x() + grid_coord.y() * grid_cells.x()] = next_sample_index;
@@ -196,12 +192,12 @@ Containers::Array<Vector2> Generate2DGridSamplesPoissonDisk(Vector2 v0, Vector2 
             break;
         }
 
-        if(tries == 0) {
+        if (tries == 0) {
             active_list.RemoveAtAndSwapWithLast(index);
         }
     }
 
-    for(Vector2 & p : output) {
+    for (Vector2& p : output) {
         p += v0;
     }
 
@@ -209,53 +205,54 @@ Containers::Array<Vector2> Generate2DGridSamplesPoissonDisk(Vector2 v0, Vector2 
 }
 
 namespace Gfx {
-void UpdateTexture2D(Device * device, Resource * resource, Vector2i resource_size, DXGI_FORMAT fmt, const void * src, i32 src_pitch, i32 rows)
-{
-    i32 upload_pitch = AlignedForward(src_pitch, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
-    i64 upload_size = upload_pitch * rows; 
+    void UpdateTexture2D(Device* device, Resource* resource, Vector2i resource_size, DXGI_FORMAT fmt, const void* src, i32 src_pitch, i32 rows)
+    {
+        i32 upload_pitch = AlignedForward(src_pitch, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
+        i64 upload_size = upload_pitch * rows;
 
-    Gfx::Resource upload_buffer = device->CreateBuffer(
-        D3D12_HEAP_TYPE_UPLOAD, 
-        upload_size, 
-        DXGI_FORMAT_UNKNOWN, 
-        D3D12_RESOURCE_FLAG_NONE, 
-        D3D12_RESOURCE_STATE_GENERIC_READ);
+        Gfx::Resource upload_buffer = device->CreateBuffer(
+            D3D12_HEAP_TYPE_UPLOAD,
+            upload_size,
+            DXGI_FORMAT_UNKNOWN,
+            D3D12_RESOURCE_FLAG_NONE,
+            D3D12_RESOURCE_STATE_GENERIC_READ);
 
-    u8* mapped_memory = nullptr;
-    verify_hr(upload_buffer.resource_->Map(0, nullptr, reinterpret_cast<void**>(&mapped_memory)));
-    for (i64 r = 0; r < resource_size.y(); r++) {
-        memcpy(mapped_memory + r * upload_pitch, reinterpret_cast<const u8*>(src) + r * src_pitch, src_pitch);
+        u8* mapped_memory = nullptr;
+        verify_hr(upload_buffer.resource_->Map(0, nullptr, reinterpret_cast<void**>(&mapped_memory)));
+        for (i64 r = 0; r < resource_size.y(); r++) {
+            memcpy(mapped_memory + r * upload_pitch, reinterpret_cast<const u8*>(src) + r * src_pitch, src_pitch);
+        }
+
+        upload_buffer.resource_->Unmap(0, nullptr);
+
+        Gfx::Encoder encoder = device->CreateEncoder();
+        D3D12_TEXTURE_COPY_LOCATION copy_src {
+            .pResource = *upload_buffer.resource_,
+            .Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT,
+            .PlacedFootprint = {
+                .Footprint = {
+                    .Format = fmt,
+                    .Width = static_cast<u32>(resource_size.x()),
+                    .Height = static_cast<u32>(resource_size.y()),
+                    .Depth = 1,
+                    .RowPitch = static_cast<u32>(upload_pitch) } }
+        };
+        D3D12_TEXTURE_COPY_LOCATION copy_dst {
+            .pResource = *resource->resource_,
+            .Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
+            .SubresourceIndex = 0
+        };
+
+        Gfx::Pass* copy_to_pass = device->graph_.AddSubsequentPass(Gfx::PassAttachments {}.Attach({ .resource = *resource->resource_ }, D3D12_RESOURCE_STATE_COPY_DEST));
+        encoder.SetPass(copy_to_pass);
+        encoder.GetCmdList()->CopyTextureRegion(&copy_dst, 0, 0, 0, &copy_src, nullptr);
+
+        Gfx::Pass* transition_to_readable_pass = device->graph_.AddSubsequentPass(Gfx::PassAttachments {}.Attach({ .resource = *resource->resource_ }, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
+        encoder.SetPass(transition_to_readable_pass);
+        encoder.Submit();
+
+        device->ReleaseWhenCurrentFrameIsDone(std::move(upload_buffer));
     }
-
-    upload_buffer.resource_->Unmap(0, nullptr);
-
-    Gfx::Encoder encoder = device->CreateEncoder();
-    D3D12_TEXTURE_COPY_LOCATION copy_src {
-        .pResource = *upload_buffer.resource_,
-        .Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT,
-        .PlacedFootprint = {
-            .Footprint = {
-                .Format = fmt,
-                .Width = static_cast<u32>(resource_size.x()),
-                .Height = static_cast<u32>(resource_size.y()),
-                .Depth = 1,
-                .RowPitch = static_cast<u32>(upload_pitch) } }
-    };
-    D3D12_TEXTURE_COPY_LOCATION copy_dst {
-        .pResource = *resource->resource_,
-        .Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
-        .SubresourceIndex = 0
-    };
-
-    Gfx::Pass* copy_to_pass = device->graph_.AddSubsequentPass(Gfx::PassAttachments {}.Attach({ .resource = *resource->resource_ }, D3D12_RESOURCE_STATE_COPY_DEST));
-    encoder.SetPass(copy_to_pass);
-    encoder.GetCmdList()->CopyTextureRegion(&copy_dst, 0, 0, 0, &copy_src, nullptr);
-
-    Gfx::Pass* transition_to_readable_pass = device->graph_.AddSubsequentPass(Gfx::PassAttachments {}.Attach({ .resource = *resource->resource_ }, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
-    encoder.SetPass(transition_to_readable_pass);
-    encoder.Submit();
-
-    device->ReleaseWhenCurrentFrameIsDone(std::move(upload_buffer));
 }
 }
 
@@ -265,41 +262,40 @@ int main(int argc, char** argv)
 
     InitImgui();
 
-    Rendering::ImGuiRenderer imgui_renderer;
+    ImGuiRenderer imgui_renderer;
     imgui_renderer.Init(&device);
 
-    Rendering::ImmediateModeShapeRenderer shape_renderer;
+    ImmediateModeShapeRenderer shape_renderer;
     shape_renderer.Init(&device);
 
-    Rendering::Pointset pointset;
+    Pointset pointset;
 
     i32 N = 1000;
     Vector2 v0 { -5.f, -5.f };
     Vector2 v1 { 5.f, 5.f };
 
-    f32 span = Min((v1-v0).x(), (v1-v0).y());
-    f32 pointsize = 0.125f * span / sqrtf(static_cast<f32>( N ));
-    //for (Vector2 p : Generate2DGridSamples(N, v0, v1)) 
+    f32 span = Min((v1 - v0).x(), (v1 - v0).y());
+    f32 pointsize = 0.125f * span / sqrtf(static_cast<f32>(N));
+    //for (Vector2 p : Generate2DGridSamples(N, v0, v1))
     FastNoise noise_gen;
     noise_gen.SetNoiseType(FastNoise::SimplexFractal);
     noise_gen.SetFrequency(0.5f);
 
-    for (Vector2 p : Generate2DGridSamplesPoissonDisk(v0, v1, pointsize, 30)) 
-    {
+    for (Vector2 p : Generate2DGridSamplesPoissonDisk(v0, v1, 3.f * pointsize, 30)) {
         Vector2 c = ((p - v0) / (v1 - v0));
         f32 y = noise_gen.GetNoise(p.x(), p.y());
         pointset.Add({ p.x(), y, p.y() }, pointsize, Color4 { 0.5f, y * 0.5f + 0.5f, 0.5f, 1.f });
     }
 
-    Rendering::PointsetRenderer pointset_renderer;
+    PointsetRenderer pointset_renderer;
     pointset_renderer.Init(&device);
 
     pointset_renderer.pointset_ = &pointset;
 
-    Rendering::TAA taa;
+    TAA taa;
     taa.Init(&device);
 
-    Rendering::MotionVectorDebug motion_debug;
+    MotionVectorDebug motion_debug;
     motion_debug.Init(&device);
 
     //Rendering::SphereTracer sphere_tracer;
@@ -317,7 +313,7 @@ int main(int argc, char** argv)
     window->Init();
     ImGui_ImplWin32_Init(window->hwnd_);
 
-    Containers::Array<Rendering::FrameData> frame_data_queue;
+    Array<FrameData> frame_data_queue;
 
     i32 max_frames_queued_ = 3;
 
@@ -355,7 +351,7 @@ int main(int argc, char** argv)
 
     Array<Gfx::Waitable> frame_waitables;
 
-    Rendering::Viewport main_viewport {};
+    Viewport main_viewport {};
 
     main_viewport.camera_look_at = { 0, 0, 0 };
     main_viewport.camera_position = { 5, 5, -5 };
@@ -366,7 +362,7 @@ int main(int argc, char** argv)
     main_viewport.far_plane = 1000.f;
 
     struct NoiseWidget {
-        Core::Optional<Gfx::Resource> noise_texture;
+        Optional<Gfx::Resource> noise_texture;
         Gfx::DescriptorHandle noise_texture_srv_handle;
         ImTextureID im_tex_handle;
     };
@@ -374,7 +370,7 @@ int main(int argc, char** argv)
     NoiseWidget noise_widget;
 
     i32 taa_pattern = 0;
-    SetPattern(main_viewport, static_cast<Rendering::TAAPattern>(taa_pattern));
+    SetPattern(main_viewport, static_cast<TAAPattern>(taa_pattern));
 
     // TODO: change to pump message func, remove functor
     window->RunMessageLoop([&window,
@@ -446,10 +442,10 @@ int main(int argc, char** argv)
             main_viewport.taa_index = override_taa_sample;
         }
 
-        Rendering::ViewportRenderContext viewport_render_context = Rendering::BuildViewportRenderContext(&device, &main_viewport);
+        ViewportRenderContext viewport_render_context = BuildViewportRenderContext(&device, &main_viewport);
 
         if (show_axes_helper) {
-            Rendering::ShapeVertex vertices[] = {
+            ShapeVertex vertices[] = {
                 { .position = { 0, 0, 0 }, .colour = { 255, 0, 0, 1 } },
                 { .position = { 1, 0, 0 }, .colour = { 255, 0, 0, 1 } },
                 { .position = { 0, 0, 0 }, .colour = { 0, 255, 0, 1 } },
@@ -473,7 +469,7 @@ int main(int argc, char** argv)
                 ImGui::SliderInt("TAA sample", &override_taa_sample, -1, static_cast<i32>(main_viewport.taa_offsets.Size()) - 1);
                 const char* items[] = { "MSAA 4x", "MSAA 8x" };
                 if (ImGui::Combo("TAA pattern", &taa_pattern, items, _countof(items))) {
-                    SetPattern(main_viewport, static_cast<Rendering::TAAPattern>(taa_pattern));
+                    SetPattern(main_viewport, static_cast<TAAPattern>(taa_pattern));
                 }
             }
 
@@ -505,7 +501,7 @@ int main(int argc, char** argv)
 
                 struct FractalTypeString {
                     FastNoise::FractalType type;
-                    const char * str;
+                    const char* str;
                 };
                 constexpr FractalTypeString fractal_type_items[] = {
                     { FastNoise::FBM, "FBM" },
@@ -559,7 +555,7 @@ int main(int argc, char** argv)
                         noise_widget.im_tex_handle = imgui_renderer.RegisterHandle(noise_widget.noise_texture_srv_handle);
                     }
 
-                    Containers::Array<f32> data;
+                    Array<f32> data;
                     data.Reserve(tex_res * tex_res);
                     for (i32 y = 0; y < tex_res; y++) {
                         for (i32 x = 0; x < tex_res; x++) {
@@ -567,11 +563,11 @@ int main(int argc, char** argv)
                         }
                     }
 
-                    Gfx::UpdateTexture2D(&device, &*noise_widget.noise_texture, { tex_res, tex_res }, DXGI_FORMAT_R32_FLOAT, data.Data(), sizeof(f32) * tex_res, tex_res );
+                    Gfx::UpdateTexture2D(&device, &*noise_widget.noise_texture, { tex_res, tex_res }, DXGI_FORMAT_R32_FLOAT, data.Data(), sizeof(f32) * tex_res, tex_res);
                 }
 
-                ImGui::Image(noise_widget.im_tex_handle, { static_cast<f32>( tex_res ), static_cast<f32>( tex_res ) });
-                ImGui::Text("( %f, %f )", static_cast<f32>( tex_res ) * noise_freq, static_cast<f32>( tex_res ) * noise_freq);
+                ImGui::Image(noise_widget.im_tex_handle, { static_cast<f32>(tex_res), static_cast<f32>(tex_res) });
+                ImGui::Text("( %f, %f )", static_cast<f32>(tex_res) * noise_freq, static_cast<f32>(tex_res) * noise_freq);
             }
 
             ImGui::End();

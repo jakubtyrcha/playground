@@ -1,7 +1,7 @@
 #include "algorithms.h"
 #include "catch/catch.hpp"
 
-using namespace Algorithms;
+using namespace Playground;
 
 TEST_CASE("lowerbound can be found", "[lowerbound]")
 {

@@ -2,9 +2,11 @@
 
 #include "rendering.h"
 
-using namespace Gfx;
 
-namespace Rendering {
+
+namespace Playground {
+
+using namespace Gfx;
 
 f32 Viewport::GetAspectRatio() const
 {

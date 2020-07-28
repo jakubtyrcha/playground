@@ -3,8 +3,7 @@
 
 #include "catch/catch.hpp"
 
-using namespace Core;
-using namespace Containers;
+using namespace Playground;
 
 TEST_CASE("arrays can be resized and accessed", "[array]")
 {
@@ -98,5 +97,5 @@ TEST_CASE("array can searched", "[array]")
 
     REQUIRE(a.Find(0) == 0);
     REQUIRE(a.Find(1) == 1);
-    REQUIRE(a.Find(2) == Core::NullOpt);
+    REQUIRE(a.Find(2) == NullOpt);
 }

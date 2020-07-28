@@ -5,13 +5,13 @@
 #include "shader.h"
 #include "box.h"
 
-namespace Rendering {
+namespace Playground {
 struct Viewport;
 
 struct TAA {
     Gfx::Device* device_ = nullptr;
 
-    Core::Box<Gfx::IPipelineBuilder> pipeline_;
+    Box<Gfx::IPipelineBuilder> pipeline_;
 
     Gfx::Pass* pass_ = nullptr;
     Gfx::Resource* colour_src_ = nullptr;

@@ -1,6 +1,6 @@
 #pragma once
 #include "array.h"
 
-namespace IO {
-Containers::Array<char> GetFileContent(const wchar_t* path);
+namespace Playground {
+Array<char> GetFileContent(const wchar_t* path);
 }

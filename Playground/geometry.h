@@ -1,6 +1,6 @@
 #pragma once
 
-namespace Geometry {
+namespace Playground {
 struct AABox2D {
     Vector2 vec_min;
     Vector2 vec_max;

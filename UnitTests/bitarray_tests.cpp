@@ -2,7 +2,7 @@
 
 #include "catch/catch.hpp"
 
-using namespace Containers;
+using namespace Playground;
 
 TEST_CASE("bitarray can store bits", "[bitarray]")
 {

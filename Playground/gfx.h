@@ -25,12 +25,13 @@ struct gfx_module
         DEBUG_ASSERT(SUCCEEDED(__hr), gfx_module {}); \
     }
 
+namespace Playground {
+
 namespace Os {
 struct Window;
 }
 
 namespace Gfx {
-using namespace Containers;
 
 struct Device;
 struct Encoder;
@@ -68,7 +69,7 @@ struct Attachment {
 };
 
 struct PassAttachments {
-    Containers::Array<Attachment> attachments_;
+    Array<Attachment> attachments_;
 
     PassAttachments& Attach(SubresourceDesc, D3D12_RESOURCE_STATES);
 };
@@ -78,7 +79,7 @@ struct TransitionGraph {
     Hashmap<SubresourceDesc, D3D12_RESOURCE_STATES> last_transitioned_state_;
 
     struct Node {
-        Core::Box<Pass> pass;
+        Box<Pass> pass;
         Node* edge = nullptr;
     };
 
@@ -86,8 +87,8 @@ struct TransitionGraph {
     // poor man's ownership
     // keep history for split barriers
     i32 max_depth_ = 100;
-    Containers::Array<Core::Box<Node>> pending_nodes_;
-    Containers::Hashmap<Node*, i32> node_index_;
+    Array<Box<Node>> pending_nodes_;
+    Hashmap<Node*, i32> node_index_;
 
     Node* root_ = nullptr;
     Node* tail_ = nullptr;
@@ -159,20 +160,20 @@ struct DescriptorHeap {
 
 struct FreeList {
     i32 next_ = 0;
-    Containers::Array<i32> freelist_;
+    Array<i32> freelist_;
 
     i32 Allocate();
     void Free(i32);
 };
 
-struct Device : private Core::Pinned<Device> {
+struct Device : private Pinned<Device> {
     struct ReleaseSet {
         Waitable waitable;
-        Containers::Array<Resource> resources;
-        Containers::Array<DescriptorHandle> handles;
+        Array<Resource> resources;
+        Array<DescriptorHandle> handles;
     };
 
-    Containers::Array<ReleaseSet> release_sets_queue_;
+    Array<ReleaseSet> release_sets_queue_;
 
     Com::Box<IDXGIFactory4> dxgi_factory_;
     Com::Box<IDXGIAdapter1> adapter_;
@@ -195,24 +196,24 @@ struct Device : private Core::Pinned<Device> {
     u64 fence_value_ = 0;
 
     struct WaitableSlot {
-        Core::Optional<u64> value;
+        Optional<u64> value;
         i32 generation = 0;
         bool pending = false;
     };
-    Containers::Array<WaitableSlot> waitables_pool_;
+    Array<WaitableSlot> waitables_pool_;
     // TODO: queue candidate
-    Containers::Array<Waitable> waitables_pending_;
+    Array<Waitable> waitables_pending_;
 
     struct PendingCommandAllocator {
         Com::Box<ID3D12CommandAllocator> allocator;
         Waitable waitable;
     };
 
-    Containers::Array<PendingCommandAllocator> cmd_allocators_pending_;
-    Containers::Array<Com::Box<ID3D12CommandAllocator>> cmd_allocators_;
-    Containers::Array<Com::Box<ID3D12CommandList>> cmd_lists_;
+    Array<PendingCommandAllocator> cmd_allocators_pending_;
+    Array<Com::Box<ID3D12CommandAllocator>> cmd_allocators_;
+    Array<Com::Box<ID3D12CommandList>> cmd_lists_;
 
-    Containers::Array<Core::Box<Swapchain>> swapchains_;
+    Array<Box<Swapchain>> swapchains_;
 
     TransitionGraph graph_;
 
@@ -247,12 +248,12 @@ struct Device : private Core::Pinned<Device> {
     Resource CreateTexture2D(D3D12_HEAP_TYPE heap_type, Vector2i size, DXGI_FORMAT format, i32 miplevels, D3D12_RESOURCE_FLAGS flags, D3D12_RESOURCE_STATES initial_state);
 };
 
-struct Encoder : private Core::MoveableNonCopyable<Encoder> {
+struct Encoder : private MoveableNonCopyable<Encoder> {
     Device* device_ = nullptr;
 
     Com::Box<ID3D12CommandAllocator> cmd_allocator_;
     Com::Box<ID3D12CommandList> cmd_list_;
-    Containers::Array<Waitable> waitables_to_trigger_;
+    Array<Waitable> waitables_to_trigger_;
 
     ID3D12GraphicsCommandList* GetCmdList();
 
@@ -274,7 +275,7 @@ struct Encoder : private Core::MoveableNonCopyable<Encoder> {
     void Submit();
 };
 
-struct Swapchain : private Core::Pinned<Swapchain> {
+struct Swapchain : private Pinned<Swapchain> {
     Device* device_ = nullptr;
     Os::Window* window_ = nullptr;
 
@@ -287,7 +288,7 @@ struct Swapchain : private Core::Pinned<Swapchain> {
     void Recreate();
 };
 
-struct Resource : private Core::MoveableNonCopyable<Resource> {
+struct Resource : private MoveableNonCopyable<Resource> {
     Resource() = default;
     ~Resource();
 
@@ -302,18 +303,20 @@ struct Resource : private Core::MoveableNonCopyable<Resource> {
     Com::Box<D3D12MA::Allocation> allocation_;
 };
 
-struct Pipeline : private Core::MoveableNonCopyable<Resource> {
+struct Pipeline : private MoveableNonCopyable<Resource> {
     Com::Box<ID3D12PipelineState> pipeline_;
 
-    static Core::Optional<Core::Box<Pipeline>> From(Device* device, D3D12_GRAPHICS_PIPELINE_STATE_DESC const& desc);
+    static Optional<Box<Pipeline>> From(Device* device, D3D12_GRAPHICS_PIPELINE_STATE_DESC const& desc);
 };
 
 struct Pass {
-    Containers::Array<Attachment> attachments_;
+    Array<Attachment> attachments_;
 };
 }
 
 namespace Hash {
 template <>
 u64 HashValue(Gfx::SubresourceDesc);
+}
+
 }

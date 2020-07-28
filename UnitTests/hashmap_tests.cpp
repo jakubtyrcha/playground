@@ -3,8 +3,7 @@
 
 #include "catch/catch.hpp"
 
-using namespace Core;
-using namespace Containers;
+using namespace Playground;
 
 TEST_CASE("hashtable can be inserted and accessed", "[hashtable]")
 {

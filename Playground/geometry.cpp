@@ -3,9 +3,7 @@
 #include "algorithms.h"
 #include "geometry.h"
 
-using namespace Algorithms;
-
-namespace Geometry {
+namespace Playground {
 AABox2D AABox2D::Xyxy(Vector2 xy0, Vector2 xy1)
 {
     return { .vec_min = { Min(xy0.x(), xy1.x()), Min(xy0.y(), xy1.y()) },

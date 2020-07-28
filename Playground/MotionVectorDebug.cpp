@@ -4,10 +4,7 @@
 #include "Shader.h"
 #include "MotionVectorDebug.h"
 
-using namespace Core;
-using namespace Containers;
-
-namespace Rendering {
+namespace Playground {
 
 struct MotionVectorDebugPipeline : public Gfx::IPipelineBuilder {
     MotionVectorDebug* owner_ = nullptr;
