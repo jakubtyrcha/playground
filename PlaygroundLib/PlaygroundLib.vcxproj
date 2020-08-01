@@ -166,6 +166,7 @@
     <ClInclude Include="..\src\lib\hash.h" />
     <ClInclude Include="..\src\lib\hashmap.h" />
     <ClInclude Include="..\src\lib\random.h" />
+    <ClInclude Include="..\src\lib\Strings.h" />
     <ClInclude Include="..\src\lib\types.h" />
     <ClInclude Include="pch.h" />
   </ItemGroup>
@@ -178,6 +179,7 @@
     <ClCompile Include="..\src\lib\hash.cpp" />
     <ClCompile Include="..\src\lib\hashmap.cpp" />
     <ClCompile Include="..\src\lib\random.cpp" />
+    <ClCompile Include="..\src\lib\Strings.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>

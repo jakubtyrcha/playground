@@ -2,19 +2,12 @@
 #include "Array.h"
 #include "Box.h"
 #include "Gfx.h"
+#include "Strings.h"
 
 struct D3D12_SHADER_BYTECODE;
 
 // TODO: move to a separate file
 namespace Playground {
-struct String {
-    Array<wchar_t> data_;
-
-    String();
-    String(const wchar_t*);
-    operator const wchar_t*() const;
-};
-
 namespace Gfx {
     struct Pipeline;
 
