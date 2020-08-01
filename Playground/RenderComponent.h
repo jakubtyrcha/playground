@@ -1,15 +1,21 @@
 #pragma once
 
-struct D3D12_CPU_DESCRIPTOR_HANDLE;
+#include "gfx.h"
 
 namespace Playground {
 
-namespace Gfx {
-    struct Device;
-    struct Encoder;
-}
-
 struct ViewportRenderContext;
+
+// TODO: bad name
+template <typename RenderComponent>
+struct RenderComponentPipeline : public Gfx::IPipelineBuilder {
+    RenderComponent* owner_ = nullptr;
+
+    RenderComponentPipeline(RenderComponent* render_component)
+        : owner_(render_component)
+    {
+    }
+};
 
 // TODO: split on component and instance (fire-forget instance)
 struct RenderComponent {

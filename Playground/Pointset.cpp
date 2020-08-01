@@ -19,16 +19,6 @@ i64 Pointset::Size() const
     return points_.Size();
 }
 
-template <typename RenderComponent>
-struct RenderComponentPipeline : public Gfx::IPipelineBuilder {
-    RenderComponent* owner_ = nullptr;
-
-    RenderComponentPipeline(RenderComponent* render_component)
-        : owner_(render_component)
-    {
-    }
-};
-
 D3D12_GRAPHICS_PIPELINE_STATE_DESC GetDefaultPipelineStateDesc(Gfx::Device* device)
 {
     D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_desc {};
