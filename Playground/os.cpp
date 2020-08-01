@@ -41,6 +41,27 @@ namespace Os {
         resolution_ = resolution;
     }
 
+    bool Window::PumpMessages()
+    {
+        MSG msg;
+        ZeroMemory(&msg, sizeof(msg));
+
+        while (!quit_) {
+            if (::PeekMessage(&msg, NULL, 0U, 0U, PM_REMOVE)) {
+                ::TranslateMessage(&msg);
+                ::DispatchMessage(&msg);
+
+                quit_ |= msg.message == WM_QUIT;
+
+                continue;
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
     Array<Box<Window>> GlobalWindowsList;
 
     Window* CreateOsWindow(Vector2i resolution)

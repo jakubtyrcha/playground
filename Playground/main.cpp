@@ -372,24 +372,7 @@ int main(int argc, char** argv)
     i32 taa_pattern = 0;
     SetPattern(main_viewport, static_cast<TAAPattern>(taa_pattern));
 
-    // TODO: change to pump message func, remove functor
-    window->RunMessageLoop([&window,
-                               &device,
-                               &window_swapchain,
-                               &screen_resources,
-                               backbuffers_num,
-                               &noise_widget,
-                               &frames_ctr,
-                               &frame_data_queue,
-                               &frame_waitables,
-                               &imgui_renderer,
-                               &shape_renderer,
-                               &taa_pattern,
-                               &taa,
-                               &motion_debug,
-                               &main_viewport,
-                               &pointset,
-                               &pointset_renderer]() {
+    while (window->PumpMessages()) {
         i32 current_backbuffer_index = window_swapchain->swapchain_->GetCurrentBackBufferIndex();
 
         screen_resources.Resize(window->resolution_);
@@ -691,7 +674,7 @@ int main(int argc, char** argv)
         current_backbuffer_index = (current_backbuffer_index + 1) % backbuffers_num;
 
         std::swap(screen_resources.final_texture, screen_resources.prev_colour_texture);
-    });
+    }
 
     device.GetWaitable().Wait();
 

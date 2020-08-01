@@ -22,6 +22,7 @@ namespace Os {
         Vector2i resolution_;
         Gfx::Swapchain* swapchain_ = nullptr;
         UserInput user_input_;
+        bool quit_ = false;
 
         Window(Vector2i resolution, WndProcCallback wnd_proc);
         ~Window();
@@ -29,21 +30,7 @@ namespace Os {
         void Init();
         void HandleSizeChange(Vector2i resolution);
 
-        template <typename Functor>
-        void RunMessageLoop(Functor loop_tick)
-        {
-            MSG msg;
-            ZeroMemory(&msg, sizeof(msg));
-            while (msg.message != WM_QUIT) {
-                if (::PeekMessage(&msg, NULL, 0U, 0U, PM_REMOVE)) {
-                    ::TranslateMessage(&msg);
-                    ::DispatchMessage(&msg);
-                    continue;
-                }
-
-                loop_tick();
-            }
-        }
+        bool PumpMessages();
     };
 
     Window* CreateOsWindow(Vector2i resolution);
