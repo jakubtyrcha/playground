@@ -49,7 +49,7 @@ enum class ResourceType {
 
 struct SubresourceDesc {
     ID3D12Resource* resource;
-    u32 subresource;
+    i32 subresource;
 
     bool operator==(SubresourceDesc other) const;
 };
@@ -298,6 +298,7 @@ struct Resource : private MoveableNonCopyable<Resource> {
     ResourceType type_;
     Device* device_ = nullptr;
     D3D12_HEAP_TYPE heap_type_ = static_cast<D3D12_HEAP_TYPE>(0);
+    i32 subresources_num_ = 0;
 
     Com::Box<ID3D12Resource> resource_;
     Com::Box<D3D12MA::Allocation> allocation_;

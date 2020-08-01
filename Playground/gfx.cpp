@@ -386,6 +386,7 @@ namespace Gfx {
         result.type_ = ResourceType::Buffer;
         result.device_ = this;
         result.heap_type_ = heap_type;
+        result.subresources_num_ = 1;
 
         D3D12_RESOURCE_DESC resource_desc = {};
         resource_desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
@@ -424,6 +425,7 @@ namespace Gfx {
         result.type_ = ResourceType::Texture1D;
         result.device_ = this;
         result.heap_type_ = heap_type;
+        result.subresources_num_ = miplevels;
 
         D3D12_RESOURCE_DESC resource_desc = {};
         resource_desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE1D;
@@ -463,6 +465,7 @@ namespace Gfx {
         result.type_ = ResourceType::Texture2D;
         result.device_ = this;
         result.heap_type_ = heap_type;
+        result.subresources_num_ = miplevels;
 
         D3D12_RESOURCE_DESC resource_desc = {};
         resource_desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
@@ -499,9 +502,12 @@ namespace Gfx {
             result.allocation_.InitAddress(),
             IID_PPV_ARGS(result.resource_.InitAddress())));
 
-        assert(miplevels == 1);
+        plgr_assert(resource_desc.DepthOrArraySize == 1);
+
         if (!IsHeapTypeStateFixed(result.heap_type_)) {
-            graph_.SetState({ .resource = *result.resource_ }, initial_state);
+            for(i32 i=0; i<miplevels; i++) {
+                graph_.SetState({ .resource = *result.resource_, .subresource = i }, initial_state);
+            }
         }
 
         return result;
@@ -537,7 +543,7 @@ namespace Gfx {
                 .Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
                 .Transition = {
                     .pResource = a.subresource.resource,
-                    .Subresource = a.subresource.subresource,
+                    .Subresource = As<u32>(a.subresource.subresource),
                     .StateBefore = state_before,
                     .StateAfter = a.state } });
 
@@ -895,6 +901,65 @@ namespace Gfx {
             return NullOpt;
         }
         return result;
+    }
+
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC GetDefaultPipelineStateDesc(Device* device)
+    {
+        D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_desc {};
+        pso_desc.NodeMask = 1;
+        pso_desc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+        pso_desc.pRootSignature = *device->root_signature_;
+        pso_desc.SampleMask = UINT_MAX;
+        //pso_desc.NumRenderTargets = 2;
+        //pso_desc.RTVFormats[0] = DXGI_FORMAT_R16G16B16A16_FLOAT;
+        //pso_desc.RTVFormats[1] = DXGI_FORMAT_R16G16_FLOAT;
+        //pso_desc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
+        pso_desc.SampleDesc.Count = 1;
+        pso_desc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
+
+        //pso_desc.VS = GetShaderFromShaderFileSource({ .file_path = L"../data/sphere_splatting.hlsl",
+        //                                                .entrypoint = L"VsMain",
+        //                                                .profile = L"vs_6_0" })
+        //                  ->GetBytecode();
+        //
+        //pso_desc.PS = GetShaderFromShaderFileSource({ .file_path = L"../data/sphere_splatting.hlsl",
+        //                                                .entrypoint = L"PsMain",
+        //                                                .profile = L"ps_6_0" })
+        //                  ->GetBytecode();
+
+        // Create the blending setup
+        {
+            D3D12_BLEND_DESC& desc = pso_desc.BlendState;
+            desc.AlphaToCoverageEnable = false;
+            desc.RenderTarget[0].BlendEnable = false;
+            desc.RenderTarget[0].LogicOpEnable = false;
+            desc.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+        }
+
+        // Create the rasterizer state
+        {
+            D3D12_RASTERIZER_DESC& desc = pso_desc.RasterizerState;
+            desc.FillMode = D3D12_FILL_MODE_SOLID;
+            desc.CullMode = D3D12_CULL_MODE_NONE;
+            desc.FrontCounterClockwise = FALSE;
+            desc.DepthBias = D3D12_DEFAULT_DEPTH_BIAS;
+            desc.DepthBiasClamp = D3D12_DEFAULT_DEPTH_BIAS_CLAMP;
+            desc.SlopeScaledDepthBias = D3D12_DEFAULT_SLOPE_SCALED_DEPTH_BIAS;
+            desc.DepthClipEnable = true;
+            desc.MultisampleEnable = FALSE;
+            desc.AntialiasedLineEnable = FALSE;
+            desc.ForcedSampleCount = 0;
+            desc.ConservativeRaster = D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF;
+        }
+
+        // Create depth-stencil State
+        {
+            D3D12_DEPTH_STENCIL_DESC& desc = pso_desc.DepthStencilState;
+            desc.DepthEnable = false;
+            desc.StencilEnable = false;
+        }
+
+        return pso_desc;
     }
 }
 

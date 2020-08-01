@@ -205,7 +205,7 @@ Array<Vector2> Generate2DGridSamplesPoissonDisk(Vector2 v0, Vector2 v1, float mi
 }
 
 namespace Gfx {
-    void UpdateTexture2D(Device* device, Resource* resource, Vector2i resource_size, DXGI_FORMAT fmt, const void* src, i32 src_pitch, i32 rows)
+    void UpdateTexture2DSubresource(Device* device, Resource* resource, i32 subresource, Vector2i resource_size, DXGI_FORMAT fmt, const void* src, i32 src_pitch, i32 rows)
     {
         i32 upload_pitch = AlignedForward(src_pitch, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
         i64 upload_size = upload_pitch * rows;
@@ -240,14 +240,14 @@ namespace Gfx {
         D3D12_TEXTURE_COPY_LOCATION copy_dst {
             .pResource = *resource->resource_,
             .Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
-            .SubresourceIndex = 0
+            .SubresourceIndex = As<u32>(subresource)
         };
 
-        Gfx::Pass* copy_to_pass = device->graph_.AddSubsequentPass(Gfx::PassAttachments {}.Attach({ .resource = *resource->resource_ }, D3D12_RESOURCE_STATE_COPY_DEST));
+        Gfx::Pass* copy_to_pass = device->graph_.AddSubsequentPass(Gfx::PassAttachments {}.Attach({ .resource = *resource->resource_, .subresource = subresource }, D3D12_RESOURCE_STATE_COPY_DEST));
         encoder.SetPass(copy_to_pass);
         encoder.GetCmdList()->CopyTextureRegion(&copy_dst, 0, 0, 0, &copy_src, nullptr);
 
-        Gfx::Pass* transition_to_readable_pass = device->graph_.AddSubsequentPass(Gfx::PassAttachments {}.Attach({ .resource = *resource->resource_ }, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
+        Gfx::Pass* transition_to_readable_pass = device->graph_.AddSubsequentPass(Gfx::PassAttachments {}.Attach({ .resource = *resource->resource_, .subresource = subresource }, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
         encoder.SetPass(transition_to_readable_pass);
         encoder.Submit();
 
@@ -563,7 +563,7 @@ int main(int argc, char** argv)
                         }
                     }
 
-                    Gfx::UpdateTexture2D(&device, &*noise_widget.noise_texture, { tex_res, tex_res }, DXGI_FORMAT_R32_FLOAT, data.Data(), sizeof(f32) * tex_res, tex_res);
+                    Gfx::UpdateTexture2DSubresource(&device, &*noise_widget.noise_texture, 0, { tex_res, tex_res }, DXGI_FORMAT_R32_FLOAT, data.Data(), sizeof(f32) * tex_res, tex_res);
                 }
 
                 ImGui::Image(noise_widget.im_tex_handle, { static_cast<f32>(tex_res), static_cast<f32>(tex_res) });
