@@ -10,6 +10,11 @@ T AlignedForward(T v, T a)
     return (v + (a - 1)) & ~(a - 1);
 }
 
+template<typename To, typename From>
+To As(From f) {
+    return static_cast<To>(f);
+}
+
 template <typename T>
 using Box = Corrade::Containers::Pointer<T>;
 
