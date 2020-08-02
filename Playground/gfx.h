@@ -4,7 +4,6 @@
 #include "assertions.h"
 #include "box.h"
 #include "com.h"
-#include "copy_move.h"
 #include "hashmap.h"
 #include "shader.h"
 #include <magnum/CorradeOptional.h>
