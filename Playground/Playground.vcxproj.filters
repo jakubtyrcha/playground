@@ -90,6 +90,9 @@
     <ClCompile Include="..\external\fastnoise\FastNoise.cpp">
       <Filter>external</Filter>
     </ClCompile>
+    <ClCompile Include="Heightfield.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="gfx.h">
@@ -132,6 +135,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="RenderComponent.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Heightfield.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

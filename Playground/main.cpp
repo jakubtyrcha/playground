@@ -18,6 +18,7 @@
 #include "Rendering.h"
 #include "Shapes.h"
 #include "Taa.h"
+#include "Heightfield.h"
 #include "imgui_backend.h"
 #include <fastnoise/FastNoise.h>
 
@@ -271,19 +272,25 @@ int main(int argc, char** argv)
     Pointset pointset;
 
     i32 N = 1000;
-    Vector2 v0 { -5.f, -5.f };
-    Vector2 v1 { 5.f, 5.f };
+    Vector2 v0 { -50.f, -50.f };
+    Vector2 v1 { 50.f, 50.f };
 
     f32 span = Min((v1 - v0).x(), (v1 - v0).y());
     f32 pointsize = 0.125f * span / sqrtf(static_cast<f32>(N));
     //for (Vector2 p : Generate2DGridSamples(N, v0, v1))
     FastNoise noise_gen;
     noise_gen.SetNoiseType(FastNoise::SimplexFractal);
-    noise_gen.SetFrequency(0.5f);
+    noise_gen.SetFrequency(10.f);
+
+    FastNoise noise_gen_hf;
+    noise_gen_hf.SetNoiseType(FastNoise::SimplexFractal);
+    noise_gen_hf.SetSeed(17);
+    noise_gen_hf.SetFrequency(0.1f);
 
     for (Vector2 p : Generate2DGridSamplesPoissonDisk(v0, v1, 3.f * pointsize, 30)) {
         Vector2 c = ((p - v0) / (v1 - v0));
         f32 y = noise_gen.GetNoise(p.x(), p.y());
+        y += noise_gen_hf.GetNoise(p.x(), p.y()) * 0.05f;
         pointset.Add({ p.x(), y, p.y() }, pointsize, Color4 { 0.5f, y * 0.5f + 0.5f, 0.5f, 1.f });
     }
 
@@ -291,6 +298,108 @@ int main(int argc, char** argv)
     pointset_renderer.Init(&device);
 
     pointset_renderer.pointset_ = &pointset;
+
+    HeightfieldRenderer heightfield;
+    heightfield.Init(&device);    
+    heightfield.bounding_box_.vec_min = {-50.f, -20.f, -50.f};
+    heightfield.bounding_box_.vec_max = {50.f, 0.f, 50.f};
+    heightfield.resolution_ = {1024, 1024};
+    heightfield.CreateIB();
+    heightfield.light_dir_ = Vector3{0,1,0}.normalized();
+
+    f32 sun_azimuth = 0.f;
+    f32 sun_altitude = Math::Constants<f32>::pi() * 0.5f * 1.f / 3.f;
+
+    {
+        FastNoise fn;
+        i32 tex_res = heightfield.resolution_.x();
+
+        heightfield.heightfield_texture_ = device.CreateTexture2D(D3D12_HEAP_TYPE_DEFAULT, { tex_res, tex_res }, DXGI_FORMAT_R32_FLOAT, 1, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST);
+        heightfield.heightfield_srv_ = device.CreateDescriptor(&*heightfield.heightfield_texture_, D3D12_SHADER_RESOURCE_VIEW_DESC { .Format = DXGI_FORMAT_R32_FLOAT, .ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D, .Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING, .Texture2D = { .MipLevels = 1 } },
+            Gfx::Lifetime::Manual);
+
+        Array<f32> data;
+        data.Reserve(tex_res * tex_res);
+        for (i32 y = 0; y < tex_res; y++) {
+            for (i32 x = 0; x < tex_res; x++) {
+                f32 h = fn.GetNoise(static_cast<f32>(x), static_cast<f32>(y));
+                h += noise_gen_hf.GetNoise(static_cast<f32>(x), static_cast<f32>(y)) * 0.05f;
+                data.PushBack(h * 0.5f + 0.5f);
+            }
+        }
+
+        Gfx::UpdateTexture2DSubresource(&device, &*heightfield.heightfield_texture_, 0, { tex_res, tex_res }, DXGI_FORMAT_R32_FLOAT, data.Data(), sizeof(f32) * tex_res, tex_res);
+
+        f32 phi = sun_azimuth;
+        f32 theta = sun_altitude;
+        heightfield.light_dir_ = Vector3 { sin(theta) * cos(phi), cos(theta), sin(theta) * sin(phi) };
+
+        Array<f32> horizon_angle;
+        horizon_angle.Resize(data.Size());
+        Vector2 sweep_dir = -Vector2{ heightfield.light_dir_.x(), heightfield.light_dir_.z() }.normalized();
+        if (heightfield.light_dir_.y() > 0.9999f) {
+            sweep_dir = Vector2 { -1.f, 0.f };
+        }
+
+        struct Point {
+            f32 h;
+            f32 t;
+        };
+
+        struct HorizonAngle {
+            Array<Point> stack;
+        };
+        Array<HorizonAngle> sweep_convex_hull;
+        sweep_convex_hull.Resize(tex_res);
+
+        Vector3 span = heightfield.bounding_box_.vec_max - heightfield.bounding_box_.vec_min;
+
+        // TODO: all angles...
+
+        // edge
+        f32 dx = 1.f / (heightfield.resolution_.x() - 1) * span.x();
+        for(i32 y = 0; y < tex_res; y++) {
+            horizon_angle.At(tex_res - 1 + tex_res * y) = 0.f;
+            f32 h = data.At(tex_res - 1 + tex_res * y) * span.y();
+            sweep_convex_hull[y].stack.PushBack({.h = h, .t = dx * (tex_res - 1)});
+        }
+
+        for (i32 y = 0; y < tex_res; y++) {
+            for(i32 x = tex_res - 2; x >=0; x--) {
+                f32 h = data.At(x + tex_res * y) * span.y();
+                f32 t = dx * x;
+                auto [h1, t1] = sweep_convex_hull[y].stack.Last();
+                f32 dh = h1 - h;
+                f32 dt = t1 - t;
+                f32 ha = dh / sqrt(dh * dh + dt * dt);
+                sweep_convex_hull[y].stack.PushBack({.h = h, .t = t});
+
+                while(sweep_convex_hull[y].stack.Size() > 2) {
+                    auto [h2, t2] = sweep_convex_hull[y].stack.At(sweep_convex_hull[y].stack.Size()-3);
+
+                    dh = h2 - h;
+                    dt = t2 - t;
+                    f32 ha2 = dh / sqrt(dh * dh + dt * dt);
+
+                    if(ha2 < ha) {
+                        break;
+                    }
+
+                    ha = ha2;
+                    sweep_convex_hull[y].stack.RemoveAt(sweep_convex_hull[y].stack.Size() - 2);
+                }
+
+                horizon_angle.At(x + tex_res * y) = ha;
+            }
+        }
+        
+
+        heightfield.horizon_angle_texture_ = device.CreateTexture2D(D3D12_HEAP_TYPE_DEFAULT, { tex_res, tex_res }, DXGI_FORMAT_R32_FLOAT, 1, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST);
+        heightfield.horizon_angle_srv_ = device.CreateDescriptor(&*heightfield.horizon_angle_texture_, D3D12_SHADER_RESOURCE_VIEW_DESC { .Format = DXGI_FORMAT_R32_FLOAT, .ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D, .Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING, .Texture2D = { .MipLevels = 1 } },
+            Gfx::Lifetime::Manual);
+
+        Gfx::UpdateTexture2DSubresource(&device, &*heightfield.horizon_angle_texture_, 0, { tex_res, tex_res }, DXGI_FORMAT_R32_FLOAT, horizon_angle.Data(), sizeof(f32) * tex_res, tex_res);
+    }
 
     TAA taa;
     taa.Init(&device);
@@ -463,6 +572,11 @@ int main(int argc, char** argv)
 
             ImGui::End();
 
+            ImGui::Begin("Light");
+            ImGui::SliderAngle("Azimuth", &sun_azimuth, 0.f, 360.f);
+            ImGui::SliderAngle("Altitude", &sun_altitude, 0.f, 90.f);
+            ImGui::End();
+
             ImGui::Begin("Noise");
             {
                 struct NoiseTypeString {
@@ -556,6 +670,10 @@ int main(int argc, char** argv)
             ImGui::End();
         }
 
+        f32 phi = sun_azimuth;
+        f32 theta = sun_altitude;
+        heightfield.light_dir_ = Vector3 { sin(theta) * cos(phi), cos(theta), sin(theta) * sin(phi) };
+
         ID3D12Resource* current_backbuffer = *window_swapchain->backbuffers_[current_backbuffer_index];
 
         Gfx::Pass* clear_pass = device.graph_.AddSubsequentPass(Gfx::PassAttachments {}
@@ -563,10 +681,16 @@ int main(int argc, char** argv)
                                                                     .Attach({ .resource = *screen_resources.motion_vectors_texture.resource_ }, D3D12_RESOURCE_STATE_RENDER_TARGET)
                                                                     .Attach({ .resource = *screen_resources.depth_buffer.resource_ }, D3D12_RESOURCE_STATE_DEPTH_WRITE));
 
+        heightfield.colour_target_ = &screen_resources.colour_texture;
+        heightfield.depth_buffer_ = &screen_resources.depth_buffer;
+        heightfield.motionvec_target_ = &screen_resources.motion_vectors_texture;
+        heightfield.AddPassesToGraph();
+
         pointset_renderer.colour_target_ = &screen_resources.colour_texture;
         pointset_renderer.depth_buffer_ = &screen_resources.depth_buffer;
         pointset_renderer.motionvec_target_ = &screen_resources.motion_vectors_texture;
-        pointset_renderer.AddPassesToGraph();
+        //pointset_renderer.AddPassesToGraph();
+        
 
         taa.AddPassesToGraph(&screen_resources.final_texture, current_backbuffer, &screen_resources.colour_texture, &screen_resources.depth_buffer, &screen_resources.prev_colour_texture, &screen_resources.motion_vectors_texture);
 
@@ -634,7 +758,8 @@ int main(int argc, char** argv)
         //sphere_tracer.Render(&encoder, &main_viewport, rtv_handle);
         //particle_generator.Render(&encoder, &main_viewport, rtv_handle, dsv_handle, mv_rtv_handle);
         D3D12_CPU_DESCRIPTOR_HANDLE handles[] = { rtv_handle, mv_rtv_handle };
-        pointset_renderer.Render(&encoder, &viewport_render_context, handles, dsv_handle);
+        heightfield.Render(&encoder, &viewport_render_context, handles, dsv_handle);
+        //pointset_renderer.Render(&encoder, &viewport_render_context, handles, dsv_handle);
 
         shape_renderer.Render(&encoder, &viewport_render_context, rtv_handle, mv_rtv_handle);
 

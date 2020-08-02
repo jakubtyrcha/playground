@@ -182,6 +182,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Use</PrecompiledHeader>
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">pch.h</PrecompiledHeaderFile>
     </ClCompile>
+    <ClCompile Include="Heightfield.cpp" />
     <ClCompile Include="imgui_backend.cpp" />
     <ClCompile Include="imgui_impl_win32.cpp" />
     <ClCompile Include="main.cpp">
@@ -226,6 +227,7 @@
     <ClInclude Include="Copy.h" />
     <ClInclude Include="geometry.h" />
     <ClInclude Include="gfx.h" />
+    <ClInclude Include="Heightfield.h" />
     <ClInclude Include="imgui_backend.h" />
     <ClInclude Include="imgui_impl_win32.h" />
     <ClInclude Include="MotionVectorDebug.h" />
