@@ -37,7 +37,7 @@ struct PointsetRenderer : public RenderComponent {
 
     void Init(Gfx::Device* device) override;
     void AddPassesToGraph() override;
-    void Render(Gfx::Encoder* encoder, ViewportRenderContext* viewport_ctx, D3D12_CPU_DESCRIPTOR_HANDLE* rtv_handles, D3D12_CPU_DESCRIPTOR_HANDLE dsv_handle) override;
+    void Render(Gfx::Encoder* encoder, ViewportRenderContext const * viewport_ctx, D3D12_CPU_DESCRIPTOR_HANDLE* rtv_handles, D3D12_CPU_DESCRIPTOR_HANDLE dsv_handle) override;
 };
 
 }

@@ -82,7 +82,7 @@ Vector2i ViewportRenderContext::GetRes() const
     return viewport->resolution;
 }
 
-void ViewportRenderContext::SetViewportAndScissorRect(Gfx::Encoder * encoder)
+void ViewportRenderContext::SetViewportAndScissorRect(Gfx::Encoder * encoder) const 
 {
     D3D12_VIEWPORT vp {
         .Width = static_cast<float>(viewport->resolution.x()),

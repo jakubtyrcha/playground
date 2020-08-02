@@ -60,7 +60,7 @@ struct ViewportRenderContext {
     FrameData frame_payload;
 
     Vector2i GetRes() const;
-    void SetViewportAndScissorRect(Gfx::Encoder* encoder);
+    void SetViewportAndScissorRect(Gfx::Encoder* encoder) const;
 };
 
 ViewportRenderContext BuildViewportRenderContext(Gfx::Device* device, Viewport* viewport);

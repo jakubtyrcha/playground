@@ -41,6 +41,8 @@ struct Swapchain;
 struct Resource;
 struct Waitable;
 
+D3D12_GRAPHICS_PIPELINE_STATE_DESC GetDefaultPipelineStateDesc(Device* device);
+
 enum class ResourceType {
     Buffer,
     Texture1D,

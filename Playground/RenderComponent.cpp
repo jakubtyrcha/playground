@@ -13,7 +13,7 @@ void RenderComponent::AddPassesToGraph()
 {
 }
 
-void RenderComponent::Render(Gfx::Encoder* encoder, ViewportRenderContext * viewport_ctx, D3D12_CPU_DESCRIPTOR_HANDLE * rtv_handles, D3D12_CPU_DESCRIPTOR_HANDLE dsv_handle)
+void RenderComponent::Render(Gfx::Encoder* encoder, ViewportRenderContext const * viewport_ctx, D3D12_CPU_DESCRIPTOR_HANDLE * rtv_handles, D3D12_CPU_DESCRIPTOR_HANDLE dsv_handle)
 {
 }
 
