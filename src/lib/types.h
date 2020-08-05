@@ -17,7 +17,7 @@ using f64 = double;
 
 // TODO: enable asserts in release
 #ifndef CORRADE_ASSERT
-#define CORRADE_ASSERT(condition, message, returnValue) assert(condition)
+#define CORRADE_ASSERT(condition, message, returnValue) plgr_assert(condition)
 #endif
 
 #include <magnum/MagnumMath.hpp>

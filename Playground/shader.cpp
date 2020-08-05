@@ -161,7 +161,7 @@ namespace Gfx {
 
     ShaderReloadResult IPipelineBuilder::BeginRecreate()
     {
-        assert(!pending_pipeline_);
+        plgr_assert(!pending_pipeline_);
 
         bool changed = false;
         for (IShaderSource* source : shaders_) {
@@ -186,14 +186,14 @@ namespace Gfx {
 
     void IPipelineBuilder::CommitRecreate()
     {
-        assert(pending_pipeline_);
+        plgr_assert(pending_pipeline_);
         pipeline_ = std::move(*pending_pipeline_);
         pending_pipeline_ = NullOpt;
     }
 
     void IPipelineBuilder::DropRecreate()
     {
-        assert(pending_pipeline_);
+        plgr_assert(pending_pipeline_);
         pending_pipeline_ = NullOpt;
     }
 
@@ -396,14 +396,14 @@ namespace Gfx {
         , profile_(desc.profile)
     {
         Optional<Array<u8>> maybe_bytecode = Compile();
-        assert(maybe_bytecode);
+        plgr_assert(maybe_bytecode);
         bytecode_ = std::move(*maybe_bytecode);
         hash_ = *Preprocess();
     }
 
     ShaderReloadResult FileShaderSource::BeginReload()
     {
-        assert(!pending_bytecode_);
+        plgr_assert(!pending_bytecode_);
 
         Optional<u64> hash = Preprocess();
         if (!hash) {
@@ -431,7 +431,7 @@ namespace Gfx {
 
     void FileShaderSource::CommitReload()
     {
-        assert(pending_bytecode_ && pending_hash_);
+        plgr_assert(pending_bytecode_ && pending_hash_);
         bytecode_ = std::move(*pending_bytecode_);
         hash_ = *pending_hash_;
         pending_bytecode_ = NullOpt;
@@ -440,7 +440,7 @@ namespace Gfx {
 
     void FileShaderSource::DropReload()
     {
-        assert(pending_bytecode_ && pending_hash_);
+        plgr_assert(pending_bytecode_ && pending_hash_);
         pending_bytecode_ = NullOpt;
         pending_hash_ = NullOpt;
     }

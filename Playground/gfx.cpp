@@ -42,7 +42,7 @@ namespace Gfx {
             adapter->Release();
             adapter_index++;
         }
-        assert(adapter_found);
+        plgr_assert(adapter_found);
 
         return adapter;
     }
@@ -253,9 +253,9 @@ namespace Gfx {
 
     void Device::TriggerWaitable(Waitable waitable, u64 value)
     {
-        assert(!waitables_pool_[waitable.handle_].value);
-        assert(waitables_pool_[waitable.handle_].pending);
-        assert(waitables_pool_[waitable.handle_].generation == waitable.generation_);
+        plgr_assert(!waitables_pool_[waitable.handle_].value);
+        plgr_assert(waitables_pool_[waitable.handle_].pending);
+        plgr_assert(waitables_pool_[waitable.handle_].generation == waitable.generation_);
         waitables_pool_[waitable.handle_].value = value;
         waitables_pending_.PushBack(waitable);
     }
@@ -266,7 +266,7 @@ namespace Gfx {
             return;
         }
 
-        assert(waitable.generation_ == waitables_pool_[waitable.handle_].generation);
+        plgr_assert(waitable.generation_ == waitables_pool_[waitable.handle_].generation);
 
         HANDLE event = CreateEvent(nullptr, false, false, nullptr);
         verify_hr(fence_->SetEventOnCompletion(*waitables_pool_[waitable.handle_].value, event));
@@ -280,8 +280,8 @@ namespace Gfx {
             return true;
         }
 
-        assert(waitable.generation_ == waitables_pool_[waitable.handle_].generation);
-        assert(waitables_pool_[waitable.handle_].pending);
+        plgr_assert(waitable.generation_ == waitables_pool_[waitable.handle_].generation);
+        plgr_assert(waitables_pool_[waitable.handle_].pending);
 
         return fence_->GetCompletedValue() >= *waitables_pool_[waitable.handle_].value;
     }
@@ -340,7 +340,7 @@ namespace Gfx {
 
         result->Recreate();
 
-        assert(!window->swapchain_);
+        plgr_assert(!window->swapchain_);
         window->swapchain_ = result;
 
         return result;
@@ -348,7 +348,7 @@ namespace Gfx {
 
     DescriptorHandle Device::CreateDescriptor(Resource* resource, D3D12_SHADER_RESOURCE_VIEW_DESC const& srv_desc, Lifetime lifetime)
     {
-        assert(lifetime == Lifetime::Manual); // because used with manual_descriptor_heap_
+        plgr_assert(lifetime == Lifetime::Manual); // because used with manual_descriptor_heap_
 
         D3D12_CPU_DESCRIPTOR_HANDLE handle = manual_descriptor_heap_.heap_->GetCPUDescriptorHandleForHeapStart();
         handle.ptr += manual_descriptor_heap_freelist_.Allocate() * manual_descriptor_heap_.increment_;
@@ -360,7 +360,7 @@ namespace Gfx {
 
     DescriptorHandle Device::CreateDescriptor(D3D12_CONSTANT_BUFFER_VIEW_DESC const& cbv_desc, Lifetime lifetime)
     {
-        assert(lifetime == Lifetime::Frame); // because used with frame_descriptor_heap_
+        plgr_assert(lifetime == Lifetime::Frame); // because used with frame_descriptor_heap_
 
         D3D12_CPU_DESCRIPTOR_HANDLE handle = frame_descriptor_heap_.heap_->GetCPUDescriptorHandleForHeapStart();
         handle.ptr += frame_descriptor_heap_.AllocateTable(1) * frame_descriptor_heap_.increment_;
@@ -451,7 +451,7 @@ namespace Gfx {
             result.allocation_.InitAddress(),
             IID_PPV_ARGS(result.resource_.InitAddress())));
 
-        assert(miplevels == 1);
+        plgr_assert(miplevels == 1);
         if (!IsHeapTypeStateFixed(result.heap_type_)) {
             graph_.SetState({ .resource = *result.resource_ }, initial_state);
         }
@@ -532,7 +532,7 @@ namespace Gfx {
         Array<D3D12_RESOURCE_BARRIER> barriers;
 
         for (Attachment a : pass->attachments_) {
-            assert(graph.last_transitioned_state_.Contains(a.subresource));
+            plgr_assert(graph.last_transitioned_state_.Contains(a.subresource));
 
             D3D12_RESOURCE_STATES state_before = graph.last_transitioned_state_.At(a.subresource);
             if (state_before == a.state) {
@@ -592,7 +592,7 @@ namespace Gfx {
 
     i64 DescriptorHeap::AllocateTable(i64 len)
     {
-        assert((next_slot_ >= used_start_slot_) || (next_slot_ + len < used_start_slot_));
+        plgr_assert((next_slot_ >= used_start_slot_) || (next_slot_ + len < used_start_slot_));
 
         if (next_slot_ + len <= max_slots_) {
             i64 offset = next_slot_;
@@ -600,7 +600,7 @@ namespace Gfx {
             return offset;
         }
 
-        assert((len < used_start_slot_));
+        plgr_assert((len < used_start_slot_));
 
         next_slot_ = len;
         return 0;
@@ -608,7 +608,7 @@ namespace Gfx {
 
     D3D12_CPU_DESCRIPTOR_HANDLE Encoder::ReserveGraphicsSlot(DescriptorType type, i32 slot_index)
     {
-        assert(slot_index < 8);
+        plgr_assert(slot_index < 8);
 
         DescriptorHeap& descriptor_heap = device_->descriptor_heap_;
 
@@ -626,7 +626,7 @@ namespace Gfx {
 
     D3D12_CPU_DESCRIPTOR_HANDLE Encoder::ReserveComputeSlot(DescriptorType type, i32 slot_index)
     {
-        assert(slot_index < 8);
+        plgr_assert(slot_index < 8);
         DescriptorHeap& descriptor_heap = device_->descriptor_heap_;
 
         if (type == DescriptorType::SRV) {
@@ -804,7 +804,7 @@ namespace Gfx {
         D3D12_HEAP_PROPERTIES heap_properties;
         D3D12_HEAP_FLAGS heap_flags;
         verify_hr(subresource.resource->GetHeapProperties(&heap_properties, &heap_flags));
-        assert(!IsHeapTypeStateFixed(heap_properties.Type));
+        plgr_assert(!IsHeapTypeStateFixed(heap_properties.Type));
         last_transitioned_state_.Insert(subresource, state);
     }
 
@@ -813,7 +813,7 @@ namespace Gfx {
         D3D12_HEAP_PROPERTIES heap_properties;
         D3D12_HEAP_FLAGS heap_flags;
         verify_hr(ptr->GetHeapProperties(&heap_properties, &heap_flags));
-        assert(!IsHeapTypeStateFixed(heap_properties.Type));
+        plgr_assert(!IsHeapTypeStateFixed(heap_properties.Type));
 
         for (decltype(last_transitioned_state_)::Iterator iter = last_transitioned_state_.begin(), end = last_transitioned_state_.end(); iter != end;) {
             if (iter.Key().resource == ptr) {
