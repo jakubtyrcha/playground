@@ -13,12 +13,12 @@
 #include <imgui/imgui.h>
 
 #include "Copy.h"
+#include "Heightfield.h"
 #include "MotionVectorDebug.h"
 #include "Pointset.h"
 #include "Rendering.h"
 #include "Shapes.h"
 #include "Taa.h"
-#include "Heightfield.h"
 #include "imgui_backend.h"
 #include <fastnoise/FastNoise.h>
 
@@ -255,6 +255,207 @@ namespace Gfx {
         device->ReleaseWhenCurrentFrameIsDone(std::move(upload_buffer));
     }
 }
+
+Optional<f32> RayQuadIntersection2D(Vector2 origin, Vector2 direction, Vector2 v0, Vector2 v1, Vector2 v2, Vector2 v3)
+{
+    auto RaySegmentIntersection = [](Vector2 o, Vector2 d, Vector2 a, Vector2 b) -> Optional<f32> {
+        Vector2 v1 = o - a;
+        Vector2 v2 = b - a;
+        Vector2 v3 { -d.y(), d.x() };
+
+        f32 t1 = cross(v2, v1) / dot(v2, v3);
+        f32 t2 = dot(v1, v3) / dot(v2, v3);
+
+        if (t1 > 0.f && t2 >= 0.f && t2 <= 1.f) {
+            return t1;
+        }
+
+        return NullOpt;
+    };
+
+    Optional<f32> t = NullOpt;
+    if (Optional<f32> te = RaySegmentIntersection(origin, direction, v0, v1); te) {
+        t = t ? Min(*t, *te) : *te;
+    }
+    if (Optional<f32> te = RaySegmentIntersection(origin, direction, v1, v2); te) {
+        t = t ? Min(*t, *te) : *te;
+    }
+    if (Optional<f32> te = RaySegmentIntersection(origin, direction, v2, v3); te) {
+        t = t ? Min(*t, *te) : *te;
+    }
+    if (Optional<f32> te = RaySegmentIntersection(origin, direction, v0, v3); te) {
+        t = t ? Min(*t, *te) : *te;
+    }
+
+    return t;
+};
+
+}
+
+namespace Playground {
+
+f32 Frac(f32 x)
+{
+    return x - As<i32>(x);
+}
+
+// http://ns1.wili.cc/research/hfshadow/hfshadow.pdf
+void UpdateHorizonTexture(f32 sun_azimuth,
+    i32 heightfield_tex_res,
+    Array<f32> const& heightfield_data,
+    Vector3 span,
+    Gfx::Device* device,
+    Gfx::Resource* texture)
+{
+    i32 tex_res = heightfield_tex_res;
+    Array<f32> const& data = heightfield_data;
+    struct HorizonPoint {
+        f32 h;
+        f32 d;
+    };
+
+    i32 horizon_tex_res = As<i32>(ceilf(sqrtf(2.f) * tex_res));
+    horizon_tex_res = AlignedForward(horizon_tex_res, 2);
+    Array<f32> horizon_angle;
+    horizon_angle.Resize(horizon_tex_res * horizon_tex_res);
+
+    f32 quad_rotation = sun_azimuth - Math::Constants<f32>::piHalf();
+    // find box edges (rotated positions)
+    f32 tex_res_f = As<f32>(tex_res);
+    const Vector2 original_v0 = { 0, 0 };
+    const Vector2 original_v1 = { tex_res_f - 1.f, 0 };
+    const Vector2 original_v2 = { tex_res_f - 1.f, tex_res_f - 1.f };
+    const Vector2 original_v3 = { 0, tex_res_f - 1.f };
+
+    Matrix3 A = Matrix3::translation(-original_v2 * 0.5f);
+    Matrix3 B = Matrix3::rotation(Rad(quad_rotation));
+    Matrix3 C = Matrix3::translation(Vector2 { As<f32>(horizon_tex_res - 1) * 0.5f });
+    Matrix3 hm_texel_to_horizon_texel = C * B * A;
+    const Vector2 v0 = hm_texel_to_horizon_texel.transformPoint(original_v0);
+    const Vector2 v1 = hm_texel_to_horizon_texel.transformPoint(original_v1);
+    const Vector2 v2 = hm_texel_to_horizon_texel.transformPoint(original_v2);
+    const Vector2 v3 = hm_texel_to_horizon_texel.transformPoint(original_v3);
+    // for every pixel, find collisions with the planes, adjust to pixel center
+    // voila, run the sweep algorithm (adjust h extraction, bilinear tap)
+
+    auto SampleHmBilinear = [&data, tex_res](Vector2 texel) -> f32 {
+        texel.x() = Min(texel.x(), As<f32>(tex_res - 1) - 0.0001f);
+        texel.y() = Min(texel.y(), As<f32>(tex_res - 1) - 0.0001f);
+        i32 x = As<i32>(texel.x());
+        i32 y = As<i32>(texel.y());
+
+        f32 fracx = texel.x() - x;
+        f32 fracy = texel.y() - y;
+
+        f32 tap[4];
+        tap[0] = data.At(x + y * tex_res);
+        tap[1] = data.At(x + 1 + y * tex_res);
+        tap[2] = data.At(x + (y + 1) * tex_res);
+        tap[3] = data.At(x + 1 + (y + 1) * tex_res);
+
+        return tap[0] * (1 - fracx) * (1 - fracy) + tap[1] * fracx * (1 - fracy) + tap[2] * (1 - fracx) * fracy + tap[3] * fracx * fracy;
+    };
+
+    // -quad_offset * neg rotation * 0.5f / res(tex_res)
+    A = Matrix3::translation(original_v2 * 0.5f);
+    B = Matrix3::rotation(-Rad(quad_rotation));
+    C = Matrix3::translation(-Vector2 { As<f32>(horizon_tex_res - 1) * 0.5f });
+    Matrix3 horizon_texel_to_hm_texel = A * B * C;
+
+    f32 inv_tex_res = 1.f / tex_res_f;
+
+    //f32 step_x = 1.f / As<f32>(horizon_tex_res);
+    for (i32 a = 0; a < horizon_tex_res; a++) {
+        f32 x = As<f32>(a);
+        Vector2 origin { x, 0.f };
+        Vector2 sweep { 0.f, 1.f };
+
+        Optional<f32> t = RayQuadIntersection2D(origin, sweep, v0, v1, v2, v3);
+
+        if (!t) {
+            continue;
+        }
+        f32 y = origin.y() + *t;
+        // snap to the next pixel
+        y = ceilf(y) + 0.001f;
+
+        Vector2 hm_texel = horizon_texel_to_hm_texel.transformPoint(Vector2 { x, y });
+        Array<HorizonPoint> stack;
+        f32 d = 0.f;
+
+        if (((Vector2 { 0.f } <= hm_texel) && (hm_texel <= Vector2 { As<f32>(tex_res - 1) })).all()) {
+            Vector2i hm_texeli = Vector2i { hm_texel };
+            horizon_angle.At(As<i32>(x) + As<i32>(y) * horizon_tex_res) = 0.f;
+            f32 h = SampleHmBilinear(hm_texel) * span.y();
+            stack.PushBack({ .h = h, .d = d });
+
+            y += 1.f;
+            d += 1.f * span.x() * inv_tex_res;
+            hm_texel = horizon_texel_to_hm_texel.transformPoint(Vector2 { x, y });
+        }
+
+        while (((Vector2 { 0.f } <= hm_texel) && (hm_texel <= Vector2 { As<f32>(tex_res - 1) })).all()) {
+            f32 h = SampleHmBilinear(hm_texel) * span.y();
+
+            auto [h1, d1] = stack.Last();
+            f32 dh = h1 - h;
+            f32 dd = d1 - d;
+            f32 ha = dh / sqrt(dh * dh + dd * dd);
+            stack.PushBack({ .h = h, .d = d });
+
+            while (stack.Size() > 2) {
+                auto [h2, d2] = stack.At(stack.Size() - 3);
+
+                dh = h2 - h;
+                dd = d2 - d;
+                f32 ha2 = dh / sqrt(dh * dh + dd * dd);
+
+                if (ha2 < ha) {
+                    break;
+                }
+
+                ha = ha2;
+                stack.RemoveAt(stack.Size() - 2);
+            }
+
+            horizon_angle.At(As<i32>(x) + As<i32>(y) * horizon_tex_res) = ha;
+
+            y += 1.f;
+            d += 1.f * span.x() * inv_tex_res;
+            hm_texel = horizon_texel_to_hm_texel.transformPoint(Vector2 { x, y });
+        }
+    }
+
+    auto SampleHorizonBilinear = [&horizon_angle, horizon_tex_res](Vector2 texel) -> f32 {
+        texel.x() = Min(texel.x(), As<f32>(horizon_tex_res - 1) - 0.0001f);
+        texel.y() = Min(texel.y(), As<f32>(horizon_tex_res - 1) - 0.0001f);
+        i32 x = As<i32>(texel.x());
+        i32 y = As<i32>(texel.y());
+
+        f32 fracx = texel.x() - x;
+        f32 fracy = texel.y() - y;
+
+        f32 tap[4];
+        tap[0] = horizon_angle.At(x + y * horizon_tex_res);
+        tap[1] = horizon_angle.At(x + 1 + y * horizon_tex_res);
+        tap[2] = horizon_angle.At(x + (y + 1) * horizon_tex_res);
+        tap[3] = horizon_angle.At(x + 1 + (y + 1) * horizon_tex_res);
+
+        return tap[0] * (1 - fracx) * (1 - fracy) + tap[1] * fracx * (1 - fracy) + tap[2] * (1 - fracx) * fracy + tap[3] * fracx * fracy;
+    };
+
+    Array<f32> data2;
+    data2.ResizeUninitialised(tex_res * tex_res);
+
+    for (i32 y = 0; y < tex_res; y++) {
+        for (i32 x = 0; x < tex_res; x++) {
+            data2.At(x + y * tex_res) = SampleHorizonBilinear(hm_texel_to_horizon_texel.transformPoint(Vector2 { As<f32>(x), As<f32>(y) }));
+        }
+    }
+
+    Gfx::UpdateTexture2DSubresource(device, texture, 0, { tex_res, tex_res }, DXGI_FORMAT_R32_FLOAT, data2.Data(), sizeof(f32) * tex_res, tex_res);
+}
+
 }
 
 int main(int argc, char** argv)
@@ -300,25 +501,28 @@ int main(int argc, char** argv)
     pointset_renderer.pointset_ = &pointset;
 
     HeightfieldRenderer heightfield;
-    heightfield.Init(&device);    
-    heightfield.bounding_box_.vec_min = {-50.f, -20.f, -50.f};
-    heightfield.bounding_box_.vec_max = {50.f, 0.f, 50.f};
-    heightfield.resolution_ = {1024, 1024};
+    heightfield.Init(&device);
+    heightfield.bounding_box_.vec_min = { -50.f, -20.f, -50.f };
+    heightfield.bounding_box_.vec_max = { 50.f, 0.f, 50.f };
+    heightfield.resolution_ = { 64, 64 };
     heightfield.CreateIB();
-    heightfield.light_dir_ = Vector3{0,1,0}.normalized();
+    heightfield.light_dir_ = Vector3 { 0, 1, 0 }.normalized();
 
     f32 sun_azimuth = 0.f;
     f32 sun_altitude = Math::Constants<f32>::pi() * 0.5f * 1.f / 3.f;
 
+    Array<f32> data;
+    i32 tex_res;
+    Vector3 hf_span = heightfield.bounding_box_.vec_max - heightfield.bounding_box_.vec_min;
     {
         FastNoise fn;
-        i32 tex_res = heightfield.resolution_.x();
+        fn.SetFrequency(5.f / As<f32>(heightfield.resolution_.x()));
+        tex_res = heightfield.resolution_.x();
 
         heightfield.heightfield_texture_ = device.CreateTexture2D(D3D12_HEAP_TYPE_DEFAULT, { tex_res, tex_res }, DXGI_FORMAT_R32_FLOAT, 1, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST);
         heightfield.heightfield_srv_ = device.CreateDescriptor(&*heightfield.heightfield_texture_, D3D12_SHADER_RESOURCE_VIEW_DESC { .Format = DXGI_FORMAT_R32_FLOAT, .ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D, .Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING, .Texture2D = { .MipLevels = 1 } },
             Gfx::Lifetime::Manual);
 
-        Array<f32> data;
         data.Reserve(tex_res * tex_res);
         for (i32 y = 0; y < tex_res; y++) {
             for (i32 x = 0; x < tex_res; x++) {
@@ -334,72 +538,16 @@ int main(int argc, char** argv)
         f32 theta = sun_altitude;
         heightfield.light_dir_ = Vector3 { sin(theta) * cos(phi), cos(theta), sin(theta) * sin(phi) };
 
-        Array<f32> horizon_angle;
-        horizon_angle.Resize(data.Size());
-        Vector2 sweep_dir = -Vector2{ heightfield.light_dir_.x(), heightfield.light_dir_.z() }.normalized();
-        if (heightfield.light_dir_.y() > 0.9999f) {
-            sweep_dir = Vector2 { -1.f, 0.f };
-        }
-
-        struct Point {
-            f32 h;
-            f32 t;
-        };
-
-        struct HorizonAngle {
-            Array<Point> stack;
-        };
-        Array<HorizonAngle> sweep_convex_hull;
-        sweep_convex_hull.Resize(tex_res);
-
-        Vector3 span = heightfield.bounding_box_.vec_max - heightfield.bounding_box_.vec_min;
-
-        // TODO: all angles...
-
-        // edge
-        f32 dx = 1.f / (heightfield.resolution_.x() - 1) * span.x();
-        for(i32 y = 0; y < tex_res; y++) {
-            horizon_angle.At(tex_res - 1 + tex_res * y) = 0.f;
-            f32 h = data.At(tex_res - 1 + tex_res * y) * span.y();
-            sweep_convex_hull[y].stack.PushBack({.h = h, .t = dx * (tex_res - 1)});
-        }
-
-        for (i32 y = 0; y < tex_res; y++) {
-            for(i32 x = tex_res - 2; x >=0; x--) {
-                f32 h = data.At(x + tex_res * y) * span.y();
-                f32 t = dx * x;
-                auto [h1, t1] = sweep_convex_hull[y].stack.Last();
-                f32 dh = h1 - h;
-                f32 dt = t1 - t;
-                f32 ha = dh / sqrt(dh * dh + dt * dt);
-                sweep_convex_hull[y].stack.PushBack({.h = h, .t = t});
-
-                while(sweep_convex_hull[y].stack.Size() > 2) {
-                    auto [h2, t2] = sweep_convex_hull[y].stack.At(sweep_convex_hull[y].stack.Size()-3);
-
-                    dh = h2 - h;
-                    dt = t2 - t;
-                    f32 ha2 = dh / sqrt(dh * dh + dt * dt);
-
-                    if(ha2 < ha) {
-                        break;
-                    }
-
-                    ha = ha2;
-                    sweep_convex_hull[y].stack.RemoveAt(sweep_convex_hull[y].stack.Size() - 2);
-                }
-
-                horizon_angle.At(x + tex_res * y) = ha;
-            }
-        }
-        
-
         heightfield.horizon_angle_texture_ = device.CreateTexture2D(D3D12_HEAP_TYPE_DEFAULT, { tex_res, tex_res }, DXGI_FORMAT_R32_FLOAT, 1, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST);
         heightfield.horizon_angle_srv_ = device.CreateDescriptor(&*heightfield.horizon_angle_texture_, D3D12_SHADER_RESOURCE_VIEW_DESC { .Format = DXGI_FORMAT_R32_FLOAT, .ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D, .Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING, .Texture2D = { .MipLevels = 1 } },
             Gfx::Lifetime::Manual);
 
-        Gfx::UpdateTexture2DSubresource(&device, &*heightfield.horizon_angle_texture_, 0, { tex_res, tex_res }, DXGI_FORMAT_R32_FLOAT, horizon_angle.Data(), sizeof(f32) * tex_res, tex_res);
+        //Gfx::UpdateTexture2DSubresource(&device, &*heightfield.horizon_angle_texture_, 0, { horizon_tex_res, horizon_tex_res }, DXGI_FORMAT_R32_FLOAT, horizon_angle.Data(), sizeof(f32) * horizon_tex_res, horizon_tex_res);
+
+        UpdateHorizonTexture(sun_azimuth, tex_res, data, hf_span, &device, &*heightfield.horizon_angle_texture_);
     }
+
+    ImTextureID debug_handle = imgui_renderer.RegisterHandle(heightfield.horizon_angle_srv_);
 
     TAA taa;
     taa.Init(&device);
@@ -568,6 +716,8 @@ int main(int argc, char** argv)
             if (ImGui::CollapsingHeader("Debug")) {
                 ImGui::Checkbox("Axes", &show_axes_helper);
                 ImGui::Checkbox("Motion vectors", &show_motionvectors);
+
+                ImGui::Image(debug_handle, { 400, 400 });
             }
 
             ImGui::End();
@@ -674,6 +824,8 @@ int main(int argc, char** argv)
         f32 theta = sun_altitude;
         heightfield.light_dir_ = Vector3 { sin(theta) * cos(phi), cos(theta), sin(theta) * sin(phi) };
 
+        UpdateHorizonTexture(sun_azimuth, tex_res, data, hf_span, &device, &*heightfield.horizon_angle_texture_);
+
         ID3D12Resource* current_backbuffer = *window_swapchain->backbuffers_[current_backbuffer_index];
 
         Gfx::Pass* clear_pass = device.graph_.AddSubsequentPass(Gfx::PassAttachments {}
@@ -690,7 +842,6 @@ int main(int argc, char** argv)
         pointset_renderer.depth_buffer_ = &screen_resources.depth_buffer;
         pointset_renderer.motionvec_target_ = &screen_resources.motion_vectors_texture;
         //pointset_renderer.AddPassesToGraph();
-        
 
         taa.AddPassesToGraph(&screen_resources.final_texture, current_backbuffer, &screen_resources.colour_texture, &screen_resources.depth_buffer, &screen_resources.prev_colour_texture, &screen_resources.motion_vectors_texture);
 

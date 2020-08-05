@@ -19,7 +19,7 @@ struct PS_INPUT {
     float4 pos : SV_POSITION;
     float3 wpos : TEXCOORD0;
     float3 normal : TEXCOORD1;
-    float l : TEXCOORD2;
+    float angle : TEXCOORD2;
 };
 
 PS_INPUT VsMain(uint VertexID: SV_VertexID) {
@@ -41,13 +41,12 @@ PS_INPUT VsMain(uint VertexID: SV_VertexID) {
     // TODO: smoother shadows
     float3 L = hf.directional_light_src;
     float horizon_angle = HorizonAngleTexture.Load(uint3(vx, vy, 0));
-    float horizon_lit = L.y > horizon_angle;
 
     PS_INPUT output;
     output.pos = mul(frame.view_projection_matrix, pos);
     output.wpos = pos.xyz;
     output.normal = N;
-    output.l = horizon_lit;
+    output.angle = horizon_angle;
     return output;
 }
 
@@ -62,7 +61,9 @@ PS_OUTPUT PsMain(PS_INPUT input) {
     float3 N = normalize(input.normal);
     float3 L = hf.directional_light_src;
 
-    output.colour = dot(N, L) * 1.f * input.l;
+    float shadow = L.y > input.angle;
+
+    output.colour = dot(N, L) * 1.f * shadow;
     output.motion_vector = 0;
 
     float2 clip_space_xy = Frame_PixelPosToJitteredClip(input.pos.xy);
