@@ -3316,6 +3316,10 @@ template<class T> class Vector3: public Vector<3, T> {
             return {Vector<3, T>::_data[0], Vector<3, T>::_data[1]};
         }
 
+        constexpr const Vector2<T> xz() const {
+            return { Vector<3, T>::_data[0], Vector<3, T>::_data[2] };
+        }
+
         MAGNUM_VECTOR_SUBCLASS_IMPLEMENTATION(3, Vector3)
 };
 

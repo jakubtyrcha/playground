@@ -12,7 +12,17 @@ AABox2D AABox2D::Xyxy(Vector2 xy0, Vector2 xy1)
 
 f32 AABox2D::Area() const
 {
-    return (vec_max - vec_min).product();
+    return Span().product();
+}
+
+Vector2 AABox2D::Span() const
+{
+    return (vec_max - vec_min);
+}
+
+Vector3 AABox3D::Span() const
+{
+    return (vec_max - vec_min);
 }
 
 Vector3 Project(Matrix4x4 P, Vector3 Q)

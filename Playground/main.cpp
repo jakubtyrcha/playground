@@ -456,6 +456,116 @@ void UpdateHorizonTexture(f32 sun_azimuth,
     Gfx::UpdateTexture2DSubresource(device, texture, 0, { tex_res, tex_res }, DXGI_FORMAT_R32_FLOAT, data2.Data(), sizeof(f32) * tex_res, tex_res);
 }
 
+struct TextureView {
+    Array<f32> & texels;
+    i32 width;
+};
+
+f32 SampleBilinear(TextureView texture, Vector2 texel)
+{
+    texel.x() = Min(texel.x(), As<f32>(texture.width - 1) - 0.0001f);
+    texel.y() = Min(texel.y(), As<f32>(texture.width - 1) - 0.0001f);
+    i32 x = As<i32>(texel.x());
+    i32 y = As<i32>(texel.y());
+
+    f32 fracx = texel.x() - x;
+    f32 fracy = texel.y() - y;
+
+    f32 tap[4];
+    tap[0] = texture.texels.At(x + y * texture.width);
+    tap[1] = texture.texels.At(x + 1 + y * texture.width);
+    tap[2] = texture.texels.At(x + (y + 1) * texture.width);
+    tap[3] = texture.texels.At(x + 1 + (y + 1) * texture.width);
+
+    return tap[0] * (1 - fracx) * (1 - fracy) + tap[1] * fracx * (1 - fracy) + tap[2] * (1 - fracx) * fracy + tap[3] * fracx * fracy;
+};
+
+// https://weigert.vsos.ethz.ch/2020/04/10/simple-particle-based-hydraulic-erosion/
+struct ErosionParticles {
+    struct Particle {
+        Vector2 position;
+        Vector2 velocity;
+        float volume;
+        float sediment;
+    };
+
+    AABox2D area_;
+    Array<f32> * heightfield_ = nullptr;
+    i32 heightfield_res_;
+
+    f32 density_;
+    f32 friction_;
+    f32 deposition_rate_;
+    f32 evap_rate_;
+
+    Vector2 world_to_texcoord_;
+    Vector3 span_;
+    Vector2 sample_mult_;
+
+    Array<Particle> particles_;
+    Rng generator_;
+
+    f32 SampleHeight(Vector2 texcoord) const
+    {
+        return SampleBilinear({ .texels = *heightfield_,
+                           .width = heightfield_res_ },
+            texcoord * sample_mult_) * span_.y();
+    }
+
+    f32& GetHeight(Vector2i position)
+    {
+        return heightfield_->At(position.x() + position.y() * heightfield_res_);
+    }
+
+    Vector3 SurfaceNormal(Vector2 texcoord) const
+    {
+        f32 delta = 0.01f / As<f32>(heightfield_res_ - 1);
+
+        f32 h10 = SampleHeight(texcoord + Vector2 { delta, 0.f });
+        f32 nh10 = SampleHeight(texcoord + Vector2 { -delta, 0.f });
+        f32 h01 = SampleHeight(texcoord + Vector2 { 0.f, delta });
+        f32 nh01 = SampleHeight(texcoord + Vector2 { 0.f, -delta });
+
+        delta *= 2.f * span_.x();
+        return (Vector3 { (nh10 - h10) / delta, 1.f, (nh01 - h01) / delta }).normalized();
+    }
+
+    void Spawn()
+    {
+        Vector2 span = area_.Span();
+        Vector2 pos { generator_.F32UniformInRange(0.f, span.x()), generator_.F32UniformInRange(0.f, span.y()) };
+        particles_.PushBack({ .position = pos, .velocity = {} , .volume = 1.f, .sediment = 0.f});
+    }
+
+    void Tick(f32 dt)
+    {
+        for(i32 i=0; i<particles_.Size(); i++) 
+        {
+            Particle & p = particles_[i];
+            Vector3 n = SurfaceNormal(p.position * world_to_texcoord_);
+            Vector2 prev_position = p.position;
+
+            p.velocity += dt * Vector2 { n.x(), n.z() } / (p.volume * density_);
+            p.position += dt * p.velocity;
+            p.velocity *= (1.f - dt * friction_);
+
+            f32 c_eq = p.volume * p.velocity.length() * (SampleHeight(p.position * world_to_texcoord_) - SampleHeight(prev_position * world_to_texcoord_)); // * difference in height?
+            c_eq = Max(0.f, c_eq);
+            f32 c_diff = c_eq - p.sediment;
+            p.sediment += dt * c_diff * deposition_rate_;
+
+            GetHeight(Vector2i { p.position }) -= dt * c_diff * deposition_rate_ * p.volume;
+
+            p.volume *= (1.f - dt * evap_rate_);
+
+            if ((p.position < Vector2 { 0.f } || Vector2 { span_.x(), span_.z() } <= p.position).any() || p.volume < 0.01f) 
+            {
+                particles_.RemoveAtAndSwapWithLast(i);
+            }
+        }
+    }
+};
+
 }
 
 int main(int argc, char** argv)
@@ -504,7 +614,7 @@ int main(int argc, char** argv)
     heightfield.Init(&device);
     heightfield.bounding_box_.vec_min = { -50.f, -20.f, -50.f };
     heightfield.bounding_box_.vec_max = { 50.f, 0.f, 50.f };
-    heightfield.resolution_ = { 64, 64 };
+    heightfield.resolution_ = { 128, 128 };
     heightfield.CreateIB();
     heightfield.light_dir_ = Vector3 { 0, 1, 0 }.normalized();
 
@@ -517,6 +627,7 @@ int main(int argc, char** argv)
     {
         FastNoise fn;
         fn.SetFrequency(5.f / As<f32>(heightfield.resolution_.x()));
+        noise_gen_hf.SetFrequency(200.f / As<f32>(heightfield.resolution_.x()));
         tex_res = heightfield.resolution_.x();
 
         heightfield.heightfield_texture_ = device.CreateTexture2D(D3D12_HEAP_TYPE_DEFAULT, { tex_res, tex_res }, DXGI_FORMAT_R32_FLOAT, 1, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST);
@@ -547,6 +658,23 @@ int main(int argc, char** argv)
         UpdateHorizonTexture(sun_azimuth, tex_res, data, hf_span, &device, &*heightfield.horizon_angle_texture_);
     }
 
+    ErosionParticles particles;
+    particles.area_.vec_min = heightfield.bounding_box_.vec_min.xz();
+    particles.area_.vec_max = heightfield.bounding_box_.vec_max.xz();
+    particles.heightfield_ = &data;
+    particles.heightfield_res_ = tex_res;
+    
+    particles.density_ = 1.f;
+    particles.friction_ = 0.05f;
+    particles.deposition_rate_ = 0.1f;
+    particles.evap_rate_ = 0.001f;
+    //
+    particles.span_ = hf_span;
+    particles.sample_mult_ = Vector2{ As<f32>(particles.heightfield_res_ - 1) };
+    particles.world_to_texcoord_ = Vector2 { 1.f } / hf_span.xz();
+
+
+    ImTextureID hm_debug_handle = imgui_renderer.RegisterHandle(heightfield.heightfield_srv_);
     ImTextureID debug_handle = imgui_renderer.RegisterHandle(heightfield.horizon_angle_srv_);
 
     TAA taa;
@@ -673,6 +801,7 @@ int main(int argc, char** argv)
 
         static bool show_motionvectors = false;
         static bool show_axes_helper = true;
+        static f32 erosion_step = 0.01f;
 
         ImGui_ImplWin32_NewFrame();
         ImGui::NewFrame();
@@ -717,7 +846,24 @@ int main(int argc, char** argv)
                 ImGui::Checkbox("Axes", &show_axes_helper);
                 ImGui::Checkbox("Motion vectors", &show_motionvectors);
 
-                ImGui::Image(debug_handle, { 400, 400 });
+                ImGui::Text("Particles num: %d", particles.particles_.Size());
+
+                ImGui::SliderFloat("Density", &particles.density_, 0.01f, 1000.f);
+                ImGui::SliderFloat("Friction", &particles.friction_, 0.01f, 10.f);
+                ImGui::SliderFloat("Deposition rate", &particles.deposition_rate_, 0.01f, 1000.f);
+                ImGui::SliderFloat("Evap rate", &particles.evap_rate_, 0.001f, 0.1f);
+                ImGui::SliderFloat("dT", &erosion_step, 0.01f, 1.f);
+
+                static i32 num_spawned = 1000;
+                ImGui::SliderInt("Spawn num", &num_spawned, 1, 10000);
+                if (ImGui::Button("Spawn particle")) {
+                    for (i32 i = 0; i < num_spawned; i++) {
+                        particles.Spawn();
+                    }
+                }
+
+                ImGui::Image(hm_debug_handle, { As<f32>(tex_res), As<f32>(tex_res) });
+                ImGui::Image(debug_handle, { As<f32>(tex_res), As<f32>(tex_res) });
             }
 
             ImGui::End();
@@ -824,6 +970,34 @@ int main(int argc, char** argv)
         f32 theta = sun_altitude;
         heightfield.light_dir_ = Vector3 { sin(theta) * cos(phi), cos(theta), sin(theta) * sin(phi) };
 
+        if (0) {
+            for (i32 y = 0; y < particles.heightfield_res_; y+=4) {
+                for (i32 x = 0; x < particles.heightfield_res_; x+=4) {
+                    Vector2 pos_xz = Vector2 { As<f32>(x), As<f32>(y) } + Vector2 { 0.25f };
+                    Vector2 texcoord = pos_xz / Vector2 { As<f32>(particles.heightfield_res_ - 1) };
+                    Vector3 normal = particles.SurfaceNormal(texcoord);
+
+                    pos_xz = texcoord * particles.area_.Span() + particles.area_.vec_min;
+                    Vector3 position = { pos_xz.x(), particles.SampleHeight(texcoord) + heightfield.bounding_box_.vec_min.y(), pos_xz.y() };
+
+                    shape_renderer.vertices_.PushBack({ .position = position, .colour = ColourR8G8B8A8U { 255, 0, 0, 0 } });
+                    shape_renderer.vertices_.PushBack({ .position = position + normal, .colour = ColourR8G8B8A8U { 255, 0, 0, 0 } });
+                }
+            }
+        }
+
+        for(i32 i = 0; i<particles.particles_.Size(); i++) {
+            Vector2 pos_xz = particles.particles_[i].position;
+            Vector2 texcoord = pos_xz / hf_span.xz();
+            Vector3 position = Vector3{ pos_xz.x(), particles.SampleHeight(texcoord), pos_xz.y() } + heightfield.bounding_box_.vec_min;
+
+            shape_renderer.vertices_.PushBack({ .position = position, .colour = ColourR8G8B8A8U { 0, 255, 0, 0 } });
+            shape_renderer.vertices_.PushBack({ .position = position + Vector3 { 0, 1, 0 }, .colour = ColourR8G8B8A8U { 0, 255, 0, 0 } });
+        }
+
+        particles.Tick(erosion_step);
+
+        UpdateTexture2DSubresource(&device, &*heightfield.heightfield_texture_, 0, { tex_res, tex_res }, DXGI_FORMAT_R32_FLOAT, data.Data(), sizeof(f32) * tex_res, tex_res);
         UpdateHorizonTexture(sun_azimuth, tex_res, data, hf_span, &device, &*heightfield.horizon_angle_texture_);
 
         ID3D12Resource* current_backbuffer = *window_swapchain->backbuffers_[current_backbuffer_index];
