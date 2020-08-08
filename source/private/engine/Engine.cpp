@@ -3,8 +3,9 @@
 #include "Engine.h"
 #include "Os.h"
 
-#include "imgui_impl_win32.h"
+#define ImTextureID Playground::Gfx::DescriptorHandle
 #include <imgui/imgui.h>
+#include "imgui_impl_win32.h"
 
 void InitImgui()
 {

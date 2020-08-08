@@ -169,6 +169,10 @@ namespace Gfx {
         }
 
         {
+            manual_rtv_descriptor_heap_.Init(*device_, { .Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV, .NumDescriptors = 10000, .Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE });
+        }
+
+        {
             frame_descriptor_heap_.Init(*device_, { .Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, .NumDescriptors = D3D12_MAX_SHADER_VISIBLE_DESCRIPTOR_HEAP_SIZE_TIER_1, .Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE });
         }
 
@@ -288,6 +292,14 @@ namespace Gfx {
         release_sets_queue_.Last().handles.PushBack(h);
     }
 
+    void Device::Release(DescriptorHandle h, DescriptorHandleType type)
+    {
+        plgr_assert(type == DescriptorHandleType::Rtv);
+
+        i32 index = static_cast<i32>((h.handle - manual_rtv_descriptor_heap_.heap_->GetCPUDescriptorHandleForHeapStart().ptr) / manual_rtv_descriptor_heap_.increment_);
+        manual_rtv_descriptor_heap_freelist_.Free(index);
+    }
+
     Encoder Device::CreateEncoder()
     {
         Encoder result {};
@@ -340,6 +352,18 @@ namespace Gfx {
         handle.ptr += manual_descriptor_heap_freelist_.Allocate() * manual_descriptor_heap_.increment_;
 
         device_->CreateShaderResourceView(*resource->resource_, &srv_desc, handle);
+
+        return { handle.ptr };
+    }
+
+    DescriptorHandle Device::CreateDescriptor(Resource * resource, D3D12_RENDER_TARGET_VIEW_DESC const& desc, Lifetime lifetime)
+    {
+        plgr_assert(lifetime == Lifetime::Manual); // because used with frame_descriptor_heap_
+
+        D3D12_CPU_DESCRIPTOR_HANDLE handle = manual_rtv_descriptor_heap_.heap_->GetCPUDescriptorHandleForHeapStart();
+        handle.ptr += manual_rtv_descriptor_heap_freelist_.Allocate() * manual_rtv_descriptor_heap_.increment_;
+
+        device_->CreateRenderTargetView(*resource->resource_, &desc, handle);
 
         return { handle.ptr };
     }
@@ -836,17 +860,24 @@ namespace Gfx {
     void Swapchain::Destroy()
     {
         backbuffers_.Clear();
+        for(i32 i=0; i<backbuffer_descs_.Size(); i++) 
+        {
+            device_->Release(backbuffer_descs_[i].rtv, DescriptorHandleType::Rtv);
+        }
+        backbuffer_descs_.Clear();
         swapchain_->Release();
     }
 
     void Swapchain::Recreate()
     {
+        const DXGI_FORMAT BACKBUFFER_FMT = DXGI_FORMAT_R8G8B8A8_UNORM;
+
         IDXGISwapChain1* swapchain1 = nullptr;
         DXGI_SWAP_CHAIN_DESC1 swapchain_desc {};
         swapchain_desc.BufferCount = backbuffers_num_;
         swapchain_desc.Width = window_->resolution_.x();
         swapchain_desc.Height = window_->resolution_.y();
-        swapchain_desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+        swapchain_desc.Format = BACKBUFFER_FMT;
         swapchain_desc.Flags = DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT;
         swapchain_desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
         swapchain_desc.SampleDesc.Count = 1;
@@ -865,9 +896,24 @@ namespace Gfx {
 
         backbuffers_.Resize(backbuffers_num_);
         for (i32 i = 0; i < backbuffers_num_; i++) {
-            verify_hr(swapchain_->GetBuffer(i, IID_PPV_ARGS(backbuffers_[i].InitAddress())));
-            device_->graph_.SetState({ .resource = *backbuffers_[i] }, D3D12_RESOURCE_STATE_PRESENT);
+            ID3D12Resource* backbuffer;
+            verify_hr(swapchain_->GetBuffer(i, IID_PPV_ARGS(&backbuffer)));
+            backbuffers_[i] = Resource::From(device_, backbuffer);
         }
+        for (i32 i = 0; i < backbuffers_num_; i++) {
+            device_->graph_.SetState({ .resource = *backbuffers_[i].resource_ }, D3D12_RESOURCE_STATE_PRESENT);
+            backbuffer_descs_.PushBack({ .resource = &backbuffers_[i], .rtv = device_->CreateDescriptor(&backbuffers_[i], D3D12_RENDER_TARGET_VIEW_DESC{
+                .Format = BACKBUFFER_FMT,
+                .ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D,
+                .Texture2D = {}
+            }, Lifetime::Manual), .fmt = BACKBUFFER_FMT });
+        }
+    }
+
+    RenderTargetDesc Swapchain::GetCurrentBackbufferAsRenderTarget()
+    {
+        u32 index = swapchain_->GetCurrentBackBufferIndex();
+        return backbuffer_descs_[index];
     }
 
     void Waitable::Wait()
@@ -878,6 +924,17 @@ namespace Gfx {
     bool Waitable::IsDone()
     {
         return device_->IsDone(*this);
+    }
+
+    Resource Resource::From(Device * device, ID3D12Resource * ptr)
+    {
+        Resource result;
+        result.type_ = ResourceType::Texture2D;
+        result.device_ = device;
+        result.subresources_num_ = 1;
+        result.resource_.ptr_ = ptr;
+
+        return result;
     }
 
     Optional<Box<Pipeline>> Pipeline::From(Device* device, D3D12_GRAPHICS_PIPELINE_STATE_DESC const& desc)
@@ -946,6 +1003,55 @@ namespace Gfx {
         }
 
         return pso_desc;
+    }
+
+    void UpdateTexture2DSubresource(Device* device, Resource* resource, i32 subresource, Vector2i resource_size, DXGI_FORMAT fmt, const void* src, i32 src_pitch, i32 rows)
+    {
+        i32 upload_pitch = AlignedForward(src_pitch, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
+        i64 upload_size = upload_pitch * rows;
+
+        Resource upload_buffer = device->CreateBuffer(
+            D3D12_HEAP_TYPE_UPLOAD,
+            upload_size,
+            DXGI_FORMAT_UNKNOWN,
+            D3D12_RESOURCE_FLAG_NONE,
+            D3D12_RESOURCE_STATE_GENERIC_READ);
+
+        u8* mapped_memory = nullptr;
+        verify_hr(upload_buffer.resource_->Map(0, nullptr, reinterpret_cast<void**>(&mapped_memory)));
+        for (i64 r = 0; r < resource_size.y(); r++) {
+            memcpy(mapped_memory + r * upload_pitch, reinterpret_cast<const u8*>(src) + r * src_pitch, src_pitch);
+        }
+
+        upload_buffer.resource_->Unmap(0, nullptr);
+
+        Encoder encoder = device->CreateEncoder();
+        D3D12_TEXTURE_COPY_LOCATION copy_src {
+            .pResource = *upload_buffer.resource_,
+            .Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT,
+            .PlacedFootprint = {
+                .Footprint = {
+                    .Format = fmt,
+                    .Width = static_cast<u32>(resource_size.x()),
+                    .Height = static_cast<u32>(resource_size.y()),
+                    .Depth = 1,
+                    .RowPitch = static_cast<u32>(upload_pitch) } }
+        };
+        D3D12_TEXTURE_COPY_LOCATION copy_dst {
+            .pResource = *resource->resource_,
+            .Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
+            .SubresourceIndex = As<u32>(subresource)
+        };
+
+        Pass* copy_to_pass = device->graph_.AddSubsequentPass(Gfx::PassAttachments {}.Attach({ .resource = *resource->resource_, .subresource = subresource }, D3D12_RESOURCE_STATE_COPY_DEST));
+        encoder.SetPass(copy_to_pass);
+        encoder.GetCmdList()->CopyTextureRegion(&copy_dst, 0, 0, 0, &copy_src, nullptr);
+
+        Pass* transition_to_readable_pass = device->graph_.AddSubsequentPass(Gfx::PassAttachments {}.Attach({ .resource = *resource->resource_, .subresource = subresource }, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
+        encoder.SetPass(transition_to_readable_pass);
+        encoder.Submit();
+
+        device->ReleaseWhenCurrentFrameIsDone(std::move(upload_buffer));
     }
 }
 

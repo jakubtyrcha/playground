@@ -43,6 +43,7 @@ struct Resource;
 struct Waitable;
 
 D3D12_GRAPHICS_PIPELINE_STATE_DESC GetDefaultPipelineStateDesc(Device* device);
+void UpdateTexture2DSubresource(Device* device, Resource* resource, i32 subresource, Vector2i resource_size, DXGI_FORMAT fmt, const void* src, i32 src_pitch, i32 rows);
 
 enum class ResourceType {
     Buffer,
@@ -55,6 +56,11 @@ struct SubresourceDesc {
     i32 subresource;
 
     bool operator==(SubresourceDesc other) const;
+};
+
+enum DescriptorHandleType {
+    Other, 
+    Rtv,
 };
 
 struct DescriptorHandle {
@@ -181,6 +187,9 @@ struct Device : private Pinned<Device> {
     FreeList manual_descriptor_heap_freelist_;
     DescriptorHeap manual_descriptor_heap_;
 
+    FreeList manual_rtv_descriptor_heap_freelist_;
+    DescriptorHeap manual_rtv_descriptor_heap_;
+
     DescriptorHeap descriptor_heap_;
     DescriptorHeap rtvs_descriptor_heap_;
     DescriptorHeap dsvs_descriptor_heap_;
@@ -227,6 +236,7 @@ struct Device : private Pinned<Device> {
 
     void ReleaseWhenCurrentFrameIsDone(Resource &&);
     void ReleaseWhenCurrentFrameIsDone(DescriptorHandle);
+    void Release(DescriptorHandle, DescriptorHandleType);
 
     // has to be called from time to time (once per frame) to free older waitables, descriptors etc
     void RecycleResources();
@@ -236,6 +246,7 @@ struct Device : private Pinned<Device> {
 
     DescriptorHandle CreateDescriptor(Resource *, D3D12_SHADER_RESOURCE_VIEW_DESC const& desc, Lifetime lifetime);
     DescriptorHandle CreateDescriptor(D3D12_CONSTANT_BUFFER_VIEW_DESC const& desc, Lifetime lifetime);
+    DescriptorHandle CreateDescriptor(Resource *, D3D12_RENDER_TARGET_VIEW_DESC const& desc, Lifetime lifetime);
     D3D12_CPU_DESCRIPTOR_HANDLE _GetSrcHandle(DescriptorHandle handle);
 
     Resource CreateBuffer(D3D12_HEAP_TYPE heap_type, i64 size, DXGI_FORMAT format, D3D12_RESOURCE_FLAGS flags, D3D12_RESOURCE_STATES initial_state);
@@ -270,6 +281,12 @@ struct Encoder : private MoveableNonCopyable<Encoder> {
     void Submit();
 };
 
+struct RenderTargetDesc {
+    Resource* resource;
+    DescriptorHandle rtv;
+    DXGI_FORMAT fmt;
+};
+
 struct Swapchain : private Pinned<Swapchain> {
     Device* device_ = nullptr;
     Os::Window* window_ = nullptr;
@@ -277,10 +294,13 @@ struct Swapchain : private Pinned<Swapchain> {
     Com::Box<IDXGISwapChain4> swapchain_;
     i32 backbuffers_num_ = 0;
 
-    Array<Com::Box<ID3D12Resource>> backbuffers_;
+    Array<Resource> backbuffers_;
+    Array<RenderTargetDesc> backbuffer_descs_;
 
     void Destroy();
     void Recreate();
+
+    RenderTargetDesc GetCurrentBackbufferAsRenderTarget();
 };
 
 struct Resource : private MoveableNonCopyable<Resource> {
@@ -297,6 +317,8 @@ struct Resource : private MoveableNonCopyable<Resource> {
 
     Com::Box<ID3D12Resource> resource_;
     Com::Box<D3D12MA::Allocation> allocation_;
+
+    static Resource From(Device * device, ID3D12Resource * ptr);
 };
 
 struct Pipeline : private MoveableNonCopyable<Resource> {

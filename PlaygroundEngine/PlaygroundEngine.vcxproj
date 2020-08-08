@@ -22,9 +22,11 @@
     <ClInclude Include="..\source\include\engine\Engine.h" />
     <ClInclude Include="..\source\include\engine\files.h" />
     <ClInclude Include="..\source\include\engine\gfx.h" />
+    <ClInclude Include="..\source\include\engine\ImGuiBackend.h" />
     <ClInclude Include="..\source\include\engine\imgui_impl_win32.h" />
     <ClInclude Include="..\source\include\engine\Os.h" />
-    <ClInclude Include="..\source\include\engine\shader.h" />
+    <ClInclude Include="..\source\include\engine\Shader.h" />
+    <ClInclude Include="..\source\include\engine\ShaderSource.h" />
     <ClInclude Include="Pch.h" />
   </ItemGroup>
   <ItemGroup>
@@ -61,6 +63,7 @@
     <ClCompile Include="..\source\private\engine\Engine.cpp" />
     <ClCompile Include="..\source\private\engine\files.cpp" />
     <ClCompile Include="..\source\private\engine\gfx.cpp" />
+    <ClCompile Include="..\source\private\engine\ImGuiBackend.cpp" />
     <ClCompile Include="..\source\private\engine\imgui_impl_win32.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
@@ -68,7 +71,8 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="..\source\private\engine\Os.cpp" />
-    <ClCompile Include="..\source\private\engine\shader.cpp" />
+    <ClCompile Include="..\source\private\engine\Shader.cpp" />
+    <ClCompile Include="..\source\private\engine\ShaderSource.cpp" />
     <ClCompile Include="Pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Pch.h</PrecompiledHeaderFile>
