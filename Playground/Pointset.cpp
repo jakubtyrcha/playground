@@ -7,9 +7,55 @@ namespace Playground {
 
 using namespace Gfx;
 
-void Pointset::Add(Vector3 position, float size, Color4 colour)
+Pointset::PointHandle Pointset::Add(Vector3 position, float radius, Color4 colour)
 {
-    points_.PushBack({ .position = position, .size = size, .prev_position = position, .colour = colour });
+    i32 index = freelist_.Allocate();
+    indirection_.Reserve(index + 1);
+    rev_indirection_.Reserve(index + 1);
+
+    if(indirection_.Size() == index) {
+        indirection_.PushBack(-1);
+        rev_indirection_.PushBack(-1);
+    }
+
+    plgr_assert(indirection_[index] == -1);
+    indirection_[index] = As<i32>(points_.Size());
+    plgr_assert(rev_indirection_[points_.Size()] == -1);
+    rev_indirection_[points_.Size()] = index;
+
+    points_.PushBack({ .position = position, .size = radius, .prev_position = position, .colour = colour });
+
+    dirty_ = true;
+
+    return { index };
+}
+
+void Pointset::Remove(PointHandle h) 
+{
+    i32 i = indirection_[h.index];
+    i32 last = As<i32>(points_.Size() - 1);
+    plgr_assert(last >= 0);
+    points_.RemoveAtAndSwapWithLast(i);
+    plgr_assert(rev_indirection_[last] >= 0);
+    plgr_assert(indirection_[rev_indirection_[last]] >= 0);
+    i32 handle_last = rev_indirection_[last];
+    indirection_[handle_last] = i;
+    indirection_[h.index] = -1;
+    rev_indirection_[i] = handle_last;
+    rev_indirection_[last] = -1;
+    freelist_.Free(h.index);
+}
+
+void Pointset::Modify(PointHandle h, Optional<Vector3> new_position, Optional<float> new_size) 
+{
+    PointPayload & p = points_[indirection_[h.index]];
+    if(new_position) {
+        p.prev_position = p.position;
+        p.position = *new_position;
+    }
+    if(new_size) {
+        p.size = *new_size;
+    }
 
     dirty_ = true;
 }
@@ -96,7 +142,7 @@ void PointsetRenderer::AddPassesToGraph()
         return;
     }
 
-    if (pointset_->dirty_) {
+    if (pointset_->dirty_&& pointset_->Size()) {
         update_pass_ = device_->graph_.AddSubsequentPass(Gfx::PassAttachments {}
                                                              .Attach({ .resource = *points_buffer_->resource_ }, D3D12_RESOURCE_STATE_COPY_DEST));
     }
@@ -116,7 +162,7 @@ void PointsetRenderer::Render(Gfx::Encoder* encoder, ViewportRenderContext const
 
     const i64 points_num = pointset_->points_.Size();
 
-    if (pointset_->dirty_) {
+    if (pointset_->dirty_ && pointset_->Size()) {
         encoder->SetPass(update_pass_);
 
         Gfx::Resource upload_buffer = device_->CreateBuffer(D3D12_HEAP_TYPE_UPLOAD, sizeof(ParticleData_GPU) * pointset_->Size(), DXGI_FORMAT_UNKNOWN, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ);

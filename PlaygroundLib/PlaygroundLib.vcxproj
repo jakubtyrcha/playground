@@ -163,6 +163,7 @@
     <ClInclude Include="..\src\lib\com.h" />
     <ClInclude Include="..\src\lib\containers_shared.h" />
     <ClInclude Include="..\src\lib\files.h" />
+    <ClInclude Include="..\src\lib\Freelist.h" />
     <ClInclude Include="..\src\lib\hash.h" />
     <ClInclude Include="..\src\lib\hashmap.h" />
     <ClInclude Include="..\src\lib\random.h" />
@@ -176,6 +177,7 @@
     </ClCompile>
     <ClCompile Include="..\src\lib\bitarray.cpp" />
     <ClCompile Include="..\src\lib\files.cpp" />
+    <ClCompile Include="..\src\lib\FreeList.cpp" />
     <ClCompile Include="..\src\lib\hash.cpp" />
     <ClCompile Include="..\src\lib\hashmap.cpp" />
     <ClCompile Include="..\src\lib\random.cpp" />

@@ -47,20 +47,6 @@ namespace Gfx {
         return adapter;
     }
 
-    i32 FreeList::Allocate()
-    {
-        if (!freelist_.Size()) {
-            return next_++;
-        }
-
-        return freelist_.PopBack();
-    }
-
-    void FreeList::Free(i32 index)
-    {
-        freelist_.PushBack(index);
-    }
-
     Device::Device()
     {
         verify_hr(CreateDXGIFactory1(IID_PPV_ARGS(dxgi_factory_.InitAddress())));

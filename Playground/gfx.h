@@ -6,6 +6,7 @@
 #include "com.h"
 #include "hashmap.h"
 #include "shader.h"
+#include "FreeList.h"
 #include <magnum/CorradeOptional.h>
 
 struct gfx_module
@@ -157,14 +158,6 @@ struct DescriptorHeap {
 
     i64 increment_ = 0;
     // TODO: this is hardcoded for the current shared RootSignature, make this data driven
-};
-
-struct FreeList {
-    i32 next_ = 0;
-    Array<i32> freelist_;
-
-    i32 Allocate();
-    void Free(i32);
 };
 
 struct Device : private Pinned<Device> {

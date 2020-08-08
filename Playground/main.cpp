@@ -487,7 +487,10 @@ struct ErosionParticles {
         Vector2 velocity;
         float volume;
         float sediment;
+        Pointset::PointHandle render_handle;
     };
+
+    Pointset * pointset_ = nullptr;
 
     AABox2D area_;
     Array<f32> * heightfield_ = nullptr;
@@ -497,8 +500,10 @@ struct ErosionParticles {
     f32 friction_;
     f32 deposition_rate_;
     f32 evap_rate_;
+    f32 sed_capacity_;
 
-    Vector2 world_to_texcoord_;
+    Vector3 world_offset_;
+    Vector2 local_to_texcoord_;
     Vector3 span_;
     Vector2 sample_mult_;
 
@@ -530,11 +535,30 @@ struct ErosionParticles {
         return (Vector3 { (nh10 - h10) / delta, 1.f, (nh01 - h01) / delta }).normalized();
     }
 
+    Vector3 ParticlePosToWorldPos(Vector2 in) const
+    {
+        return Vector3 { in.x(), SampleHeight(in * local_to_texcoord_), in.y() } + world_offset_;
+    }
+
+    static f32 VolumeToRadius(f32 volume)
+    {
+        return powf(volume * Math::Constants<f32>::piQuarter() * 3.f, 1.f/3.f);
+    }
+
+    const f32 volume_scale_ = 0.01f;
+
     void Spawn()
     {
         Vector2 span = area_.Span();
         Vector2 pos { generator_.F32UniformInRange(0.f, span.x()), generator_.F32UniformInRange(0.f, span.y()) };
-        particles_.PushBack({ .position = pos, .velocity = {} , .volume = 1.f, .sediment = 0.f});
+        const float initial_volume = 1.f;
+
+        particles_.PushBack({ .position = pos,
+            .velocity = {},
+            .volume = initial_volume,
+            .sediment = 0.f,
+            .render_handle = pointset_->Add(ParticlePosToWorldPos(pos), VolumeToRadius(volume_scale_ * initial_volume), Color4(0.2f, 0.2f, 1.f, 1.f)) });
+
     }
 
     void Tick(f32 dt)
@@ -542,24 +566,38 @@ struct ErosionParticles {
         for(i32 i=0; i<particles_.Size(); i++) 
         {
             Particle & p = particles_[i];
-            Vector3 n = SurfaceNormal(p.position * world_to_texcoord_);
+            Vector3 n = SurfaceNormal(p.position * local_to_texcoord_);
             Vector2 prev_position = p.position;
 
             p.velocity += dt * Vector2 { n.x(), n.z() } / (p.volume * density_);
             p.position += dt * p.velocity;
             p.velocity *= (1.f - dt * friction_);
 
-            f32 c_eq = p.volume * p.velocity.length() * (SampleHeight(p.position * world_to_texcoord_) - SampleHeight(prev_position * world_to_texcoord_)); // * difference in height?
-            c_eq = Max(0.f, c_eq);
-            f32 c_diff = c_eq - p.sediment;
-            p.sediment += dt * c_diff * deposition_rate_;
+            if ((p.position < Vector2 { 0.f } || Vector2 { span_.x(), span_.z() } <= p.position).any()) 
+            {
+                pointset_->Remove(particles_[i].render_handle);
+                particles_.RemoveAtAndSwapWithLast(i);
+                continue;
+            }
 
-            GetHeight(Vector2i { p.position }) -= dt * c_diff * deposition_rate_ * p.volume;
+            f32 c_eq = p.volume * p.velocity.length() * (SampleHeight(prev_position * local_to_texcoord_) - SampleHeight(p.position * local_to_texcoord_)) / span_.y(); // * difference in height?
+            f32 vel = p.velocity.length();
+            f32 hdiff = (SampleHeight(prev_position * local_to_texcoord_) - SampleHeight(p.position * local_to_texcoord_)) / span_.y();
+            c_eq = Max(c_eq * sed_capacity_, 0.f);
+            f32 c_diff = c_eq - p.sediment;
+            p.sediment += dt * deposition_rate_ * c_diff;
+
+            Vector2i texel = Vector2i { p.position * local_to_texcoord_ * Vector2 { As<f32>(heightfield_res_ - 1) } + Vector2 { 0.5f } };
+            f32 h_ch = deposition_rate_ * c_diff * p.volume * span_.y();
+            GetHeight(texel) = Clamp(GetHeight(texel) - dt * h_ch, 0.f, 1.f);
 
             p.volume *= (1.f - dt * evap_rate_);
 
+            pointset_->Modify(p.render_handle, ParticlePosToWorldPos(p.position), VolumeToRadius(volume_scale_ * p.volume));
+
             if ((p.position < Vector2 { 0.f } || Vector2 { span_.x(), span_.z() } <= p.position).any() || p.volume < 0.01f) 
             {
+                pointset_->Remove(particles_[i].render_handle);
                 particles_.RemoveAtAndSwapWithLast(i);
             }
         }
@@ -598,12 +636,14 @@ int main(int argc, char** argv)
     noise_gen_hf.SetSeed(17);
     noise_gen_hf.SetFrequency(0.1f);
 
+    #if 0
     for (Vector2 p : Generate2DGridSamplesPoissonDisk(v0, v1, 3.f * pointsize, 30)) {
         Vector2 c = ((p - v0) / (v1 - v0));
         f32 y = noise_gen.GetNoise(p.x(), p.y());
         y += noise_gen_hf.GetNoise(p.x(), p.y()) * 0.05f;
         pointset.Add({ p.x(), y, p.y() }, pointsize, Color4 { 0.5f, y * 0.5f + 0.5f, 0.5f, 1.f });
     }
+    #endif
 
     PointsetRenderer pointset_renderer;
     pointset_renderer.Init(&device);
@@ -627,7 +667,7 @@ int main(int argc, char** argv)
     {
         FastNoise fn;
         fn.SetFrequency(5.f / As<f32>(heightfield.resolution_.x()));
-        noise_gen_hf.SetFrequency(200.f / As<f32>(heightfield.resolution_.x()));
+        noise_gen_hf.SetFrequency(20.f / As<f32>(heightfield.resolution_.x()));
         tex_res = heightfield.resolution_.x();
 
         heightfield.heightfield_texture_ = device.CreateTexture2D(D3D12_HEAP_TYPE_DEFAULT, { tex_res, tex_res }, DXGI_FORMAT_R32_FLOAT, 1, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST);
@@ -637,7 +677,7 @@ int main(int argc, char** argv)
         data.Reserve(tex_res * tex_res);
         for (i32 y = 0; y < tex_res; y++) {
             for (i32 x = 0; x < tex_res; x++) {
-                f32 h = fn.GetNoise(static_cast<f32>(x), static_cast<f32>(y));
+                f32 h = fn.GetNoise(static_cast<f32>(x), static_cast<f32>(y)) * 0.25f;
                 h += noise_gen_hf.GetNoise(static_cast<f32>(x), static_cast<f32>(y)) * 0.05f;
                 data.PushBack(h * 0.5f + 0.5f);
             }
@@ -665,13 +705,16 @@ int main(int argc, char** argv)
     particles.heightfield_res_ = tex_res;
     
     particles.density_ = 1.f;
-    particles.friction_ = 0.05f;
+    particles.friction_ = 0.01f;
     particles.deposition_rate_ = 0.1f;
-    particles.evap_rate_ = 0.001f;
+    particles.evap_rate_ = 0.01f;
+    particles.sed_capacity_ = 1.f;
     //
     particles.span_ = hf_span;
     particles.sample_mult_ = Vector2{ As<f32>(particles.heightfield_res_ - 1) };
-    particles.world_to_texcoord_ = Vector2 { 1.f } / hf_span.xz();
+    particles.local_to_texcoord_ = Vector2 { 1.f } / hf_span.xz();
+    particles.pointset_ = &pointset;
+    particles.world_offset_ = heightfield.bounding_box_.vec_min;
 
 
     ImTextureID hm_debug_handle = imgui_renderer.RegisterHandle(heightfield.heightfield_srv_);
@@ -801,7 +844,7 @@ int main(int argc, char** argv)
 
         static bool show_motionvectors = false;
         static bool show_axes_helper = true;
-        static f32 erosion_step = 0.01f;
+        static f32 erosion_step = 0.1f;
 
         ImGui_ImplWin32_NewFrame();
         ImGui::NewFrame();
@@ -849,12 +892,13 @@ int main(int argc, char** argv)
                 ImGui::Text("Particles num: %d", particles.particles_.Size());
 
                 ImGui::SliderFloat("Density", &particles.density_, 0.01f, 1000.f);
-                ImGui::SliderFloat("Friction", &particles.friction_, 0.01f, 10.f);
-                ImGui::SliderFloat("Deposition rate", &particles.deposition_rate_, 0.01f, 1000.f);
+                ImGui::SliderFloat("Friction", &particles.friction_, 0.f, 1.f);
+                ImGui::SliderFloat("Deposition rate", &particles.deposition_rate_, 0.0f, 1.f);
                 ImGui::SliderFloat("Evap rate", &particles.evap_rate_, 0.001f, 0.1f);
+                ImGui::SliderFloat("Sediment capacity mult", &particles.sed_capacity_, 1.f, 100.f);
                 ImGui::SliderFloat("dT", &erosion_step, 0.01f, 1.f);
 
-                static i32 num_spawned = 1000;
+                static i32 num_spawned = 1;
                 ImGui::SliderInt("Spawn num", &num_spawned, 1, 10000);
                 if (ImGui::Button("Spawn particle")) {
                     for (i32 i = 0; i < num_spawned; i++) {
@@ -970,6 +1014,7 @@ int main(int argc, char** argv)
         f32 theta = sun_altitude;
         heightfield.light_dir_ = Vector3 { sin(theta) * cos(phi), cos(theta), sin(theta) * sin(phi) };
 
+        #if 0
         if (0) {
             for (i32 y = 0; y < particles.heightfield_res_; y+=4) {
                 for (i32 x = 0; x < particles.heightfield_res_; x+=4) {
@@ -985,7 +1030,9 @@ int main(int argc, char** argv)
                 }
             }
         }
+        #endif
 
+        #if 0
         for(i32 i = 0; i<particles.particles_.Size(); i++) {
             Vector2 pos_xz = particles.particles_[i].position;
             Vector2 texcoord = pos_xz / hf_span.xz();
@@ -994,6 +1041,7 @@ int main(int argc, char** argv)
             shape_renderer.vertices_.PushBack({ .position = position, .colour = ColourR8G8B8A8U { 0, 255, 0, 0 } });
             shape_renderer.vertices_.PushBack({ .position = position + Vector3 { 0, 1, 0 }, .colour = ColourR8G8B8A8U { 0, 255, 0, 0 } });
         }
+        #endif
 
         particles.Tick(erosion_step);
 
@@ -1015,7 +1063,7 @@ int main(int argc, char** argv)
         pointset_renderer.colour_target_ = &screen_resources.colour_texture;
         pointset_renderer.depth_buffer_ = &screen_resources.depth_buffer;
         pointset_renderer.motionvec_target_ = &screen_resources.motion_vectors_texture;
-        //pointset_renderer.AddPassesToGraph();
+        pointset_renderer.AddPassesToGraph();
 
         taa.AddPassesToGraph(&screen_resources.final_texture, current_backbuffer, &screen_resources.colour_texture, &screen_resources.depth_buffer, &screen_resources.prev_colour_texture, &screen_resources.motion_vectors_texture);
 
@@ -1084,7 +1132,7 @@ int main(int argc, char** argv)
         //particle_generator.Render(&encoder, &main_viewport, rtv_handle, dsv_handle, mv_rtv_handle);
         D3D12_CPU_DESCRIPTOR_HANDLE handles[] = { rtv_handle, mv_rtv_handle };
         heightfield.Render(&encoder, &viewport_render_context, handles, dsv_handle);
-        //pointset_renderer.Render(&encoder, &viewport_render_context, handles, dsv_handle);
+        pointset_renderer.Render(&encoder, &viewport_render_context, handles, dsv_handle);
 
         shape_renderer.Render(&encoder, &viewport_render_context, rtv_handle, mv_rtv_handle);
 

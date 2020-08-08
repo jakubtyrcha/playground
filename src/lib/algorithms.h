@@ -57,4 +57,10 @@ const T& Max(T const& l, T const& r)
     }
     return l;
 }
+
+template <typename T, typename = std::enable_if<std::is_trivially_copyable_v<T>>::type>
+T Clamp(T v, T l, T r)
+{
+    return Max(l, Min(v, r));
+}
 }
