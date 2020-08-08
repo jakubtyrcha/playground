@@ -67,7 +67,7 @@ namespace Gfx {
         D3D12MA::ALLOCATOR_DESC allocator_desc {};
         allocator_desc.pAdapter = *adapter_;
         allocator_desc.pDevice = *device_;
-        verify_hr(D3D12MA::CreateAllocator(&allocator_desc, allocator_.InitAddress()));
+        verify_hr(D3D12MA::CreateAllocator(&allocator_desc, &allocator_));
 
         D3D12_COMMAND_QUEUE_DESC queue_desc {};
         queue_desc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
@@ -203,15 +203,13 @@ namespace Gfx {
         waitables_pool_.Resize(4096);
     }
 
+    D3D12MA::Allocator* g_allocator = nullptr;
+
     Device::~Device()
     {
-#ifdef DX12_ENABLE_DEBUG_LAYER
-        IDXGIDebug1* dxgi_debug = NULL;
-        if (SUCCEEDED(DXGIGetDebugInterface1(0, IID_PPV_ARGS(&dxgi_debug)))) {
-            dxgi_debug->ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_SUMMARY);
-            dxgi_debug->Release();
-        }
-#endif
+        plgr_assert(g_allocator == nullptr);
+        g_allocator = allocator_;
+        allocator_ = nullptr;
     }
 
     void Device::AdvanceFence()
@@ -521,6 +519,22 @@ namespace Gfx {
         }
 
         return result;
+    }
+
+    // done post destructor, so all the RAII resources have a chance to die
+    void Device::ShutdownAllocator()
+    {
+        plgr_assert(g_allocator);
+        g_allocator->Release();
+        g_allocator = nullptr;
+
+#ifdef DX12_ENABLE_DEBUG_LAYER
+        IDXGIDebug1* dxgi_debug = NULL;
+        if (SUCCEEDED(DXGIGetDebugInterface1(0, IID_PPV_ARGS(&dxgi_debug)))) {
+            dxgi_debug->ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_SUMMARY);
+            dxgi_debug->Release();
+        }
+#endif
     }
 
     Resource::~Resource()

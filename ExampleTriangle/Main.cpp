@@ -192,6 +192,5 @@ int main(int argc, char** argv)
 
         device.GetWaitable().Wait();
     }
-
     Engine::Shutdown();
 }

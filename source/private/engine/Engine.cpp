@@ -2,6 +2,7 @@
 
 #include "Engine.h"
 #include "Os.h"
+#include "Gfx.h"
 
 #define ImTextureID Playground::Gfx::DescriptorHandle
 #include <imgui/imgui.h>
@@ -27,6 +28,8 @@ void InitImgui()
 
 namespace Playground {
 
+using namespace Gfx;
+
 namespace Engine {
     void Start()
     {
@@ -37,6 +40,8 @@ namespace Engine {
     {
         ImGui_ImplWin32_Shutdown();
         ImGui::DestroyContext();
+
+        Device::ShutdownAllocator();
     }
 
     void FrameBegin()

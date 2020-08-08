@@ -177,7 +177,7 @@ struct Device : private Pinned<Device> {
     Com::Box<IDXGIAdapter1> adapter_;
     Com::Box<ID3D12Device> device_;
     Com::Box<ID3D12CommandQueue> cmd_queue_;
-    Com::Box<D3D12MA::Allocator> allocator_;
+    D3D12MA::Allocator* allocator_ = nullptr;
 
     DescriptorHeap frame_descriptor_heap_;
 
@@ -249,6 +249,8 @@ struct Device : private Pinned<Device> {
     Resource CreateBuffer(D3D12_HEAP_TYPE heap_type, i64 size, DXGI_FORMAT format, D3D12_RESOURCE_FLAGS flags, D3D12_RESOURCE_STATES initial_state);
     Resource CreateTexture1D(D3D12_HEAP_TYPE heap_type, i64 size, DXGI_FORMAT format, i32 miplevels, D3D12_RESOURCE_FLAGS flags, D3D12_RESOURCE_STATES initial_state);
     Resource CreateTexture2D(D3D12_HEAP_TYPE heap_type, Vector2i size, DXGI_FORMAT format, i32 miplevels, D3D12_RESOURCE_FLAGS flags, D3D12_RESOURCE_STATES initial_state);
+
+    static void ShutdownAllocator();
 };
 
 struct Encoder : private MoveableNonCopyable<Encoder> {
