@@ -1,5 +1,5 @@
-#include "pch.h"
-#include "files.h"
+#include "Pch.h"
+#include "Files.h"
 
 namespace Playground
 {

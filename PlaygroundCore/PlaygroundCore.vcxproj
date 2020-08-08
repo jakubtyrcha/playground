@@ -22,8 +22,9 @@
     <VCProjectVersion>16.0</VCProjectVersion>
     <ProjectGuid>{763DC853-F8AB-4566-A796-BBEC1785F0E9}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>PlaygroundLib</RootNamespace>
+    <RootNamespace>PlaygroundCore</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <ProjectName>PlaygroundCore</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -72,19 +73,19 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>../src/lib;../external;$(IncludePath)</IncludePath>
+    <IncludePath>../source/include/core;../external;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>../src/lib;../external;$(IncludePath)</IncludePath>
+    <IncludePath>../source/include/core;../external;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>../src/lib;../external;$(IncludePath)</IncludePath>
+    <IncludePath>../source/include/core;../external;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>../src/lib;../external;$(IncludePath)</IncludePath>
+    <IncludePath>../source/include/core;../external;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -155,33 +156,34 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="..\src\lib\algorithms.h" />
-    <ClInclude Include="..\src\lib\array.h" />
-    <ClInclude Include="..\src\lib\assertions.h" />
-    <ClInclude Include="..\src\lib\bitarray.h" />
-    <ClInclude Include="..\src\lib\box.h" />
-    <ClInclude Include="..\src\lib\com.h" />
-    <ClInclude Include="..\src\lib\containers_shared.h" />
-    <ClInclude Include="..\src\lib\files.h" />
-    <ClInclude Include="..\src\lib\Freelist.h" />
-    <ClInclude Include="..\src\lib\hash.h" />
-    <ClInclude Include="..\src\lib\hashmap.h" />
-    <ClInclude Include="..\src\lib\random.h" />
-    <ClInclude Include="..\src\lib\Strings.h" />
-    <ClInclude Include="..\src\lib\types.h" />
+    <ClInclude Include="..\source\include\core\algorithms.h" />
+    <ClInclude Include="..\source\include\core\array.h" />
+    <ClInclude Include="..\source\include\core\assertions.h" />
+    <ClInclude Include="..\source\include\core\bitarray.h" />
+    <ClInclude Include="..\source\include\core\box.h" />
+    <ClInclude Include="..\source\include\core\com.h" />
+    <ClInclude Include="..\source\include\core\containers_shared.h" />
+    <ClInclude Include="..\source\include\core\FreeList.h" />
+    <ClInclude Include="..\source\include\core\hash.h" />
+    <ClInclude Include="..\source\include\core\hashmap.h" />
+    <ClInclude Include="..\source\include\core\random.h" />
+    <ClInclude Include="..\source\include\core\Strings.h" />
+    <ClInclude Include="..\source\include\core\types.h" />
     <ClInclude Include="pch.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\external\mersennetwister\mersenne-twister.cpp">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="..\src\lib\bitarray.cpp" />
-    <ClCompile Include="..\src\lib\files.cpp" />
-    <ClCompile Include="..\src\lib\FreeList.cpp" />
-    <ClCompile Include="..\src\lib\hash.cpp" />
-    <ClCompile Include="..\src\lib\hashmap.cpp" />
-    <ClCompile Include="..\src\lib\random.cpp" />
-    <ClCompile Include="..\src\lib\Strings.cpp" />
+    <ClCompile Include="..\source\private\core\bitarray.cpp" />
+    <ClCompile Include="..\source\private\core\FreeList.cpp" />
+    <ClCompile Include="..\source\private\core\hash.cpp" />
+    <ClCompile Include="..\source\private\core\hashmap.cpp" />
+    <ClCompile Include="..\source\private\core\random.cpp" />
+    <ClCompile Include="..\source\private\core\Strings.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>

@@ -1,0 +1,81 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="..\source\private\core\bitarray.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\private\core\FreeList.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\private\core\hash.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\private\core\hashmap.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\private\core\random.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\source\private\core\Strings.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\mersennetwister\mersenne-twister.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="pch.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\source\include\core\algorithms.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\include\core\array.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\include\core\assertions.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\include\core\bitarray.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\include\core\box.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\include\core\com.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\include\core\containers_shared.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\include\core\FreeList.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\include\core\hash.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\include\core\hashmap.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\include\core\random.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\include\core\Strings.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\include\core\types.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="pch.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Source">
+      <UniqueIdentifier>{8135924d-c117-4d28-843a-a57d444e51e1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Headers">
+      <UniqueIdentifier>{8f6eb0f2-1c5a-4876-b4f5-f62bb34368c4}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>
