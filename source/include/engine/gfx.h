@@ -42,9 +42,6 @@ struct Swapchain;
 struct Resource;
 struct Waitable;
 
-D3D12_GRAPHICS_PIPELINE_STATE_DESC GetDefaultPipelineStateDesc(Device* device);
-void UpdateTexture2DSubresource(Device* device, Resource* resource, i32 subresource, Vector2i resource_size, DXGI_FORMAT fmt, const void* src, i32 src_pitch, i32 rows);
-
 enum class ResourceType {
     Buffer,
     Texture1D,
@@ -330,6 +327,26 @@ struct Pipeline : private MoveableNonCopyable<Resource> {
 struct Pass {
     Array<Attachment> attachments_;
 };
+
+// utils
+D3D12_GRAPHICS_PIPELINE_STATE_DESC GetDefaultPipelineStateDesc(Device* device);
+void UpdateTexture2DSubresource(Device* device, Resource* resource, i32 subresource, Vector2i resource_size, DXGI_FORMAT fmt, const void* src, i32 src_pitch, i32 rows);
+
+DescriptorHandle MakeFrameCbv(Device* device, Resource* resource, i32 bytes);
+
+template <typename T>
+DescriptorHandle MakeFrameCbv(Device* device, Resource* resource, i32 data_count)
+{
+    return MakeFrameCbv(device, resource, sizeof(T) * data_count);
+}
+
+DescriptorHandle MakeFrameCbvFromMemory(Device* device, void const * src, i32 bytes);
+
+template <typename T>
+DescriptorHandle MakeFrameCbvFromMemory(Device* device, const T& ptr)
+{
+    return MakeFrameCbvFromMemory(device, &ptr, As<i32>(sizeof(T)));
+}
 }
 
 namespace Hash {

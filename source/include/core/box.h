@@ -1,11 +1,12 @@
 #pragma once
 
+#include "types.h"
 #include <magnum/CorradePointer.h>
 
 namespace Playground {
 
 template <typename T>
-T AlignedForward(T v, T a)
+constexpr T AlignedForward(T v, T a)
 {
     return (v + (a - 1)) & ~(a - 1);
 }
@@ -13,6 +14,12 @@ T AlignedForward(T v, T a)
 template<typename To, typename From>
 To As(From f) {
     return static_cast<To>(f);
+}
+
+template<typename T>
+constexpr i64 SizeOf()
+{
+    return As<i64>(sizeof(T));
 }
 
 template <typename T>

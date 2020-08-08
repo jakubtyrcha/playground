@@ -9,8 +9,6 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PlaygroundEngine", "Playgro
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PlaygroundCore", "PlaygroundCore\PlaygroundCore.vcxproj", "{763DC853-F8AB-4566-A796-BBEC1785F0E9}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ExampleTerrainErosion", "ExampleTerrainErosion\ExampleTerrainErosion.vcxproj", "{C2D758B9-E111-4B9A-995A-AFACAD8865CF}"
-EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ExampleTriangle", "ExampleTriangle\ExampleTriangle.vcxproj", "{6A4FDB55-170D-42B5-8B00-0468C29EC809}"
 EndProject
 Global
@@ -45,14 +43,6 @@ Global
 		{763DC853-F8AB-4566-A796-BBEC1785F0E9}.Release|x64.Build.0 = Release|x64
 		{763DC853-F8AB-4566-A796-BBEC1785F0E9}.Release|x86.ActiveCfg = Release|Win32
 		{763DC853-F8AB-4566-A796-BBEC1785F0E9}.Release|x86.Build.0 = Release|Win32
-		{C2D758B9-E111-4B9A-995A-AFACAD8865CF}.Debug|x64.ActiveCfg = Debug|x64
-		{C2D758B9-E111-4B9A-995A-AFACAD8865CF}.Debug|x64.Build.0 = Debug|x64
-		{C2D758B9-E111-4B9A-995A-AFACAD8865CF}.Debug|x86.ActiveCfg = Debug|Win32
-		{C2D758B9-E111-4B9A-995A-AFACAD8865CF}.Debug|x86.Build.0 = Debug|Win32
-		{C2D758B9-E111-4B9A-995A-AFACAD8865CF}.Release|x64.ActiveCfg = Release|x64
-		{C2D758B9-E111-4B9A-995A-AFACAD8865CF}.Release|x64.Build.0 = Release|x64
-		{C2D758B9-E111-4B9A-995A-AFACAD8865CF}.Release|x86.ActiveCfg = Release|Win32
-		{C2D758B9-E111-4B9A-995A-AFACAD8865CF}.Release|x86.Build.0 = Release|Win32
 		{6A4FDB55-170D-42B5-8B00-0468C29EC809}.Debug|x64.ActiveCfg = Debug|x64
 		{6A4FDB55-170D-42B5-8B00-0468C29EC809}.Debug|x64.Build.0 = Debug|x64
 		{6A4FDB55-170D-42B5-8B00-0468C29EC809}.Debug|x86.ActiveCfg = Debug|Win32

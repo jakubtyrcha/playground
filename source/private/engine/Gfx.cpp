@@ -1053,6 +1053,32 @@ namespace Gfx {
 
         device->ReleaseWhenCurrentFrameIsDone(std::move(upload_buffer));
     }
+
+    DescriptorHandle MakeFrameCbv(Device* device, Resource* resource, i32 bytes)
+    {
+        D3D12_CONSTANT_BUFFER_VIEW_DESC cbv_desc {
+            .BufferLocation = resource->resource_->GetGPUVirtualAddress(),
+            .SizeInBytes = static_cast<u32>(AlignedForward(bytes, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT))
+        };
+
+        return device->CreateDescriptor(cbv_desc, Lifetime::Frame);
+    }
+
+    DescriptorHandle MakeFrameCbvFromMemory(Device* device, void const* src, i32 bytes)
+    {
+        Resource cbuffer = device->CreateBuffer(D3D12_HEAP_TYPE_UPLOAD, AlignedForward(bytes, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT), DXGI_FORMAT_UNKNOWN, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_GENERIC_READ);
+
+        void* mapped_ptr = nullptr;
+        verify_hr(cbuffer.resource_->Map(0, nullptr, &mapped_ptr));
+        memcpy(mapped_ptr, src, bytes);
+        cbuffer.resource_->Unmap(0, nullptr);
+
+        DescriptorHandle result = MakeFrameCbv(device, &cbuffer, bytes);
+
+        device->ReleaseWhenCurrentFrameIsDone(std::move(cbuffer));
+
+        return result;
+    }
 }
 
 namespace Hash {
