@@ -173,6 +173,10 @@ namespace Gfx {
         }
 
         {
+            manual_dsv_descriptor_heap_.Init(*device_, { .Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV, .NumDescriptors = 10000, .Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE });
+        }
+        
+        {
             frame_descriptor_heap_.Init(*device_, { .Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, .NumDescriptors = D3D12_MAX_SHADER_VISIBLE_DESCRIPTOR_HEAP_SIZE_TIER_1, .Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE });
         }
 
@@ -292,10 +296,18 @@ namespace Gfx {
 
     void Device::Release(DescriptorHandle h, DescriptorHandleType type)
     {
-        plgr_assert(type == DescriptorHandleType::Rtv);
-
-        i32 index = static_cast<i32>((h.handle - manual_rtv_descriptor_heap_.heap_->GetCPUDescriptorHandleForHeapStart().ptr) / manual_rtv_descriptor_heap_.increment_);
-        manual_rtv_descriptor_heap_freelist_.Free(index);
+        if (type == DescriptorHandleType::Rtv) {
+            i32 index = static_cast<i32>((h.handle - manual_rtv_descriptor_heap_.heap_->GetCPUDescriptorHandleForHeapStart().ptr) / manual_rtv_descriptor_heap_.increment_);
+            manual_rtv_descriptor_heap_freelist_.Free(index);
+        } else if (type == DescriptorHandleType::Dsv) {
+            i32 index = static_cast<i32>((h.handle - manual_dsv_descriptor_heap_.heap_->GetCPUDescriptorHandleForHeapStart().ptr) / manual_dsv_descriptor_heap_.increment_);
+            manual_dsv_descriptor_heap_freelist_.Free(index);
+        } else if (type == DescriptorHandleType::Srv) {
+            i32 index = static_cast<i32>((h.handle - manual_descriptor_heap_.heap_->GetCPUDescriptorHandleForHeapStart().ptr) / manual_descriptor_heap_.increment_);
+            manual_descriptor_heap_freelist_.Free(index);
+        } else {
+            plgr_assert(0);
+        }
     }
 
     Encoder Device::CreateEncoder()
@@ -374,6 +386,18 @@ namespace Gfx {
         handle.ptr += frame_descriptor_heap_.AllocateTable(1) * frame_descriptor_heap_.increment_;
 
         device_->CreateConstantBufferView(&cbv_desc, handle);
+
+        return { handle.ptr };
+    }
+
+    DescriptorHandle Device::CreateDescriptor(Resource * resource, D3D12_DEPTH_STENCIL_VIEW_DESC const& desc, Lifetime lifetime)
+    {
+        plgr_assert(lifetime == Lifetime::Manual); // because used with frame_descriptor_heap_
+
+        D3D12_CPU_DESCRIPTOR_HANDLE handle = manual_dsv_descriptor_heap_.heap_->GetCPUDescriptorHandleForHeapStart();
+        handle.ptr += manual_dsv_descriptor_heap_freelist_.Allocate() * manual_dsv_descriptor_heap_.increment_;
+
+        device_->CreateDepthStencilView(*resource->resource_, &desc, handle);
 
         return { handle.ptr };
     }
@@ -1063,6 +1087,38 @@ namespace Gfx {
 
         Pass* transition_to_readable_pass = device->graph_.AddSubsequentPass(Gfx::PassAttachments {}.Attach({ .resource = *resource->resource_, .subresource = subresource }, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
         encoder.SetPass(transition_to_readable_pass);
+        encoder.Submit();
+
+        device->ReleaseWhenCurrentFrameIsDone(std::move(upload_buffer));
+    }
+
+    void UpdateBuffer(Device* device, Resource* resource, const void* src, i32 bytes, Optional<D3D12_RESOURCE_STATES> post_transition)
+    {
+        i32 upload_pitch = AlignedForward(bytes, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
+        i64 upload_size = bytes;
+
+        Gfx::Resource upload_buffer = device->CreateBuffer(
+            D3D12_HEAP_TYPE_UPLOAD,
+            upload_size,
+            DXGI_FORMAT_UNKNOWN,
+            D3D12_RESOURCE_FLAG_NONE,
+            D3D12_RESOURCE_STATE_GENERIC_READ);
+
+        u8* mapped_memory = nullptr;
+        verify_hr(upload_buffer.resource_->Map(0, nullptr, reinterpret_cast<void**>(&mapped_memory)));
+        memcpy(mapped_memory, src, bytes);
+        upload_buffer.resource_->Unmap(0, nullptr);
+
+        Gfx::Encoder encoder = device->CreateEncoder();
+
+        Gfx::Pass* copy_to_pass = device->graph_.AddSubsequentPass(Gfx::PassAttachments {}.Attach({ .resource = *resource->resource_ }, D3D12_RESOURCE_STATE_COPY_DEST));
+        encoder.SetPass(copy_to_pass);
+        encoder.GetCmdList()->CopyBufferRegion(*resource->resource_, 0, *upload_buffer.resource_, 0, bytes);
+
+        if (post_transition) {
+            Gfx::Pass* transition_to_readable_pass = device->graph_.AddSubsequentPass(Gfx::PassAttachments {}.Attach({ .resource = *resource->resource_ }, *post_transition));
+            encoder.SetPass(transition_to_readable_pass);
+        }
         encoder.Submit();
 
         device->ReleaseWhenCurrentFrameIsDone(std::move(upload_buffer));
