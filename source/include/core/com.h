@@ -57,6 +57,16 @@ namespace Com {
         {
             return Get();
         }
+
+        T* Get() const
+        {
+            return ptr_;
+        }
+
+        T* operator*() const
+        {
+            return Get();
+        }
     };
 }
 }
