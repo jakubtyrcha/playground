@@ -89,5 +89,8 @@
     <ClCompile Include="..\source\private\engine\ImGuiBackend.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\external\implot\implot.cpp">
+      <Filter>Source Files\external</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>
