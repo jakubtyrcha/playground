@@ -164,6 +164,7 @@
     <ClInclude Include="..\source\include\core\com.h" />
     <ClInclude Include="..\source\include\core\containers_shared.h" />
     <ClInclude Include="..\source\include\core\FreeList.h" />
+    <ClInclude Include="..\source\include\core\Geometry.h" />
     <ClInclude Include="..\source\include\core\hash.h" />
     <ClInclude Include="..\source\include\core\hashmap.h" />
     <ClInclude Include="..\source\include\core\random.h" />
@@ -180,6 +181,7 @@
     </ClCompile>
     <ClCompile Include="..\source\private\core\bitarray.cpp" />
     <ClCompile Include="..\source\private\core\FreeList.cpp" />
+    <ClCompile Include="..\source\private\core\Geometry.cpp" />
     <ClCompile Include="..\source\private\core\hash.cpp" />
     <ClCompile Include="..\source\private\core\hashmap.cpp" />
     <ClCompile Include="..\source\private\core\random.cpp" />
