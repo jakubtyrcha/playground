@@ -92,5 +92,8 @@
     <ClCompile Include="..\external\implot\implot.cpp">
       <Filter>Source Files\external</Filter>
     </ClCompile>
+    <ClCompile Include="..\external\fastnoise\FastNoise.cpp">
+      <Filter>Source Files\external</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>
