@@ -104,6 +104,8 @@ struct TransitionGraph {
     void SetState(SubresourceDesc, D3D12_RESOURCE_STATES);
     void Drop(ID3D12Resource*);
     Pass* AddSubsequentPass(PassAttachments attachments);
+    
+    D3D12_RESOURCE_STATES _GetCurrentState(SubresourceDesc) const;
 };
 
 struct Waitable {
@@ -313,7 +315,10 @@ struct Resource : private MoveableNonCopyable<Resource> {
     ~Resource();
 
     Resource(Resource&&) = default;
-    Resource& operator=(Resource&&) = default;
+    Resource& operator=(Resource&&);
+
+    Resource(Resource const&) = delete;
+    Resource& operator=(Resource const&) = delete;
 
     ResourceType type_;
     Device* device_ = nullptr;

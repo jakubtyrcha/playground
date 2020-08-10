@@ -568,6 +568,22 @@ namespace Gfx {
         }
     }
 
+    Resource& Resource::operator=(Resource&& other)
+    {
+        if (resource_.Get() && !IsHeapTypeStateFixed(heap_type_)) {
+            device_->graph_.Drop(*resource_);
+        }
+
+        type_ = other.type_;
+        device_ = other.device_;
+        subresources_num_ = other.subresources_num_;
+        heap_type_ = other.heap_type_;
+        resource_ = std::move(other.resource_);
+        allocation_ = std::move(other.allocation_);
+
+        return *this;
+    }
+
     ID3D12GraphicsCommandList* Encoder::GetCmdList()
     {
         return static_cast<ID3D12GraphicsCommandList*>(*cmd_list_);
@@ -854,6 +870,11 @@ namespace Gfx {
         verify_hr(subresource.resource->GetHeapProperties(&heap_properties, &heap_flags));
         plgr_assert(!IsHeapTypeStateFixed(heap_properties.Type));
         last_transitioned_state_.Insert(subresource, state);
+    }
+
+    D3D12_RESOURCE_STATES TransitionGraph::_GetCurrentState(SubresourceDesc subresource) const
+    {
+        return last_transitioned_state_.At(subresource);
     }
 
     void TransitionGraph::Drop(ID3D12Resource* ptr)
