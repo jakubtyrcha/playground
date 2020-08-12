@@ -350,8 +350,8 @@ struct Pass {
 
 // utils
 D3D12_GRAPHICS_PIPELINE_STATE_DESC GetDefaultPipelineStateDesc(Device* device);
-void UpdateTexture2DSubresource(Device* device, Resource* resource, i32 subresource, Vector2i resource_size, DXGI_FORMAT fmt, const void* src, i32 src_pitch, i32 rows);
-void UpdateBuffer(Device* device, Resource* resource, const void* src, i32 bytes, Optional<D3D12_RESOURCE_STATES> post_transition);
+void UpdateTexture2DSubresource(Device* device, Resource* resource, i32 subresource, Vector2i resource_size, DXGI_FORMAT fmt, const void* src, i64 src_pitch, i32 rows);
+void UpdateBuffer(Device* device, Resource* resource, const void* src, i64 bytes, Optional<D3D12_RESOURCE_STATES> post_transition);
 
 DescriptorHandle MakeFrameCbv(Device* device, Resource* resource, i32 bytes);
 

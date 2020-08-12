@@ -1064,9 +1064,9 @@ namespace Gfx {
         return pso_desc;
     }
 
-    void UpdateTexture2DSubresource(Device* device, Resource* resource, i32 subresource, Vector2i resource_size, DXGI_FORMAT fmt, const void* src, i32 src_pitch, i32 rows)
+    void UpdateTexture2DSubresource(Device* device, Resource* resource, i32 subresource, Vector2i resource_size, DXGI_FORMAT fmt, const void* src, i64 src_pitch, i32 rows)
     {
-        i32 upload_pitch = AlignedForward(src_pitch, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
+        i64 upload_pitch = AlignedForward(src_pitch, As<i64>(D3D12_TEXTURE_DATA_PITCH_ALIGNMENT));
         i64 upload_size = upload_pitch * rows;
 
         Resource upload_buffer = device->CreateBuffer(
@@ -1113,9 +1113,9 @@ namespace Gfx {
         device->ReleaseWhenCurrentFrameIsDone(std::move(upload_buffer));
     }
 
-    void UpdateBuffer(Device* device, Resource* resource, const void* src, i32 bytes, Optional<D3D12_RESOURCE_STATES> post_transition)
+    void UpdateBuffer(Device* device, Resource* resource, const void* src, i64 bytes, Optional<D3D12_RESOURCE_STATES> post_transition)
     {
-        i32 upload_pitch = AlignedForward(bytes, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
+        i64 upload_pitch = AlignedForward(bytes, As<i64>(D3D12_TEXTURE_DATA_PITCH_ALIGNMENT));
         i64 upload_size = bytes;
 
         Gfx::Resource upload_buffer = device->CreateBuffer(
