@@ -294,6 +294,13 @@ struct RenderTargetDesc {
     DXGI_FORMAT fmt;
 };
 
+struct DepthStencilDesc {
+    Resource* resource;
+    DescriptorHandle dsv;
+    DescriptorHandle dsv_ro;
+    DXGI_FORMAT fmt;
+};
+
 struct Swapchain : private Pinned<Swapchain> {
     Device* device_ = nullptr;
     Os::Window* window_ = nullptr;

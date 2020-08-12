@@ -148,7 +148,7 @@ namespace Gfx {
         static_samplers[0].MaxLOD = 0.f;
         static_samplers[0].ShaderRegister = 0;
         static_samplers[0].RegisterSpace = 0;
-        static_samplers[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+        static_samplers[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
         root_signature_desc.Desc_1_1.pStaticSamplers = static_samplers;
 
         root_signature_desc.Desc_1_1.NumParameters = _countof(params);
