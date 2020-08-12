@@ -8,6 +8,11 @@ namespace Gfx {
     struct Swapchain;
 }
 
+enum class KeyCode {
+    Ctrl,
+    Shift
+};
+
 namespace Os {
     using WndProcCallback = LRESULT (*)(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -31,6 +36,9 @@ namespace Os {
         void HandleSizeChange(Vector2i resolution);
 
         bool PumpMessages();
+
+        bool IsKeyDown(char c) const;
+        bool IsKeyDown(KeyCode c) const;
     };
 
     Window* NewWindow(Vector2i resolution);

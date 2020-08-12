@@ -62,6 +62,29 @@ namespace Os {
         return false;
     }
 
+    bool Window::IsKeyDown(char c) const
+    {
+        return user_input_.keys_down_[c];
+    }
+
+    bool Window::IsKeyDown(KeyCode c) const
+    {
+        i32 vc = 0;
+
+        switch (c) {
+        case KeyCode::Ctrl:
+            vc = 0x11;
+            break;
+        case KeyCode::Shift:
+            vc = 0x10;
+            break;
+        default:
+            plgr_assert(0);
+        }
+
+        return user_input_.keys_down_[vc];
+    }
+
     Array<Box<Window>> GlobalWindowsList;
 
     Window* NewWindow(Vector2i resolution)
