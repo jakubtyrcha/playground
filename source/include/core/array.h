@@ -48,6 +48,44 @@ struct Array {
         }
     };
 
+    struct ConstIterator {
+        const Array* const array_;
+        i64 index_ = 0;
+
+        ConstIterator(const Array* const array, i64 index)
+            : array_(array)
+            , index_(index)
+        {
+        }
+
+        ConstIterator operator++(int)
+        {
+            index_++;
+            return *this;
+        }
+
+        ConstIterator& operator++()
+        {
+            index_++;
+            return *this;
+        }
+
+        bool operator==(ConstIterator other) const
+        {
+            return array_ == other.array_ && index_ == other.index_;
+        }
+
+        bool operator!=(ConstIterator other) const
+        {
+            return !((*this) == other);
+        }
+
+        const T& operator*() const
+        {
+            return array_->At(index_);
+        }
+    };
+
     Array() = default;
 
     ~Array()
@@ -100,6 +138,16 @@ struct Array {
     Iterator end()
     {
         return Iterator { this, size_ };
+    }
+
+    ConstIterator begin() const
+    {
+        return ConstIterator { this, 0 };
+    }
+
+    ConstIterator end() const
+    {
+        return ConstIterator { this, size_ };
     }
 
     void Reserve(i64 min_size)
