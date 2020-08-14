@@ -283,6 +283,8 @@ struct Encoder : private MoveableNonCopyable<Encoder> {
     void SetGraphicsDescriptors();
     void SetComputeDescriptors();
 
+    void SetViewportAndScissorRect(Vector2i resolution);
+
     Waitable GetWaitable();
 
     void Submit();

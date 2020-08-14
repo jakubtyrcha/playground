@@ -134,8 +134,8 @@ namespace Gfx {
         params[2].DescriptorTable.pDescriptorRanges = ranges_param2;
         params[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
-        root_signature_desc.Desc_1_1.NumStaticSamplers = 1;
-        D3D12_STATIC_SAMPLER_DESC static_samplers[1];
+        root_signature_desc.Desc_1_1.NumStaticSamplers = 2;
+        D3D12_STATIC_SAMPLER_DESC static_samplers[2];
         static_samplers[0].Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
         static_samplers[0].AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
         static_samplers[0].AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
@@ -149,6 +149,19 @@ namespace Gfx {
         static_samplers[0].ShaderRegister = 0;
         static_samplers[0].RegisterSpace = 0;
         static_samplers[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+        static_samplers[1].Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
+        static_samplers[1].AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+        static_samplers[1].AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+        static_samplers[1].AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+        static_samplers[1].MipLODBias = 0.f;
+        static_samplers[1].MaxAnisotropy = 0;
+        static_samplers[1].ComparisonFunc = D3D12_COMPARISON_FUNC_ALWAYS;
+        static_samplers[1].BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
+        static_samplers[1].MinLOD = 0.f;
+        static_samplers[1].MaxLOD = 0.f;
+        static_samplers[1].ShaderRegister = 1;
+        static_samplers[1].RegisterSpace = 0;
+        static_samplers[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
         root_signature_desc.Desc_1_1.pStaticSamplers = static_samplers;
 
         root_signature_desc.Desc_1_1.NumParameters = _countof(params);
@@ -792,6 +805,20 @@ namespace Gfx {
 				.SizeInBytes = 0
 			};
 			device_->device_->CreateConstantBufferView(&cbv_desc, handle); }, [this](D3D12_GPU_DESCRIPTOR_HANDLE handle) { GetCmdList()->SetComputeRootDescriptorTable(2, handle); });
+    }
+
+    void Encoder::SetViewportAndScissorRect(Vector2i res)
+    {
+        D3D12_VIEWPORT vp {
+            .Width = As<f32>(res.x()),
+            .Height = As<f32>(res.y()),
+            .MinDepth = 0.f,
+            .MaxDepth = 1.f
+        };
+        GetCmdList()->RSSetViewports(1, &vp);
+
+        const D3D12_RECT r = { 0, 0, res.x(), res.y() };
+        GetCmdList()->RSSetScissorRects(1, &r);
     }
 
     Waitable Encoder::GetWaitable()
