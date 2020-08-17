@@ -63,4 +63,6 @@ T Clamp(T v, T l, T r)
 {
     return Max(l, Min(v, r));
 }
+
+f32 Frac(f32 x);
 }

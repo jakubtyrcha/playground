@@ -28,6 +28,9 @@
     <ClCompile Include="..\source\private\core\Geometry.cpp">
       <Filter>Source</Filter>
     </ClCompile>
+    <ClCompile Include="..\source\private\core\Algorithms.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\source\include\core\algorithms.h">
