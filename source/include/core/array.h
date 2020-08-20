@@ -1,6 +1,7 @@
 #pragma once
 
 #include "containers_shared.h"
+#include "Core.h"
 #include <string.h>
 
 namespace Playground {
@@ -283,13 +284,13 @@ struct Array {
 
     const T& operator[](i64 index) const
     {
-        DEBUG_ASSERT(0 <= index && index < size_, containers_module {});
+        DEBUG_ASSERT(index == Clamp(index, 0ll, Size()), containers_module {});
         return data_[index];
     }
 
     T& operator[](i64 index)
     {
-        DEBUG_ASSERT(0 <= index && index < size_, containers_module {});
+        DEBUG_ASSERT(index == Clamp(index, 0ll, Size()), containers_module {});
         return data_[index];
     }
 

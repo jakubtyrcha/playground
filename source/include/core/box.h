@@ -6,31 +6,6 @@
 namespace Playground {
 
 template <typename T>
-constexpr T AlignedForward(T v, T a)
-{
-    return (v + (a - 1)) & ~(a - 1);
-}
-
-template <class T>
-constexpr void Swap(T& a, T& b)
-{
-    T c(std::move(a));
-    a = std::move(b);
-    b = std::move(c);
-}
-
-template<typename To, typename From>
-constexpr To As(From f) {
-    return static_cast<To>(f);
-}
-
-template<typename T>
-constexpr i64 SizeOf()
-{
-    return As<i64>(sizeof(T));
-}
-
-template <typename T>
 using Box = Corrade::Containers::Pointer<T>;
 
 template <typename T, typename... Args>

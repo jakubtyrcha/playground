@@ -1,6 +1,6 @@
 #pragma once
 #include "Types.h"
-#include "algorithms.h"
+#include "Core.h"
 
 namespace Playground {
 

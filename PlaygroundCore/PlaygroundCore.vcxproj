@@ -163,6 +163,7 @@
     <ClInclude Include="..\source\include\core\box.h" />
     <ClInclude Include="..\source\include\core\com.h" />
     <ClInclude Include="..\source\include\core\containers_shared.h" />
+    <ClInclude Include="..\source\include\core\Core.h" />
     <ClInclude Include="..\source\include\core\FreeList.h" />
     <ClInclude Include="..\source\include\core\Geometry.h" />
     <ClInclude Include="..\source\include\core\hash.h" />

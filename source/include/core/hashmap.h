@@ -1,6 +1,6 @@
 #pragma once
 
-#include "algorithms.h"
+#include "Core.h"
 #include "array.h"
 #include "bitarray.h"
 #include "containers_shared.h"

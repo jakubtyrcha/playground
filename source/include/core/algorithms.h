@@ -22,47 +22,5 @@ i64 LowerBound(const T* array, i64 size, T value)
     return l;
 }
 
-template <typename T, typename = std::enable_if<std::is_trivially_copyable_v<T>>::type>
-T Min(T l, T r)
-{
-    if (r < l) {
-        return r;
-    }
-    return l;
-}
-
-template <typename T, typename = std::enable_if<!std::is_trivially_copyable_v<T>>::type>
-const T& Min(T const& l, T const& r)
-{
-    if (r < l) {
-        return r;
-    }
-    return l;
-}
-
-template <typename T, typename = std::enable_if<std::is_trivially_copyable_v<T>>::type>
-T Max(T l, T r)
-{
-    if (r > l) {
-        return r;
-    }
-    return l;
-}
-
-template <typename T, typename = std::enable_if<!std::is_trivially_copyable_v<T>>::type>
-const T& Max(T const& l, T const& r)
-{
-    if (r > l) {
-        return r;
-    }
-    return l;
-}
-
-template <typename T, typename = std::enable_if<std::is_trivially_copyable_v<T>>::type>
-T Clamp(T v, T l, T r)
-{
-    return Max(l, Min(v, r));
-}
-
 f32 Frac(f32 x);
 }
