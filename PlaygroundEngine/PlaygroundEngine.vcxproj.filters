@@ -45,6 +45,9 @@
     <ClInclude Include="..\source\include\engine\ImGuiBackend.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\source\include\core\Slice.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="..\source\include\core\Tuple.h">
       <Filter>Header Files</Filter>
     </ClInclude>
