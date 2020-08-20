@@ -12,7 +12,7 @@ constexpr T AlignedForward(T v, T a)
 }
 
 template <class T>
-void Swap(T& a, T& b)
+constexpr void Swap(T& a, T& b)
 {
     T c(std::move(a));
     a = std::move(b);
@@ -20,7 +20,7 @@ void Swap(T& a, T& b)
 }
 
 template<typename To, typename From>
-To As(From f) {
+constexpr To As(From f) {
     return static_cast<To>(f);
 }
 
