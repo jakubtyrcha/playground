@@ -20,6 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\source\include\core\Slice.h" />
+    <ClInclude Include="..\source\include\core\Soa.h" />
     <ClInclude Include="..\source\include\core\Tuple.h" />
     <ClInclude Include="..\source\include\engine\Engine.h" />
     <ClInclude Include="..\source\include\engine\files.h" />

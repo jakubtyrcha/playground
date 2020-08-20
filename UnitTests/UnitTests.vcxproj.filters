@@ -30,6 +30,9 @@
     <ClCompile Include="bitarray_tests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="soa_tests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="tuple_tests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
