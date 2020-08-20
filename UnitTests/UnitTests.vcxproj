@@ -149,6 +149,7 @@
     <ClCompile Include="algorithms_test.cpp" />
     <ClCompile Include="array_tests.cpp" />
     <ClCompile Include="bitarray_tests.cpp" />
+    <ClCompile Include="densearray_tests.cpp" />
     <ClCompile Include="hashmap_tests.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="soa_tests.cpp" />

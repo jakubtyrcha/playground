@@ -31,6 +31,9 @@
     <ClCompile Include="..\source\private\core\Algorithms.cpp">
       <Filter>Source</Filter>
     </ClCompile>
+    <ClCompile Include="..\source\private\core\DenseList.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\source\include\core\algorithms.h">
@@ -69,9 +72,6 @@
     <ClInclude Include="..\source\include\core\Strings.h">
       <Filter>Headers</Filter>
     </ClInclude>
-    <ClInclude Include="..\source\include\core\types.h">
-      <Filter>Headers</Filter>
-    </ClInclude>
     <ClInclude Include="pch.h">
       <Filter>Headers</Filter>
     </ClInclude>
@@ -79,6 +79,12 @@
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="..\source\include\core\Core.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\include\core\DenseArray.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\include\core\Types.h">
       <Filter>Headers</Filter>
     </ClInclude>
   </ItemGroup>
