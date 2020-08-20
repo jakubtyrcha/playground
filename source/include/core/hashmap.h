@@ -482,6 +482,12 @@ struct Hashmap {
         return values_[index];
     }
 
+    V& AtMut(K key)
+    {
+        i64 index = *_FindIndex(key);
+        return values_[index];
+    }
+
     Optional<V*> Find(K key) const
     {
         //static_assert(std::is_trivially_copyable_v<V>);
