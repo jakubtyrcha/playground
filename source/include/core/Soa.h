@@ -69,12 +69,12 @@ struct Soa : public SoaRecursiveImpl<0, Types...> {
 
     void PushBack()
     {
-        _ForEach([](auto & array, auto index) { array.PushBack({}); });
+        _ForEach([](auto & array, auto vindex) { array.PushBack({}); });
     }
 
     void RemoveAt(i64 index)
     {
-        _ForEach([index](auto & array, auto index) { array.RemoveAt(index); });
+        _ForEach([index](auto & array, auto vindex) { array.RemoveAt(index); });
     }
 
     template <i32 Index>

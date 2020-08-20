@@ -196,7 +196,7 @@ struct Array {
     {
         if(Size() <= index) 
         {
-            ResizeUninitialised(index + 1);
+            Resize(index + 1);
         }
     }
 
@@ -271,26 +271,26 @@ struct Array {
     const T& At(i64 index) const
     {
         //static_assert(std::is_trivially_copyable_v<T>);
-        DEBUG_ASSERT(0 <= index && index < size_, containers_module {});
+        DEBUG_ASSERT(index == Clamp(index, 0ll, Size() - 1), containers_module {});
         return data_[index];
     }
 
     T& At(i64 index)
     {
         //static_assert(std::is_trivially_copyable_v<T>);
-        DEBUG_ASSERT(0 <= index && index < size_, containers_module {});
+        DEBUG_ASSERT(index == Clamp(index, 0ll, Size() - 1), containers_module {});
         return data_[index];
     }
 
     const T& operator[](i64 index) const
     {
-        DEBUG_ASSERT(index == Clamp(index, 0ll, Size()), containers_module {});
+        DEBUG_ASSERT(index == Clamp(index, 0ll, Size() - 1), containers_module {});
         return data_[index];
     }
 
     T& operator[](i64 index)
     {
-        DEBUG_ASSERT(index == Clamp(index, 0ll, Size()), containers_module {});
+        DEBUG_ASSERT(index == Clamp(index, 0ll, Size() - 1), containers_module {});
         return data_[index];
     }
 
