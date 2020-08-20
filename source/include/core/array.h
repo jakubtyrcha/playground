@@ -191,6 +191,14 @@ struct Array {
         size_ = size;
     }
 
+    void ExpandToIndex(i64 index)
+    {
+        if(Size() <= index) 
+        {
+            ResizeUninitialised(index + 1);
+        }
+    }
+
     void ResizeUninitialised(i64 size)
     {
         _Resize(size, false);
