@@ -31,7 +31,7 @@
     <ClCompile Include="..\source\private\core\Algorithms.cpp">
       <Filter>Source</Filter>
     </ClCompile>
-    <ClCompile Include="..\source\private\core\DenseList.cpp">
+    <ClCompile Include="..\source\private\core\DenseArray.cpp">
       <Filter>Source</Filter>
     </ClCompile>
   </ItemGroup>
@@ -85,6 +85,9 @@
       <Filter>Headers</Filter>
     </ClInclude>
     <ClInclude Include="..\source\include\core\Types.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\source\include\core\SparseArray.h">
       <Filter>Headers</Filter>
     </ClInclude>
   </ItemGroup>

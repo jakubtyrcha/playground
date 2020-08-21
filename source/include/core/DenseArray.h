@@ -1,3 +1,4 @@
+#pragma once
 #include "Types.h"
 #include "Core.h"
 #include "FreeList.h"
@@ -50,7 +51,7 @@ struct DenseArray
         plgr_assert(rev_indirection_[flat_index] == -1);
         rev_indirection_[flat_index] = indirect_index;
 
-        data_.PushBackRvalueRef(std::move(v));
+        data_.PushBackRvalueRef(v);
         generation_.ExpandToIndex(flat_index);
         i8 slot_generation = Max(As<i8>(1), generation_[flat_index]);
         generation_[flat_index] = slot_generation;
