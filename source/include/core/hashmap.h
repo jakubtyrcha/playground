@@ -13,7 +13,7 @@ namespace Playground {
 template <typename T>
 constexpr bool HashKeysByValue()
 {
-    return (sizeof(T) <= 32) && std::is_trivial_v<T>;
+    return (sizeof(T) <= 32) && std::is_trivially_copyable_v<T>;
 }
 
 i64 GetHashmapSize(i64 slots);
@@ -416,7 +416,7 @@ struct Hashmap {
     {
         i64 index = *_FindIndex(key);
 
-        static_assert(std::is_trivial_v<K>);
+        static_assert(std::is_trivially_destructible_v<K>);
         //static_assert(std::is_trivial_v<V>);
 
         if (!std::is_trivial_v<V>) {

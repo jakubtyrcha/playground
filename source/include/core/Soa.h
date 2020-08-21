@@ -78,13 +78,13 @@ struct Soa : public SoaRecursiveImpl<0, Types...> {
     }
 
     template <i32 Index>
-    f32& AtMut(i32 index)
+    Type<Index>& AtMut(i32 index)
     {
         return _ArrayFromIndex<Index>().At(index);
     }
 
     template <i32 Index>
-    Slice<f32> DataSlice()
+    Slice<Type<Index>> DataSlice()
     {
         return {
             .data = _ArrayFromIndex<Index>().Data(), 

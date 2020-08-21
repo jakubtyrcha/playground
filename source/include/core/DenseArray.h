@@ -21,6 +21,9 @@ struct Handle32 {
     i32 GetGeneration() const;
 
     static Handle32 Make(i32 index, i32 generation);
+
+    bool operator == (Handle32 other) const;
+    operator bool() const;
 };
 
 template<typename T, typename _Handle>
@@ -51,7 +54,7 @@ struct DenseArray
         plgr_assert(rev_indirection_[flat_index] == -1);
         rev_indirection_[flat_index] = indirect_index;
 
-        data_.PushBackRvalueRef(v);
+        data_.PushBack(v);
         generation_.ExpandToIndex(flat_index);
         i8 slot_generation = Max(As<i8>(1), generation_[flat_index]);
         generation_[flat_index] = slot_generation;

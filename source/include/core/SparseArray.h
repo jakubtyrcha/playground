@@ -16,6 +16,7 @@ struct SparseArray {
             return free_slots_.PopBack();
         }
 
+        data_.ExpandToIndex(next_);
         return next_++;
     }
 

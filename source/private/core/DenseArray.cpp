@@ -12,6 +12,15 @@ Handle32 Handle32::Make(i32 index, i32 generation)
 	return { .value_ = As<u32>(index | (stored_generation << INDEX_BITS)) };
 }
 
+bool Handle32::operator==(Handle32 other) const
+{
+	return value_ == other.value_;
+}
+
+Handle32::operator bool() const {
+	return value_ != 0;
+}
+
 bool Handle32::operator()() const
 {
 	return !IsNull();

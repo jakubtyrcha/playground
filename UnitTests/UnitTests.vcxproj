@@ -71,19 +71,19 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>../external;../source/include/core;$(IncludePath)</IncludePath>
+    <IncludePath>../external;../source/include/core;../source/include/engine;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>../external;../source/include/core;$(IncludePath)</IncludePath>
+    <IncludePath>../external;../source/include/core;../source/include/engine;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>../external;../source/include/core;$(IncludePath)</IncludePath>
+    <IncludePath>../external;../source/include/core;../source/include/engine;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>../external;../source/include/core;$(IncludePath)</IncludePath>
+    <IncludePath>../external;../source/include/core;../source/include/engine;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -150,6 +150,7 @@
     <ClCompile Include="array_tests.cpp" />
     <ClCompile Include="bitarray_tests.cpp" />
     <ClCompile Include="densearray_tests.cpp" />
+    <ClCompile Include="entities_test.cpp" />
     <ClCompile Include="hashmap_tests.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="soa_tests.cpp" />
@@ -158,6 +159,9 @@
   <ItemGroup>
     <ProjectReference Include="..\PlaygroundCore\PlaygroundCore.vcxproj">
       <Project>{763dc853-f8ab-4566-a796-bbec1785f0e9}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\PlaygroundEngine\PlaygroundEngine.vcxproj">
+      <Project>{6fcb1495-eba7-4438-834c-893e909c36f9}</Project>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
