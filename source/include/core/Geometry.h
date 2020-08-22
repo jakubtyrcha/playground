@@ -37,4 +37,14 @@ struct AABox3D {
     Array<Vector3> GetVertices() const;
 };
 
+Vector2 RandomPointInAnnulus(f32 r0, f32 r1, Vector2 random_pair);
+Quaternion QuaternionRotationVectorToVector(Vector3 v0, Vector3 v1);
+
+Matrix4 LookAtLh(Vector3 look_at, Vector3 eye, Vector3 up);
+Matrix4 InverseLookAtLh(Vector3 look_at, Vector3 eye, Vector3 up);
+Matrix4 PerspectiveFovLh(f32 aspect_ratio, f32 fov_y, f32 near_plane, f32 far_plane);
+Matrix4 InversePerspectiveFovLh(f32 aspect_ratio, f32 fov_y, f32 near_plane, f32 far_plane);
+Matrix4 OrthographicLh(f32 w, f32 h, f32 near_plane, f32 far_plane);
+Matrix4 InverseOrthographicLh(f32 w, f32 h, f32 near_plane, f32 far_plane);
+
 }
