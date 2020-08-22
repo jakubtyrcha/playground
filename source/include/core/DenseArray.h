@@ -26,6 +26,86 @@ struct Handle32 {
     operator bool() const;
 };
 
+/*
+Container: RandomAccess
+*/
+template<typename _IdType, typename _ContainerType>
+struct DenseIndex
+{
+    using IdType = _IdType;
+    using ContainerType = _ContainerType;
+
+    IdType Add()
+    {
+        i32 indirect_index = freelist_.Allocate();
+        indirection_.Reserve(indirect_index + 1);
+        rev_indirection_.Reserve(indirect_index + 1);
+
+        if (indirection_.Size() == indirect_index) {
+            indirection_.PushBack(-1);
+            rev_indirection_.PushBack(-1);
+        }
+
+        plgr_assert(indirection_[indirect_index] == -1);
+        i32 flat_index = As<i32>(container_.Size());
+        indirection_[indirect_index] = As<i32>(container_.Size());
+        plgr_assert(rev_indirection_[flat_index] == -1);
+        rev_indirection_[flat_index] = indirect_index;
+
+        container_.ExpandToIndex(flat_index);
+        generation_.ExpandToIndex(flat_index);
+        i8 slot_generation = Max(As<i8>(1), generation_[flat_index]);
+        generation_[flat_index] = slot_generation;
+
+        return IdType::Make(indirect_index, slot_generation);
+    }
+
+    void Remove(IdType id)
+    {
+        i32 flat_index = indirection_[id.GetIndex()];
+        plgr_assert(id.GetGeneration() == generation_[flat_index]);
+        i32 last_flat_index = As<i32>(container_.Size() - 1);
+        plgr_assert(last_flat_index >= 0);
+        container_.RemoveAtAndSwapWithLast(flat_index);
+        generation_[flat_index] = generation_[last_flat_index];
+        generation_[last_flat_index] = (generation_[last_flat_index] + 1) % (IdType::MAX_GENERATION + 1);
+        plgr_assert(rev_indirection_[last_flat_index] >= 0);
+        plgr_assert(indirection_[rev_indirection_[last_flat_index]] >= 0);
+        i32 last_indirect_index = rev_indirection_[last_flat_index];
+        indirection_[last_indirect_index] = flat_index;
+        indirection_[id.GetIndex()] = -1;
+        rev_indirection_[flat_index] = last_indirect_index;
+        rev_indirection_[last_flat_index] = -1;
+        freelist_.Free(id.GetIndex());
+    }
+
+    template<i32 InnerIndex>
+    auto& AtMut(IdType id)
+    {
+        i32 flat_index = indirection_[id.GetIndex()];
+        plgr_assert(id.GetGeneration() == generation_[flat_index]);
+        return container_.AtMut<InnerIndex>(flat_index);
+    }
+
+    template <i32 Index>
+    auto DataSlice()
+    {
+        return container_.DataSlice<Index>();
+    }
+
+    i64 Size() const
+    {
+        return container_.Size();
+    }
+
+    ContainerType container_;
+    Array<i8> generation_;
+    FreeList freelist_;
+    Array<i32> indirection_;
+    Array<i32> rev_indirection_;
+};
+
+// TODO: change into a DenseIndex over an Array
 template<typename T, typename _Handle>
 struct DenseArray
 {

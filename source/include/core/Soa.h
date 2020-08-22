@@ -67,14 +67,24 @@ struct Soa : public SoaRecursiveImpl<0, Types...> {
         _ForEachLoop(std::forward<F>(f), std::make_index_sequence<NumArrays>());
     }
 
-    void PushBack()
+    void ExpandToIndex(i32 index)
     {
-        _ForEach([](auto & array, auto vindex) { array.PushBack({}); });
+        _ForEach([index](auto & array, auto vindex) { array.ExpandToIndex(index); });
+    }
+
+    void PushBackUninitialised()
+    {
+        _ForEach([](auto & array, auto vindex) { array.PushBackUninitialised(); });
     }
 
     void RemoveAt(i64 index)
     {
         _ForEach([index](auto & array, auto vindex) { array.RemoveAt(index); });
+    }
+
+    void RemoveAtAndSwapWithLast(i64 index)
+    {
+        _ForEach([index](auto & array, auto vindex) { array.RemoveAtAndSwapWithLast(index); });
     }
 
     template <i32 Index>

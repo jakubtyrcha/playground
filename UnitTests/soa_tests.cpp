@@ -21,7 +21,7 @@ TEST_CASE("can create Soa", "[soa]")
     };
 	XYZ xyz;
 
-	xyz.PushBack();
+	xyz.PushBackUninitialised();
 	REQUIRE(xyz._ArrayFromIndex<XYZ::X>().Size() == 1);
 	REQUIRE(xyz._ArrayFromIndex<XYZ::Y>().Size() == 1);
 	REQUIRE(xyz._ArrayFromIndex<XYZ::Z>().Size() == 1);
@@ -34,7 +34,7 @@ TEST_CASE("can create Soa", "[soa]")
 
     REQUIRE(xyz.Size() == 1);
 
-    xyz.PushBack();
+    xyz.PushBackUninitialised();
     REQUIRE(xyz.Size() == 2);
 
     REQUIRE(xyz.DataSlice<XYZ::X>()[0] == 0.f);

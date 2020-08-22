@@ -7,36 +7,41 @@
 
 namespace Playground {
 
-template<typename _IdType, typename _ContainerType>
-struct DenseIndex
-{
-    using IdType = _IdType;
-    using ContainerType = _ContainerType;
+template <typename _ComponentIdType, typename _Indexer>
+struct ComponentContainer {
+    using ComponentIdType = _ComponentIdType;
 
-    IdType Insert()
+    _Indexer indexer_;
+
+    ComponentIdType Add()
     {
+        return indexer_.Add();
     }
 
-    void Remove(IdType id)
+    void Remove(ComponentIdType in)
     {
+        indexer_.Remove(in);
     }
 
     template<i32 InnerIndex>
-    auto& AtMut(IdType);
+    auto& AtMut(ComponentIdType id)
+    {
+        return indexer_.AtMut<InnerIndex>(id);
+    }
 
-    i64 Size() const;
+    template <i32 Index>
+    auto DataSlice()
+    {
+        return indexer_.DataSlice<Index>();
+    }
 
-    ContainerType container_;
+    i64 Size() const
+    {
+        return indexer_.Size();
+    }
 };
 
-template <typename _IdType, typename ... Data>
-struct ComponentContainer {
-    using IdType = _IdType;
-
-    DenseIndex<IdType, Soa<Data...>> data_;
-
-    // virtual interface?
-    // global array id -> interface
-};
+template<typename ComponentId, typename ... Data>
+using DenseComponentArray = ComponentContainer<ComponentId, DenseIndex<ComponentId, Soa<Data...>>>;
 
 }

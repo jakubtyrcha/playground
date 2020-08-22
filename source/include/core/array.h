@@ -306,6 +306,11 @@ struct Array {
         return std::move(data_[size_]);
     }
 
+    void PushBackUninitialised()
+    {
+        ResizeUninitialised(size_ + 1);
+    }
+
     void PushBack(T t)
     {
         static_assert(std::is_trivially_copyable_v<T>);
