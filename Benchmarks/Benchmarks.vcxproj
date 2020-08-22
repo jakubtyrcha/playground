@@ -20,8 +20,8 @@
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
-    <ProjectGuid>{B017A009-55BE-4386-AF28-5CFC1A5375F6}</ProjectGuid>
-    <RootNamespace>UnitTests</RootNamespace>
+    <ProjectGuid>{D1CAF6AC-71E3-4CAD-B433-C1F0B4F0627E}</ProjectGuid>
+    <RootNamespace>Benchmarks</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -71,19 +71,19 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>../external;../source/include/core;../source/include/engine;$(IncludePath)</IncludePath>
+    <IncludePath>../external;../source/include/core;../source/include/engine;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>../external;../source/include/core;../source/include/engine;$(IncludePath)</IncludePath>
+    <IncludePath>../external;../source/include/core;../source/include/engine;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>../external;../source/include/core;../source/include/engine;$(IncludePath)</IncludePath>
+    <IncludePath>../external;../source/include/core;../source/include/engine;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>../external;../source/include/core;../source/include/engine;$(IncludePath)</IncludePath>
+    <IncludePath>../external;../source/include/core;../source/include/engine;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -146,16 +146,9 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="algorithms_test.cpp" />
-    <ClCompile Include="array_tests.cpp" />
-    <ClCompile Include="bitarray_tests.cpp" />
-    <ClCompile Include="components_test.cpp" />
-    <ClCompile Include="densearray_tests.cpp" />
-    <ClCompile Include="entities_test.cpp" />
-    <ClCompile Include="hashmap_tests.cpp" />
-    <ClCompile Include="main.cpp" />
-    <ClCompile Include="soa_tests.cpp" />
-    <ClCompile Include="tuple_tests.cpp" />
+    <ClCompile Include="array_benchmarks.cpp" />
+    <ClCompile Include="hashmap_benchmarks.cpp" />
+    <ClCompile Include="Main.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\PlaygroundCore\PlaygroundCore.vcxproj">
