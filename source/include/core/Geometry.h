@@ -44,7 +44,9 @@ struct Obb3D {
     Vector3 axis001;
     Vector3 half_size;
 
-    Aabb3D GetAabb() const;
+    Aabb3D GetAabb(Matrix4 const &) const;
+
+    static Obb3D UnitCube();
 };
 
 struct Sphere3D {

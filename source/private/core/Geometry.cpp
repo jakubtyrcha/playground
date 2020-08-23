@@ -92,16 +92,31 @@ Array<Vector3> Aabb3D::GetVertices() const
 
 //
 
-Aabb3D Obb3D::GetAabb() const
+Aabb3D Obb3D::GetAabb(Matrix4 const & transform) const
 {
     Aabb3D bounds = Aabb3D::Empty();
-    bounds = bounds.Extended(pos - axis100 * half_size.x());
-    bounds = bounds.Extended(pos + axis100 * half_size.x());
-    bounds = bounds.Extended(pos - axis010 * half_size.y());
-    bounds = bounds.Extended(pos + axis010 * half_size.y());
-    bounds = bounds.Extended(pos - axis001 * half_size.z());
-    bounds = bounds.Extended(pos + axis001 * half_size.z());
+
+    for (i32 a = 0; a < 2; a++) {
+        for (i32 b = 0; b < 2; b++) {
+            for (i32 c = 0; c < 2; c++) {
+                f32 x = a * 2.f - 1.f;
+                f32 y = b * 2.f - 1.f;
+                f32 z = c * 2.f - 1.f;
+                bounds = bounds.Extended(transform.transformPoint(pos + axis100 * half_size.x() * x + axis010 * half_size.y() * y + axis001 * half_size.z() * z));
+            }
+        }
+    }
     return bounds;
+}
+
+Obb3D Obb3D::UnitCube()
+{
+    return { 
+        .pos = {}, 
+        .axis100 = { 1.f, 0, 0 }, 
+        .axis010 = { 0.f, 1.f, 0.f }, 
+        .axis001 = { 0.f, 0.f, 1.f }, 
+        .half_size = Vector3{ 0.5f } };
 }
 
 //
