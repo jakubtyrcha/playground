@@ -165,6 +165,7 @@
     <ClInclude Include="..\source\include\core\containers_shared.h" />
     <ClInclude Include="..\source\include\core\Core.h" />
     <ClInclude Include="..\source\include\core\DenseArray.h" />
+    <ClInclude Include="..\source\include\core\DynamicBvh.h" />
     <ClInclude Include="..\source\include\core\FreeList.h" />
     <ClInclude Include="..\source\include\core\Geometry.h" />
     <ClInclude Include="..\source\include\core\hash.h" />

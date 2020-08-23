@@ -39,6 +39,10 @@ struct ComponentContainer {
     {
         return indexer_.Size();
     }
+
+    ComponentIdType GetComponentFromFlatIndex(i32 index) {
+        return indexer_.GetIdFromFlatIndex(index);
+    }
 };
 
 template<typename ComponentId, typename ... Data>

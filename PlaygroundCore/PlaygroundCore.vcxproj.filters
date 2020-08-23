@@ -90,6 +90,9 @@
     <ClInclude Include="..\source\include\core\SparseArray.h">
       <Filter>Headers</Filter>
     </ClInclude>
+    <ClInclude Include="..\source\include\core\DynamicBvh.h">
+      <Filter>Headers</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Source">

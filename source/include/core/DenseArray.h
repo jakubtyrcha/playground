@@ -98,6 +98,10 @@ struct DenseIndex
         return container_.Size();
     }
 
+    IdType GetIdFromFlatIndex(i32 flat_index) {
+        return IdType::Make(rev_indirection_[flat_index], generation_[flat_index]);
+    }
+
     ContainerType container_;
     Array<i8> generation_;
     FreeList freelist_;
