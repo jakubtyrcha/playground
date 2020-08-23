@@ -5,7 +5,7 @@ namespace Playground {
 
 Handle32 Handle32::Make(i32 index, i32 generation)
 {
-	plgr_assert(index <= MAX_INDEX);
+	plgr_assert(0 <= index && index <= MAX_INDEX);
 	i32 stored_generation = generation & MAX_GENERATION;
 	plgr_assert(stored_generation); // 0 is a null value
 
