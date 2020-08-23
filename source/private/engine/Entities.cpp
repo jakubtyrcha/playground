@@ -47,9 +47,9 @@ void Entities::AttachComponent(EntityId entity, TypedComponentId ctyped)
 {
     plgr_assert(ctyped.type != InvalidComponentT);
     plgr_assert(!GetOwner(ctyped));
-    if (ctyped.type == CoreComponentTypes::Transform) {
+    if (ctyped.type == ComponentId<0>::ComponentTypeId) {
         plgr_assert(!entities_[entity].transform_);
-        entities_[entity].transform_ = TransformComponentId::From(ctyped.id);
+        entities_[entity].transform_ = ComponentId<0>::From(ctyped.id);
     } else {
         i32 node_index = entities_[entity].components_list_head_index;
         if(node_index == EntityComponentListNode::EMPTY_NODE_INDEX) {
@@ -99,7 +99,7 @@ void Entities::DetachComponent(EntityId entity, TypedComponentId ctyped)
 {
     plgr_assert(ctyped.type != InvalidComponentT);
     plgr_assert(GetOwner(ctyped));
-    if (ctyped.type == CoreComponentTypes::Transform) {
+    if (ctyped.type == ComponentId<0>::ComponentTypeId) {
         plgr_assert(entities_[entity].transform_);
         entities_[entity].transform_ = {};
     } else {
@@ -154,7 +154,7 @@ void Entities::DetachComponent(EntityId entity, TypedComponentId ctyped)
 Optional<TypelessComponentId> Entities::GetAnyComponentOfType(EntityId entity, ComponentTypeId ctype)
 {
     plgr_assert(ctype != InvalidComponentT);
-    if (ctype == CoreComponentTypes::Transform) {
+    if (ctype == ComponentId<0>::ComponentTypeId) {
         return As<TypelessComponentId>(entities_[entity].transform_);
     } else {
         i32 node_index = entities_[entity].components_list_head_index;

@@ -7,14 +7,7 @@ namespace Playground {
 
 using ComponentTypeId = i32;
 
-namespace CoreComponentTypes {
-    constexpr ComponentTypeId Invalid = 0;
-    constexpr ComponentTypeId Transform = 1; // pos, rotation, scale
-    constexpr ComponentTypeId TransformPrev = 2;
-    constexpr ComponentTypeId WorldAabb = 3; 
-}
-
-constexpr ComponentTypeId InvalidComponentT = CoreComponentTypes::Invalid;
+constexpr ComponentTypeId InvalidComponentT = 0;
 
 struct TypelessComponentId {
     u32 id;
@@ -68,8 +61,6 @@ struct ComponentId : public Handle32 {
     }
 };
 
-using TransformComponentId = ComponentId<CoreComponentTypes::Transform>;
-
 struct EntityId : public Handle32 {
     using BaseType = Handle32;
     static EntityId Make(i32 index, i32 generation);
@@ -80,7 +71,7 @@ struct EntityId : public Handle32 {
 };
 
 struct Entity {
-    TransformComponentId transform_ = {};
+    ComponentId<0> transform_ = {};
 
     i32 components_list_head_index = -1;
 };
