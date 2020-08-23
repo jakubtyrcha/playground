@@ -92,9 +92,23 @@ Array<Vector3> Aabb3D::GetVertices() const
 
 //
 
+Aabb3D Obb3D::GetAabb() const
+{
+    Aabb3D bounds = Aabb3D::Empty();
+    bounds = bounds.Extended(pos - axis100 * half_size.x());
+    bounds = bounds.Extended(pos + axis100 * half_size.x());
+    bounds = bounds.Extended(pos - axis010 * half_size.y());
+    bounds = bounds.Extended(pos + axis010 * half_size.y());
+    bounds = bounds.Extended(pos - axis001 * half_size.z());
+    bounds = bounds.Extended(pos + axis001 * half_size.z());
+    return bounds;
+}
+
+//
+
 Vector2 RandomPointInAnnulus(f32 r0, f32 r1, Vector2 random_pair)
 {
-    assert(r0 < r1);
+    plgr_assert(r0 < r1);
 
     f32 theta = 2.f * Magnum::Math::Constants<f32>::pi() * random_pair.x();
     f32 d = sqrtf(random_pair.y() * (r1 * r1 - r0 * r0) + r0 * r0);

@@ -37,6 +37,21 @@ struct Aabb3D {
     Array<Vector3> GetVertices() const;
 };
 
+struct Obb3D {
+    Vector3 pos;
+    Vector3 axis100;
+    Vector3 axis010;
+    Vector3 axis001;
+    Vector3 half_size;
+
+    Aabb3D GetAabb() const;
+};
+
+struct Sphere3D {
+    Vector3 position;
+    f32 radius;
+};
+
 Vector2 RandomPointInAnnulus(f32 r0, f32 r1, Vector2 random_pair);
 Quaternion QuaternionRotationVectorToVector(Vector3 v0, Vector3 v1);
 Vector3 Slerp(Vector3 start, Vector3 end, f32 f);
