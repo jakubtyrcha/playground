@@ -53,9 +53,9 @@ namespace Gfx {
     };
 
     struct FileShaderSource : public IShaderSource {
-        String file_path_;
-        String entrypoint_;
-        String profile_;
+        WString file_path_;
+        WString entrypoint_;
+        WString profile_;
 
         u64 hash_;
         Array<u8> bytecode_;
