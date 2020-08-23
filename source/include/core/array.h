@@ -175,6 +175,7 @@ struct Array {
 
     void _Resize(i64 size, bool initialise)
     {
+        plgr_assert(size >= 0);
         Reserve(size);
 
         if (initialise) {
@@ -233,6 +234,16 @@ struct Array {
         Reserve(size_ + num);
         memcpy(data_ + size_, src, num * sizeof(T));
         size_ += num;
+    }
+
+    void AppendZeroed(i64 num)
+    {
+        Resize(size_ + num);
+    }
+
+    void PopNum(i64 num)
+    {
+        Resize(size_ - num);
     }
 
     void Shrink()
