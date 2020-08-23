@@ -3,74 +3,74 @@
 
 namespace Playground {
 
-Vector2 AABox2D::Min() const
+Vector2 Aabb2D::Min() const
 {
     return vec_min;
 }
 
-Vector2 AABox2D::Max() const
+Vector2 Aabb2D::Max() const
 {
     return vec_max;
 }
 
-Vector2 AABox2D::Span() const
+Vector2 Aabb2D::Span() const
 {
     return vec_max - vec_min;
 }
 
-AABox2D AABox2D::Extended(Vector2 v) const
+Aabb2D Aabb2D::Extended(Vector2 v) const
 {
     return From(Math::min(vec_min, v), Math::max(vec_max, v));
 }
 
-AABox2D AABox2D::Empty()
+Aabb2D Aabb2D::Empty()
 {
     return { .vec_min = Vector2 { Math::Constants<f32>::inf() }, .vec_max = Vector2 { -Math::Constants<f32>::inf() } };
 }
 
-AABox2D AABox2D::From(Vector2 a, Vector2 b)
+Aabb2D Aabb2D::From(Vector2 a, Vector2 b)
 {
     return { .vec_min = Math::min(a, b), .vec_max = Math::max(a, b) };
 }
 
 //
 
-Vector3 AABox3D::Min() const
+Vector3 Aabb3D::Min() const
 {
 	return vec_min;
 }
 
-Vector3 AABox3D::Max() const
+Vector3 Aabb3D::Max() const
 {
 	return vec_max;
 }
 
-Vector3 AABox3D::Span() const
+Vector3 Aabb3D::Span() const
 {
 	return vec_max - vec_min;
 }
 
-AABox2D AABox3D::xz() const
+Aabb2D Aabb3D::xz() const
 {
-	return AABox2D::From(Min().xz(), Max().xz());
+	return Aabb2D::From(Min().xz(), Max().xz());
 }
 
-AABox3D AABox3D::Extended(Vector3 v) const
+Aabb3D Aabb3D::Extended(Vector3 v) const
 {
 	return From(Math::min(vec_min, v), Math::max(vec_max, v));
 }
 
-AABox3D AABox3D::Empty()
+Aabb3D Aabb3D::Empty()
 {
     return { .vec_min = Vector3{ Math::Constants<f32>::inf() }, .vec_max = Vector3{ -Math::Constants<f32>::inf() } };
 }
 
-AABox3D AABox3D::From(Vector3 a, Vector3 b)
+Aabb3D Aabb3D::From(Vector3 a, Vector3 b)
 {
     return { .vec_min = Math::min(a, b), .vec_max = Math::max(a, b) };
 }
 
-Array<Vector3> AABox3D::GetVertices() const
+Array<Vector3> Aabb3D::GetVertices() const
 {
 	Vector3 v0 = Min();
     Vector3 span = Span();

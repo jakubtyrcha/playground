@@ -5,7 +5,7 @@
 
 namespace Playground {
 
-struct AABox2D {
+struct Aabb2D {
     Vector2 vec_min;
     Vector2 vec_max;
 
@@ -13,13 +13,13 @@ struct AABox2D {
     Vector2 Max() const;
     Vector2 Span() const;
 
-    AABox2D Extended(Vector2 v) const;
+    Aabb2D Extended(Vector2 v) const;
 
-    static AABox2D Empty();
-	static AABox2D From(Vector2 a, Vector2 b);
+    static Aabb2D Empty();
+	static Aabb2D From(Vector2 a, Vector2 b);
 };
 
-struct AABox3D {
+struct Aabb3D {
     Vector3 vec_min;
     Vector3 vec_max;
 
@@ -27,18 +27,21 @@ struct AABox3D {
     Vector3 Max() const;
     Vector3 Span() const;
 
-    AABox2D xz() const;
+    Aabb2D xz() const;
 
-    AABox3D Extended(Vector3 v) const;
+    Aabb3D Extended(Vector3 v) const;
 
-    static AABox3D Empty();
-	static AABox3D From(Vector3 a, Vector3 b);
+    static Aabb3D Empty();
+	static Aabb3D From(Vector3 a, Vector3 b);
 
     Array<Vector3> GetVertices() const;
 };
 
 Vector2 RandomPointInAnnulus(f32 r0, f32 r1, Vector2 random_pair);
 Quaternion QuaternionRotationVectorToVector(Vector3 v0, Vector3 v1);
+Vector3 Slerp(Vector3 start, Vector3 end, f32 f);
+Vector3 SphericalToVector3(f32 polar, f32 azimuthal);
+Vector3 SphericalToVector3(Vector2 c);
 
 Matrix4 LookAtLh(Vector3 look_at, Vector3 eye, Vector3 up);
 Matrix4 InverseLookAtLh(Vector3 look_at, Vector3 eye, Vector3 up);
