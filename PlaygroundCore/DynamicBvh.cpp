@@ -199,6 +199,10 @@ namespace Playground {
     }
 
     Optional<Handle> DynamicBvh::FindClosest(Vector3 point, f32 max_distance) const {
+        if(root_ == NULL_NODE) {
+            return NullOpt;
+        }
+
         i32 node = root_;
 
         Array<i32> stack;
@@ -234,9 +238,13 @@ namespace Playground {
     }
 
     bool DynamicBvh::FindAllIntersecting(Vector3 point, Array<Handle> & out) const {
-        i32 node = root_;
-
         plgr_assert(out.Size() == 0);
+
+        if(root_ == NULL_NODE) {
+            return false;
+        }
+
+        i32 node = root_;
 
         Array<i32> stack;
         stack.PushBack(node);

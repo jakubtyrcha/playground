@@ -35,6 +35,8 @@ TEST_CASE("can remove points from dynamic bvh", "[dynamic_bvh]")
     bvh.Remove(h3);
     REQUIRE(!bvh.FindClosest({}, 1.f));
     REQUIRE(!bvh.FindClosest(Vector3{3.f}, 1.f));
+    bvh.Remove(h2);
+    REQUIRE(!bvh.FindClosest(Vector3{2.f}, 1.f));
 
 
 }
