@@ -174,6 +174,7 @@ namespace Playground {
                 nodes_freelist_.Free(index);
 
                 parent = nodes_[parent].parent;
+
                 while(parent != NULL_NODE) {
                     Aabb3D bounds = nodes_[nodes_[parent].children[0]].bounds;
                     if(nodes_[parent].children[1]) {
@@ -196,6 +197,37 @@ namespace Playground {
         _Detach(remove_index);
         _TrimNode(parent);
         nodes_freelist_.Free(remove_index);
+    }
+
+    void DynamicBvh::Modify(Handle h, Aabb3D aabb) {
+        
+    }
+
+    i32 DynamicBvh::GetDepth() const {
+        if(root_ == NULL_NODE) {
+            return 0;
+        }
+        struct Frame {
+            i32 node;
+            i32 depth;
+        };
+        Array<Frame> stack;
+        stack.PushBack({.node = root_, .depth = 1});
+        i32 max_depth = 1;
+
+        while(stack.Size()) {
+            auto [node, depth] = stack.PopBack();
+            if (nodes_[node].IsLeaf()) {
+                max_depth = Max(max_depth, depth);
+            } else {
+                stack.PushBack({ .node = nodes_[node].children[0], .depth = depth + 1 });
+                if (nodes_[node].children[1] != NULL_NODE) {
+                    stack.PushBack({ .node = nodes_[node].children[1], .depth = depth + 1 });
+                }
+            }
+        }
+
+        return max_depth;
     }
 
     Optional<Handle> DynamicBvh::FindClosest(Vector3 point, f32 max_distance) const {

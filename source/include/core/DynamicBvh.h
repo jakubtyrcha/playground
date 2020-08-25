@@ -31,7 +31,8 @@ struct DynamicBvh {
 
     void _Detach(i32);
     void _TrimNode(i32);
-    void _TightenBounds(i32);
+
+    i32 GetDepth() const;
 
     Optional<Handle> FindClosest(Vector3 point, f32 max_distance) const;
     bool FindAllIntersecting(Vector3 point, Array<Handle> & out) const;
