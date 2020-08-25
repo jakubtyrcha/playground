@@ -117,18 +117,7 @@ namespace Playground {
         }
 
         plgr_assert(new_leaf != NULL_NODE);
-
-        i32 current = new_leaf;
-        i32 parent = nodes_[current].parent;
-        while(parent != NULL_NODE) {
-            Aabb3D parent_extended_aabb = nodes_[parent].bounds.Union(nodes_[current].bounds);
-            if(nodes_[parent].bounds == parent_extended_aabb) {
-                break;
-            }
-            nodes_[parent].bounds = parent_extended_aabb;
-            current = parent;
-            parent = nodes_[parent].parent;
-        }
+        _Refit(nodes_[new_leaf].parent);
 
         return { new_leaf };
 	}
@@ -145,6 +134,25 @@ namespace Playground {
             nodes_[parent].children[1] = NULL_NODE;
         } else {
             nodes_[parent].children[1] = NULL_NODE;
+        }
+    }
+
+    void DynamicBvh::_Refit(i32 index) {
+
+        while (index != NULL_NODE) {
+            Aabb3D bounds = Aabb3D::Empty();
+            if (nodes_[index].children[1] != NULL_NODE) {
+                bounds = bounds.Union(nodes_[nodes_[index].children[1]].bounds);
+            }
+            if (nodes_[index].children[0] != NULL_NODE) {
+                bounds = bounds.Union(nodes_[nodes_[index].children[0]].bounds);
+            }
+            if (nodes_[index].bounds.Contains(bounds)) {
+                break;
+            }
+            nodes_[index].bounds = bounds;
+
+            index = nodes_[index].parent;
         }
     }
 
@@ -175,18 +183,7 @@ namespace Playground {
 
                 parent = nodes_[parent].parent;
 
-                while(parent != NULL_NODE) {
-                    Aabb3D bounds = nodes_[nodes_[parent].children[0]].bounds;
-                    if(nodes_[parent].children[1]) {
-                        bounds = bounds.Union(nodes_[nodes_[parent].children[1]].bounds);
-                    }
-                    if(nodes_[parent].bounds.Contains(bounds)) {
-                        break;
-                    }
-                    nodes_[parent].bounds = bounds;
-
-                    parent = nodes_[parent].parent;
-                }
+                _Refit(parent);
             }
         }
     }

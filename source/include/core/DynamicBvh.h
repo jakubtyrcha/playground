@@ -31,6 +31,7 @@ struct DynamicBvh {
 
     void _Detach(i32);
     void _TrimNode(i32);
+    void _Refit(i32);
 
     i32 GetDepth() const;
 
