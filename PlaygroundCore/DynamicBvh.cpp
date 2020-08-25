@@ -31,14 +31,6 @@ namespace Playground {
 
 	Handle DynamicBvh::Add(Aabb3D bounds) {
 		if(root_ == NULL_NODE) {
-            root_ = nodes_freelist_.Allocate();
-            nodes_.ExpandToIndex(root_);
-            nodes_[root_] = {
-                .bounds = bounds,
-                .parent = NULL_NODE,
-                .children = { NULL_NODE, NULL_NODE }
-            };
-
             i32 node = nodes_freelist_.Allocate();
             nodes_.ExpandToIndex(node);
 
@@ -47,7 +39,8 @@ namespace Playground {
                     .parent = root_,
                     .children = { NULL_NODE, NULL_NODE }
                 };
-            nodes_[root_].children[0] = node;
+            
+            root_ = node;
 
             return { node };
 		}
@@ -103,10 +96,14 @@ namespace Playground {
                     .children = { index, new_leaf }
                 };
 
-                if(nodes_[nodes_[index].parent].children[1] == index) {
-                    nodes_[nodes_[index].parent].children[1] = split_node;
+                if (nodes_[index].parent != NULL_NODE) {
+                    if (nodes_[nodes_[index].parent].children[1] == index) {
+                        nodes_[nodes_[index].parent].children[1] = split_node;
+                    } else {
+                        nodes_[nodes_[index].parent].children[0] = split_node;
+                    }
                 } else {
-                    nodes_[nodes_[index].parent].children[0] = split_node;
+                    root_ = split_node;
                 }
 
                 nodes_[index].parent = split_node;
@@ -166,21 +163,22 @@ namespace Playground {
             _TrimNode(nodes_[index].parent);
             nodes_freelist_.Free(index);
         } else {
-            // children node == 1
+            // children node == 1, transient node, remove (relink parent with its child)
             i32 parent = nodes_[index].parent;
-            if(parent == NULL_NODE) {
-                // keep, root node
-            } else {
-                // this is a transient node, we can remove it
-                if(nodes_[parent].children[0] == index) {
+            
+            if (parent != NULL_NODE) {
+                if (nodes_[parent].children[0] == index) {
                     nodes_[parent].children[0] = nodes_[index].children[0];
                 } else {
                     nodes_[parent].children[1] = nodes_[index].children[0];
                 }
-                nodes_[nodes_[index].children[0]].parent = parent;
+                
                 nodes_[parent].bounds = nodes_[nodes_[parent].children[0]].bounds;
-                nodes_freelist_.Free(index);
+            }
+            nodes_[nodes_[index].children[0]].parent = parent;
+            nodes_freelist_.Free(index);
 
+            if (parent != NULL_NODE) {
                 parent = nodes_[parent].parent;
 
                 _Refit(parent);

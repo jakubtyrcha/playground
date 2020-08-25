@@ -37,6 +37,9 @@ TEST_CASE("can remove points from dynamic bvh", "[dynamic_bvh]")
     REQUIRE(!bvh.FindClosest(Vector3{3.f}, 1.f));
     bvh.Remove(h2);
     REQUIRE(!bvh.FindClosest(Vector3{2.f}, 1.f));
+
+    bvh.Add(Aabb3D::From(Vector3{ 0.f }, Vector3{ 1.f }));
+    REQUIRE(bvh.FindClosest({}, 1.f));
 }
 
 TEST_CASE("test inclusive intervals in bvh", "[dynamic_bvh]")
@@ -127,9 +130,4 @@ TEST_CASE("sorted insertion into dynamic bvh", "[dynamic_bvh]")
 
     REQUIRE(depth >= As<i32>(ceilf(log2f(As<f32>(boxes)))));
     REQUIRE(depth <= boxes);
-}
-
-TEST_CASE("can move volumes in dynamic bvh", "[dynamic_bvh]")
-{
-    
 }
