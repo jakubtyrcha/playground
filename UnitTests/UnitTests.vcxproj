@@ -151,6 +151,7 @@
     <ClCompile Include="bitarray_tests.cpp" />
     <ClCompile Include="components_test.cpp" />
     <ClCompile Include="densearray_tests.cpp" />
+    <ClCompile Include="dynamicbvh_test.cpp" />
     <ClCompile Include="entities_test.cpp" />
     <ClCompile Include="hashmap_tests.cpp" />
     <ClCompile Include="main.cpp" />

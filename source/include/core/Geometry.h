@@ -29,12 +29,22 @@ struct Aabb3D {
 
     Aabb2D xz() const;
 
-    Aabb3D Extended(Vector3 v) const;
+    Aabb3D Union(Vector3 v) const;
+    Aabb3D Union(Aabb3D const & other) const;
+
+    f32 Distance(Vector3 v) const;
+    bool Contains(Vector3 v) const;
+    bool Contains(Aabb3D const &) const;
+
+    f32 Volume() const;
+    f32 Area() const;
 
     static Aabb3D Empty();
 	static Aabb3D From(Vector3 a, Vector3 b);
 
     Array<Vector3> GetVertices() const;
+
+    bool operator == (Aabb3D const &) const;
 };
 
 struct Obb3D {

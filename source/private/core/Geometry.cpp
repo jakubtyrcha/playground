@@ -55,9 +55,36 @@ Aabb2D Aabb3D::xz() const
 	return Aabb2D::From(Min().xz(), Max().xz());
 }
 
-Aabb3D Aabb3D::Extended(Vector3 v) const
+Aabb3D Aabb3D::Union(Vector3 v) const
 {
 	return From(Math::min(vec_min, v), Math::max(vec_max, v));
+}
+
+Aabb3D Aabb3D::Union(Aabb3D const & other) const {
+    return From(Math::min(vec_min, other.vec_min), Math::max(vec_max, other.vec_max));
+}
+
+f32 Aabb3D::Distance(Vector3 v) const {
+    Vector3 clamped = Math::max(Math::min(v, vec_max), vec_min);
+    return (clamped - v).length();
+}
+
+bool Aabb3D::Contains(Vector3 v) const {
+    return (vec_min <= v && v <= vec_max).all();
+}
+
+bool Aabb3D::Contains(Aabb3D const & other) const {
+    return Contains(other.vec_min) && Contains(other.vec_max);
+}
+
+f32 Aabb3D::Volume() const {
+    Vector3 span = Span();
+    return span.x() * span.y() * span.z();
+}
+
+f32 Aabb3D::Area() const {
+    Vector3 span = Span();
+    return 2.f * (span.x() * span.y() + span.y() * span.z() + span.z() * span.x());
 }
 
 Aabb3D Aabb3D::Empty()
@@ -90,6 +117,10 @@ Array<Vector3> Aabb3D::GetVertices() const
 	return output;
 }
 
+bool Aabb3D::operator==(Aabb3D const& rhs) const {
+    return vec_min == rhs.vec_min && vec_max == rhs.vec_max;
+}
+
 //
 
 Aabb3D Obb3D::GetAabb(Matrix4 const & transform) const
@@ -102,7 +133,7 @@ Aabb3D Obb3D::GetAabb(Matrix4 const & transform) const
                 f32 x = a * 2.f - 1.f;
                 f32 y = b * 2.f - 1.f;
                 f32 z = c * 2.f - 1.f;
-                bounds = bounds.Extended(transform.transformPoint(pos + axis100 * half_size.x() * x + axis010 * half_size.y() * y + axis001 * half_size.z() * z));
+                bounds = bounds.Union(transform.transformPoint(pos + axis100 * half_size.x() * x + axis010 * half_size.y() * y + axis001 * half_size.z() * z));
             }
         }
     }

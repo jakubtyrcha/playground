@@ -34,6 +34,9 @@
     <ClCompile Include="..\source\private\core\DenseArray.cpp">
       <Filter>Source</Filter>
     </ClCompile>
+    <ClCompile Include="DynamicBvh.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\source\include\core\algorithms.h">
