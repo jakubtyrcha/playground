@@ -16,8 +16,8 @@ struct DynamicBvh {
 
         bool IsLeaf() const;
         i32 ChildrenNum() const;
-        i32 FreeChildIndex() const;
         i32 GetChildIndex(i32) const;
+        i32 GetSibling(i32) const;
     };
 
     static constexpr i32 NULL_NODE = -1;
@@ -29,8 +29,6 @@ struct DynamicBvh {
     Handle Add(Aabb3D bounds);
     void Remove(Handle);
 
-    void _Detach(i32);
-    void _TrimNode(i32);
     void _Refit(i32);
     void _Rotate(i32, i32);
     void Rotate(i32);

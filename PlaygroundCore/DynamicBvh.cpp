@@ -14,19 +14,9 @@ namespace Playground {
             return 0;
         }
 
-        if(children[1] == NULL_NODE) {
-            return 1;
-        }
+        plgr_assert(children[1] != NULL_NODE);
 
         return 2;
-    }
-
-    i32 DynamicBvh::Node::FreeChildIndex() const {
-        if(children[0] == NULL_NODE) {
-            return 0;
-        }
-        plgr_assert(children[1] == NULL_NODE);
-        return 1;
     }
 
     i32 DynamicBvh::Node::GetChildIndex(i32 i) const {
@@ -38,6 +28,13 @@ namespace Playground {
         }
         plgr_assert(false);
         return -1;
+    }
+
+    i32 DynamicBvh::Node::GetSibling(i32 i) const {
+        if(children[0] == i) {
+            return children[1];
+        }
+        return children[0];
     }
 
 	Handle DynamicBvh::Add(Aabb3D bounds) {
@@ -129,21 +126,6 @@ namespace Playground {
 
         return { new_leaf };
 	}
-
-    void DynamicBvh::_Detach(i32 index) {
-        plgr_assert(nodes_[index].ChildrenNum() == 0);
-        i32 parent = nodes_[index].parent;
-        if(parent == NULL_NODE) {
-            root_ = NULL_NODE;
-            return;
-        }
-        if (nodes_[parent].children[0] == index) {
-            nodes_[parent].children[0] = nodes_[parent].children[1];
-            nodes_[parent].children[1] = NULL_NODE;
-        } else {
-            nodes_[parent].children[1] = NULL_NODE;
-        }
-    }
 
     f32 DynamicBvh::_GetMergeCost(i32 l, i32 r) const {
         Aabb3D merged = nodes_[l].bounds;
@@ -265,44 +247,24 @@ namespace Playground {
         }
     }
 
-    void DynamicBvh::_TrimNode(i32 index) {
-        if(index == NULL_NODE) {
-            return;
-        }
-        i32 children_num = nodes_[index].ChildrenNum();
-        if(children_num == 0) {
-            _Detach(index);
-            _TrimNode(nodes_[index].parent);
-            nodes_freelist_.Free(index);
-        } else {
-            // children node == 1, transient node, remove (relink parent with its child)
-            i32 parent = nodes_[index].parent;
-            
-            if (parent != NULL_NODE) {
-                if (nodes_[parent].children[0] == index) {
-                    nodes_[parent].children[0] = nodes_[index].children[0];
-                } else {
-                    nodes_[parent].children[1] = nodes_[index].children[0];
-                }
-                
-                nodes_[parent].bounds = nodes_[nodes_[parent].children[0]].bounds;
-            }
-            nodes_[nodes_[index].children[0]].parent = parent;
-            nodes_freelist_.Free(index);
-
-            if (parent != NULL_NODE) {
-                parent = nodes_[parent].parent;
-
-                _Refit(parent);
-            }
-        }
-    }
-
     void DynamicBvh::Remove(Handle h) {
         i32 remove_index = h.index;
         i32 parent = nodes_[remove_index].parent;
-        _Detach(remove_index);
-        _TrimNode(parent);
+        if(parent == NULL_NODE) {
+            root_ = NULL_NODE;
+        } else {
+            i32 parent_2 = nodes_[parent].parent;
+            i32 sibling = nodes_[parent].GetSibling(remove_index);
+            if(parent_2 == NULL_NODE) {
+                root_ = sibling;
+                nodes_[sibling].parent = NULL_NODE;
+            } else {
+                nodes_[sibling].parent = parent_2;
+                nodes_[parent_2].children[nodes_[parent_2].GetChildIndex(parent)] = sibling;
+                _Refit(parent_2);
+            }
+            nodes_freelist_.Free(parent);
+        }
         nodes_freelist_.Free(remove_index);
     }
 
