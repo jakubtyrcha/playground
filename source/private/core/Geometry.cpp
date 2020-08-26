@@ -50,6 +50,10 @@ Vector3 Aabb3D::Span() const
 	return vec_max - vec_min;
 }
 
+Vector3 Aabb3D::Center() const {
+    return vec_min + Span() * 0.5f;
+}
+
 Aabb2D Aabb3D::xz() const
 {
 	return Aabb2D::From(Min().xz(), Max().xz());
@@ -119,6 +123,12 @@ Array<Vector3> Aabb3D::GetVertices() const
 
 bool Aabb3D::operator==(Aabb3D const& rhs) const {
     return vec_min == rhs.vec_min && vec_max == rhs.vec_max;
+}
+
+Aabb3D Aabb3D::Scaled(f32 f) const {
+    Vector3 scaled_half_size = Span() * 0.5 * f;
+    Vector3 center = Center();
+    return { .vec_min = center - scaled_half_size, .vec_max = center + scaled_half_size };
 }
 
 //

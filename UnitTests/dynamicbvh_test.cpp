@@ -114,6 +114,24 @@ TEST_CASE("test exclusive intervals in bvh", "[dynamic_bvh]")
     REQUIRE(depth <= subdivs + 1);
 }
 
+TEST_CASE("can modify dbvh nodes", "[dynamic_bvh]")
+{
+    DynamicBvh bvh;
+    
+    Array<DynamicBvh::Handle> objects;
+
+    objects.PushBack(bvh.Add(Aabb3D::From({}, Vector3{1.f})));
+    objects.PushBack(bvh.Add(Aabb3D::From({2.f, 0.f, 0.f}, Vector3{3.f, 1.f, 1.f})));
+    objects.PushBack(bvh.Add(Aabb3D::From({4.f, 0.f, 0.f}, Vector3{5.f, 1.f, 1.f})));
+    objects.PushBack(bvh.Add(Aabb3D::From({6.f, 0.f, 0.f}, Vector3{7.f, 1.f, 1.f})));
+
+    REQUIRE(bvh.FindClosest({}, 1.f));
+
+    bvh.Modify(objects[0], Aabb3D::From({8.f, 0.f, 0.f}, {9.f, 1.f, 1.f}));
+    REQUIRE(!bvh.FindClosest({}, 1.f));
+    
+}
+
 // TODO: move to benchmark
 TEST_CASE("sorted insertion into dynamic bvh", "[dynamic_bvh]")
 {

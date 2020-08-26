@@ -59,20 +59,25 @@ namespace Playground {
     // branch & bound
     // https://box2d.org/files/ErinCatto_DynamicBVH_GDC2019.pdf
 
-	Handle DynamicBvh::Add(Aabb3D bounds) {
-		if(root_ == NULL_NODE) {
-            i32 node = nodes_freelist_.Allocate();
-            nodes_.ExpandToIndex(node);
+    i32 DynamicBvh::_Add(Aabb3D inflated_bounds, Optional<i32> index) {
+        if(root_ == NULL_NODE) {
+            i32 node;
+            if(index) {
+                node = *index;
+            } else {
+                node = nodes_freelist_.Allocate();
+                nodes_.ExpandToIndex(node);
+            }
 
             nodes_[node] = {
-                    .bounds = bounds,
+                    .bounds = inflated_bounds,
                     .parent = root_,
                     .children = { NULL_NODE, NULL_NODE }
                 };
             
             root_ = node;
 
-            return { node };
+            return node;
 		}
 
         i32 best_sibling = NULL_NODE;
@@ -85,12 +90,12 @@ namespace Playground {
         Array<Frame> stack;
         stack.PushBack({ .index = root_, .inherited_cost = 0.f });
 
-        f32 leaf_cost = bounds.Area();
+        f32 leaf_cost = inflated_bounds.Area();
 
         while(stack.Size()) {
             auto [index, inherited_cost] = stack.PopBack();
 
-            f32 direct_cost = nodes_[index].bounds.Union(bounds).Area();
+            f32 direct_cost = nodes_[index].bounds.Union(inflated_bounds).Area();
             f32 cost = direct_cost + inherited_cost;
 
             if(cost < best_cost) {
@@ -115,11 +120,16 @@ namespace Playground {
 
         i32 parent = _Split(best_sibling);
 
-        i32 new_leaf = nodes_freelist_.Allocate();
-        nodes_.ExpandToIndex(new_leaf);
+        i32 new_leaf;
+        if (index) {
+            new_leaf = *index;
+        } else {
+            new_leaf = nodes_freelist_.Allocate();
+            nodes_.ExpandToIndex(new_leaf);
+        }
 
         nodes_[new_leaf] = {
-            .bounds = bounds,
+            .bounds = inflated_bounds,
             .parent = parent,
             .children = { NULL_NODE, NULL_NODE }
         };
@@ -128,6 +138,15 @@ namespace Playground {
 
         plgr_assert(new_leaf != NULL_NODE);
         _Refit(nodes_[new_leaf].parent);
+
+        return new_leaf;
+    }
+
+	Handle DynamicBvh::Add(Aabb3D bounds, InflationPolicy inflation_policy) {
+		i32 new_leaf = _Add(_Inflate(bounds, inflation_policy), NullOpt);
+
+        leaves_.ExpandToIndex(new_leaf);
+        leaves_[new_leaf] = { .tight_bounds = bounds, .inflation_policy = inflation_policy };
 
         return { new_leaf };
 	}
@@ -272,8 +291,7 @@ namespace Playground {
         }
     }
 
-    void DynamicBvh::Remove(Handle h) {
-        i32 remove_index = h.index;
+    void DynamicBvh::_Remove(i32 remove_index) {
         i32 parent = nodes_[remove_index].parent;
         if(parent == NULL_NODE) {
             root_ = NULL_NODE;
@@ -290,7 +308,27 @@ namespace Playground {
             }
             nodes_freelist_.Free(parent);
         }
+    }
+
+    void DynamicBvh::Remove(Handle h) {
+        i32 remove_index = h.index;
+        _Remove(remove_index);
         nodes_freelist_.Free(remove_index);
+    }
+
+    Aabb3D DynamicBvh::_Inflate(Aabb3D bounds, InflationPolicy) {
+        return bounds.Scaled(2.f);
+    }
+
+    void DynamicBvh::Modify(Handle current, Aabb3D bounds) {
+        // remove & add while maintaining the handle alive
+        i32 index = current.index;
+        if(!nodes_[index].bounds.Contains(bounds)) {
+            //
+            _Remove(index);
+            _Add(_Inflate(bounds, leaves_[index].inflation_policy), index);
+        }
+        leaves_[index].tight_bounds = bounds;
     }
 
     i32 DynamicBvh::GetDepth() const {
@@ -338,7 +376,9 @@ namespace Playground {
 
             if(distance <= max_distance) {
                 if (nodes_[node].IsLeaf()) {
-                    if (distance < best_distance) {
+                    distance = leaves_[node].tight_bounds.Distance(point);
+
+                    if (distance < best_distance && distance <= max_distance) {
                         best_distance = distance;
                         best_option = Handle { node };
                     }
@@ -372,7 +412,9 @@ namespace Playground {
 
             if (nodes_[node].bounds.Contains(point)) {
                 if (nodes_[node].IsLeaf()) {
-                    out.PushBack(Handle { node });
+                    if (leaves_[node].tight_bounds.Contains(point)) {
+                        out.PushBack(Handle { node });
+                    }
                 } else {
                     stack.PushBack(nodes_[node].children[0]);
                     stack.PushBack(nodes_[node].children[1]);

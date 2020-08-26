@@ -26,11 +26,13 @@ struct Aabb3D {
     Vector3 Min() const;
     Vector3 Max() const;
     Vector3 Span() const;
+    Vector3 Center() const;
 
     Aabb2D xz() const;
 
     Aabb3D Union(Vector3 v) const;
     Aabb3D Union(Aabb3D const & other) const;
+    Aabb3D Scaled(f32) const;
 
     f32 Distance(Vector3 v) const;
     bool Contains(Vector3 v) const;

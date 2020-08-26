@@ -4,6 +4,9 @@
 
 namespace Playground {
 
+// TODO:
+// when the queries are mostly 2D, does including 3rd dimension in cost help? probably not...
+
 struct DynamicBvh {
     struct Handle {
         i32 index;
@@ -20,14 +23,31 @@ struct DynamicBvh {
         i32 GetSibling(i32) const;
     };
 
+    enum InflationPolicy : i32 {
+        Default
+    };
+
+    struct Leaf {
+        Aabb3D tight_bounds;
+        InflationPolicy inflation_policy;
+    };
+
     static constexpr i32 NULL_NODE = -1;
 
     FreeList nodes_freelist_;
     Array<Node> nodes_;
+    Array<Leaf> leaves_;
     i32 root_ = NULL_NODE;
 
-    Handle Add(Aabb3D bounds);
+    Handle Add(Aabb3D bounds, InflationPolicy inflation_policy = InflationPolicy::Default);
     void Remove(Handle);
+
+    i32 _Add(Aabb3D inflated_bounds, Optional<i32> index);
+    void _Remove(i32);
+
+    void Modify(Handle current, Aabb3D bounds);
+
+    Aabb3D _Inflate(Aabb3D, InflationPolicy);
     
     // make a temporary transitional node that should be patched with the new sibling
     i32 _Split(i32);
