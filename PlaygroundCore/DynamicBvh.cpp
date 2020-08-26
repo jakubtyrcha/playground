@@ -115,45 +115,44 @@ namespace Playground {
 	}
 
     f32 DynamicBvh::_GetMergeCost(i32 l, i32 r) const {
-        Aabb3D merged = nodes_[l].bounds;
-        plgr_assert(l != NULL_NODE);
-        if(r != NULL_NODE) {
-            merged = merged.Union(nodes_[r].bounds);
-        }
-        return merged.Area();
+        plgr_assert(l != NULL_NODE && r != NULL_NODE);
+        return nodes_[l].bounds.Union(nodes_[r].bounds).Area();
     }
 
     f32 DynamicBvh::_GetMergeCost(i32 i, i32 j, i32 k) const {
-        plgr_assert(i != NULL_NODE && j != NULL_NODE);
-        Aabb3D merged = nodes_[i].bounds.Union(nodes_[j].bounds);
-        if(k != NULL_NODE) {
-            merged = merged.Union(nodes_[k].bounds);
-        }
-        return merged.Area();
+        plgr_assert(i != NULL_NODE && j != NULL_NODE && k != NULL_NODE);
+        return nodes_[i].bounds.Union(nodes_[j].bounds).Union(nodes_[k].bounds).Area();
     }
 
-    void DynamicBvh::Rotate(i32 index) {
-        if(nodes_[index].ChildrenNum() < 2) {
-            return;
+    // https://hwrt.cs.utah.edu/papers/hwrt_rotations.pdf
+
+    void DynamicBvh::_Rotate21(i32 n, i32 l) {
+        plgr_assert(nodes_[n].ChildrenNum() == 2);
+        plgr_assert(nodes_[l].ChildrenNum() == 0);
+
+        i32 c0 = nodes_[n].children[0];
+        i32 c1 = nodes_[n].children[1];
+
+        f32 AB = nodes_[n].bounds.Area();
+        f32 AC = _GetMergeCost(c0, l);
+        f32 BC = _GetMergeCost(c1, l);
+
+        if(AC < AB) {
+            _Rotate(c1, l);
+        } else if(BC < AB) {
+            _Rotate(c0, l);
         }
+    }
 
-        i32 l = nodes_[index].children[0];
-        i32 r = nodes_[index].children[1];
-
-        if(nodes_[l].ChildrenNum() < nodes_[r].ChildrenNum()) {
-            // make sure l has 2 children, less fuss later
-            Swap(l, r);
-            Swap(nodes_[index].children[0], nodes_[index].children[1]);
-        }
-
+    void DynamicBvh::_Rotate22(i32 l, i32 r) {
         i32 l0 = nodes_[l].children[0];
         i32 l1 = nodes_[l].children[1];
 
         i32 r0 = nodes_[r].children[0];
         i32 r1 = nodes_[r].children[1];
 
-        f32 AB = _GetMergeCost(l0, l1);
-        f32 CD = _GetMergeCost(r0, r1);
+        f32 AB = nodes_[l].bounds.Area();
+        f32 CD = nodes_[r].bounds.Area();
         f32 AC = _GetMergeCost(l0, r0);
         f32 AD = _GetMergeCost(l0, r1);
         f32 BC = _GetMergeCost(l1, r0);
@@ -196,6 +195,32 @@ namespace Playground {
         }
     }
 
+    void DynamicBvh::Rotate(i32 index) {
+        if(nodes_[index].ChildrenNum() == 0) {
+            return;
+        }
+
+        i32 l = nodes_[index].children[0];
+        i32 r = nodes_[index].children[1];
+
+        i32 children_l = nodes_[l].ChildrenNum();
+        i32 children_r = nodes_[r].ChildrenNum();
+
+        if(children_l == 0 && children_r == 2) {
+            _Rotate21(r, l);
+        }
+        else if(children_l == 2 && children_r == 0) {
+            _Rotate21(l, r);
+        }
+        else if(children_l == 2 && children_r == 2) {
+            _Rotate22(l, r);
+        }
+
+        if(nodes_[index].parent != NULL_NODE) {
+            Rotate(nodes_[index].parent);
+        }
+    }
+
     void DynamicBvh::_Rotate(i32 index0, i32 index1) {
         i32 parent0 = nodes_[index0].parent;
         i32 parent1 = nodes_[index1].parent;
@@ -224,6 +249,7 @@ namespace Playground {
             }
             nodes_[index].bounds = bounds;
 
+            Rotate(index);
             index = nodes_[index].parent;
         }
     }

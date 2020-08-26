@@ -31,6 +31,8 @@ struct DynamicBvh {
 
     void _Refit(i32);
     void _Rotate(i32, i32);
+    void _Rotate22(i32, i32);
+    void _Rotate21(i32, i32);
     void Rotate(i32);
 
     f32 _GetMergeCost(i32 l, i32 r) const;

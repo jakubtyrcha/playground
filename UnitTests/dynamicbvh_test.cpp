@@ -114,6 +114,7 @@ TEST_CASE("test exclusive intervals in bvh", "[dynamic_bvh]")
     REQUIRE(depth <= subdivs + 1);
 }
 
+// TODO: move to benchmark
 TEST_CASE("sorted insertion into dynamic bvh", "[dynamic_bvh]")
 {
     DynamicBvh bvh;
