@@ -68,19 +68,6 @@ namespace Playground {
                 } else {
                     index = nodes_[index].children[1];
                 }
-            } else if(children_num == 1) {
-                new_leaf = nodes_freelist_.Allocate();
-                nodes_.ExpandToIndex(new_leaf);
-
-                nodes_[new_leaf] = {
-                    .bounds = bounds,
-                    .parent = NULL_NODE,
-                    .children = { NULL_NODE, NULL_NODE }
-                };
-
-                nodes_[index].children[1] = new_leaf;
-                nodes_[new_leaf].parent = index;
-                break;
             } else {
                 // we got to the leaf
                 // change parent -- leaf (index) into parent -- node -- leaf (index), new leaf
@@ -231,13 +218,7 @@ namespace Playground {
     void DynamicBvh::_Refit(i32 index) {
 
         while (index != NULL_NODE) {
-            Aabb3D bounds = Aabb3D::Empty();
-            if (nodes_[index].children[1] != NULL_NODE) {
-                bounds = bounds.Union(nodes_[nodes_[index].children[1]].bounds);
-            }
-            if (nodes_[index].children[0] != NULL_NODE) {
-                bounds = bounds.Union(nodes_[nodes_[index].children[0]].bounds);
-            }
+            Aabb3D bounds = nodes_[nodes_[index].children[0]].bounds.Union(nodes_[nodes_[index].children[1]].bounds);
             if (nodes_[index].bounds.Contains(bounds)) {
                 break;
             }
@@ -286,9 +267,7 @@ namespace Playground {
                 max_depth = Max(max_depth, depth);
             } else {
                 stack.PushBack({ .node = nodes_[node].children[0], .depth = depth + 1 });
-                if (nodes_[node].children[1] != NULL_NODE) {
-                    stack.PushBack({ .node = nodes_[node].children[1], .depth = depth + 1 });
-                }
+                stack.PushBack({ .node = nodes_[node].children[1], .depth = depth + 1 });
             }
         }
 
@@ -324,9 +303,7 @@ namespace Playground {
                     }
                 } else {
                     stack.PushBack(nodes_[node].children[0]);
-                    if (nodes_[node].children[1] != NULL_NODE) {
-                        stack.PushBack(nodes_[node].children[1]);
-                    }
+                    stack.PushBack(nodes_[node].children[1]);
                 }
             }
         }
@@ -354,9 +331,7 @@ namespace Playground {
                     out.PushBack(Handle { node });
                 } else {
                     stack.PushBack(nodes_[node].children[0]);
-                    if (nodes_[node].children[1] != NULL_NODE) {
-                        stack.PushBack(nodes_[node].children[1]);
-                    }
+                    stack.PushBack(nodes_[node].children[1]);
                 }
             }
         }
