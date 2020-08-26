@@ -37,6 +37,28 @@ namespace Playground {
         return children[0];
     }
 
+    i32 DynamicBvh::_Split(i32 index) {
+        i32 split = nodes_freelist_.Allocate();
+        nodes_.ExpandToIndex(split);
+
+        nodes_[split] = {
+                .bounds = Aabb3D::Empty(),
+                .parent = nodes_[index].parent,
+                .children = { index, NULL_NODE }
+            };
+
+        nodes_[index].parent = split;
+
+        if(root_ == index) {
+            root_ = split;
+        }
+
+        return split;
+    }
+
+    // branch & bound
+    // https://box2d.org/files/ErinCatto_DynamicBVH_GDC2019.pdf
+
 	Handle DynamicBvh::Add(Aabb3D bounds) {
 		if(root_ == NULL_NODE) {
             i32 node = nodes_freelist_.Allocate();
@@ -53,60 +75,56 @@ namespace Playground {
             return { node };
 		}
 
-        i32 index = root_;
-        i32 new_leaf = NULL_NODE;
+        i32 best_sibling = NULL_NODE;
+        f32 best_cost = Math::Constants<f32>::inf();
+        struct Frame {
+            i32 index;
+            f32 inherited_cost;
+        };
+        // TODO: prio queue
+        Array<Frame> stack;
+        stack.PushBack({ .index = root_, .inherited_cost = 0.f });
 
-        // finding the parent
-        while(true) {
-            i32 children_num = nodes_[index].ChildrenNum();
-            if(children_num == 2) {
-                f32 score_left = nodes_[nodes_[index].children[0]].bounds.Union(bounds).Area();
-                f32 score_right = nodes_[nodes_[index].children[1]].bounds.Union(bounds).Area();
+        f32 leaf_cost = bounds.Area();
 
-                if (score_left <= score_right) {
-                    index = nodes_[index].children[0];
-                } else {
-                    index = nodes_[index].children[1];
-                }
-            } else {
-                // we got to the leaf
-                // change parent -- leaf (index) into parent -- node -- leaf (index), new leaf
-                // can't move the leaf because of the handles
+        while(stack.Size()) {
+            auto [index, inherited_cost] = stack.PopBack();
 
-                i32 split_node = nodes_freelist_.Allocate();
-                nodes_.ExpandToIndex(split_node);
+            f32 direct_cost = nodes_[index].bounds.Union(bounds).Area();
+            f32 cost = direct_cost + inherited_cost;
 
-                new_leaf = nodes_freelist_.Allocate();
-                nodes_.ExpandToIndex(new_leaf);
+            if(cost < best_cost) {
+                best_cost = cost;
+                best_sibling = index;
+            }
 
-                nodes_[new_leaf] = {
-                    .bounds = bounds,
-                    .parent = NULL_NODE,
-                    .children = { NULL_NODE, NULL_NODE }
-                };
+            if(nodes_[index].IsLeaf()) {
+                continue;
+            }
 
-                nodes_[split_node] = {
-                    .bounds = nodes_[index].bounds,
-                    .parent = nodes_[index].parent,
-                    .children = { index, new_leaf }
-                };
+            f32 subrees_inherited_cost = inherited_cost + nodes_[index].bounds.Area();
+            f32 lower_bound = subrees_inherited_cost + leaf_cost;
 
-                if (nodes_[index].parent != NULL_NODE) {
-                    if (nodes_[nodes_[index].parent].children[1] == index) {
-                        nodes_[nodes_[index].parent].children[1] = split_node;
-                    } else {
-                        nodes_[nodes_[index].parent].children[0] = split_node;
-                    }
-                } else {
-                    root_ = split_node;
-                }
-
-                nodes_[index].parent = split_node;
-                nodes_[new_leaf].parent = split_node;
-
-                break;
+            if(lower_bound < best_cost) {
+                stack.PushBack({ .index = nodes_[index].children[0], .inherited_cost = subrees_inherited_cost });
+                stack.PushBack({ .index = nodes_[index].children[1], .inherited_cost = subrees_inherited_cost });
             }
         }
+
+        plgr_assert(best_sibling != NULL_NODE);
+
+        i32 parent = _Split(best_sibling);
+
+        i32 new_leaf = nodes_freelist_.Allocate();
+        nodes_.ExpandToIndex(new_leaf);
+
+        nodes_[new_leaf] = {
+            .bounds = bounds,
+            .parent = parent,
+            .children = { NULL_NODE, NULL_NODE }
+        };
+
+        nodes_[parent].children[1] = new_leaf;
 
         plgr_assert(new_leaf != NULL_NODE);
         _Refit(nodes_[new_leaf].parent);

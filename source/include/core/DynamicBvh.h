@@ -28,11 +28,22 @@ struct DynamicBvh {
 
     Handle Add(Aabb3D bounds);
     void Remove(Handle);
-
+    
+    // make a temporary transitional node that should be patched with the new sibling
+    i32 _Split(i32);
+    // recursively walks up and update bounding boxes
     void _Refit(i32);
     void _Rotate(i32, i32);
+    //    o 
+    //  o   o
+    // o o o o
     void _Rotate22(i32, i32);
+    //    o 
+    //  o   o
+    // o o o x
     void _Rotate21(i32, i32);
+    // this finds the optimal rotation of children (degree 1st and 2nd)
+    // checks all 6 rotations and applies the best if better than the current setup
     void Rotate(i32);
 
     f32 _GetMergeCost(i32 l, i32 r) const;
