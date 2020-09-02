@@ -35,18 +35,15 @@ Aabb2D Aabb2D::From(Vector2 a, Vector2 b)
 
 //
 
-Vector3 Aabb3D::Min() const
-{
+Vector3 Aabb3D::Min() const {
 	return vec_min;
 }
 
-Vector3 Aabb3D::Max() const
-{
+Vector3 Aabb3D::Max() const {
 	return vec_max;
 }
 
-Vector3 Aabb3D::Span() const
-{
+Vector3 Aabb3D::Span() const {
 	return vec_max - vec_min;
 }
 
@@ -54,13 +51,11 @@ Vector3 Aabb3D::Center() const {
     return vec_min + Span() * 0.5f;
 }
 
-Aabb2D Aabb3D::xz() const
-{
+Aabb2D Aabb3D::xz() const {
 	return Aabb2D::From(Min().xz(), Max().xz());
 }
 
-Aabb3D Aabb3D::Union(Vector3 v) const
-{
+Aabb3D Aabb3D::Union(Vector3 v) const {
 	return From(Math::min(vec_min, v), Math::max(vec_max, v));
 }
 

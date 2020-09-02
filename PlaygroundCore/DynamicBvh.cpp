@@ -356,6 +356,10 @@ namespace Playground {
         return max_depth;
     }
 
+    Aabb3D DynamicBvh::GetBoundingBox(Handle h) const {
+        return leaves_[h.index].tight_bounds;
+    }
+
     Optional<Handle> DynamicBvh::FindClosest(Vector3 point, f32 max_distance) const {
         if(root_ == NULL_NODE) {
             return NullOpt;

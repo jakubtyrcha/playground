@@ -141,12 +141,12 @@ struct Array {
         return Iterator { this, size_ };
     }
 
-    ConstIterator begin() const
+    ConstIterator cbegin() const
     {
         return ConstIterator { this, 0 };
     }
 
-    ConstIterator end() const
+    ConstIterator cend() const
     {
         return ConstIterator { this, size_ };
     }
@@ -358,6 +358,19 @@ struct Array {
 
         size_--;
         return obj;
+    }
+
+    bool RemoveAndSwapWithLast(T const & value) {
+        static_assert(std::is_trivially_copyable_v<T>);
+
+        for (i64 i = 0; i < size_; i++) {
+            if (data_[i] == value) {
+                RemoveAtAndSwapWithLast(i);
+                return true;
+            }
+        }
+
+        return false;
     }
 
     void RemoveAtAndSwapWithLast(i64 index)

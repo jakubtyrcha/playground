@@ -70,6 +70,7 @@ struct DynamicBvh {
     f32 _GetMergeCost(i32 i, i32 j, i32 k) const;
 
     i32 GetDepth() const;
+    Aabb3D GetBoundingBox(Handle) const;
 
     Optional<Handle> FindClosest(Vector3 point, f32 max_distance) const;
     bool FindAllIntersecting(Vector3 point, Array<Handle> & out) const;
