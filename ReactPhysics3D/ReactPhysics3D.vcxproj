@@ -1,0 +1,256 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\external\ReactPhysics3D\include\reactphysics3d\reactphysics3d.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\external\ReactPhysics3D\src\body\CollisionBody.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\body\RigidBody.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\collision\broadphase\DynamicAABBTree.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\collision\Collider.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\collision\CollisionCallback.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\collision\ContactManifold.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\collision\HalfEdgeStructure.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\collision\narrowphase\CapsuleVsCapsuleAlgorithm.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\collision\narrowphase\CapsuleVsCapsuleNarrowPhaseInfoBatch.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\collision\narrowphase\CapsuleVsConvexPolyhedronAlgorithm.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\collision\narrowphase\CollisionDispatch.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\collision\narrowphase\ConvexPolyhedronVsConvexPolyhedronAlgorithm.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\collision\narrowphase\GJK\GJKAlgorithm.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\collision\narrowphase\GJK\VoronoiSimplex.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\collision\narrowphase\NarrowPhaseInfoBatch.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\collision\narrowphase\NarrowPhaseInput.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\collision\narrowphase\SAT\SATAlgorithm.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\collision\narrowphase\SphereVsCapsuleAlgorithm.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\collision\narrowphase\SphereVsCapsuleNarrowPhaseInfoBatch.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\collision\narrowphase\SphereVsConvexPolyhedronAlgorithm.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\collision\narrowphase\SphereVsSphereAlgorithm.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\collision\narrowphase\SphereVsSphereNarrowPhaseInfoBatch.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\collision\OverlapCallback.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\collision\PolygonVertexArray.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\collision\PolyhedronMesh.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\collision\RaycastInfo.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\collision\shapes\AABB.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\collision\shapes\BoxShape.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\collision\shapes\CapsuleShape.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\collision\shapes\CollisionShape.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\collision\shapes\ConcaveMeshShape.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\collision\shapes\ConcaveShape.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\collision\shapes\ConvexMeshShape.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\collision\shapes\ConvexPolyhedronShape.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\collision\shapes\ConvexShape.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\collision\shapes\HeightFieldShape.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\collision\shapes\SphereShape.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\collision\shapes\TriangleShape.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\collision\TriangleMesh.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\collision\TriangleVertexArray.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\components\BallAndSocketJointComponents.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\components\ColliderComponents.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\components\CollisionBodyComponents.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\components\Components.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\components\FixedJointComponents.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\components\HingeJointComponents.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\components\JointComponents.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\components\RigidBodyComponents.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\components\SliderJointComponents.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\components\TransformComponents.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\constraint\BallAndSocketJoint.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\constraint\ContactPoint.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\constraint\FixedJoint.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\constraint\HingeJoint.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\constraint\Joint.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\constraint\SliderJoint.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\engine\Entity.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\engine\EntityManager.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\engine\Island.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\engine\Material.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\engine\OverlappingPairs.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\engine\PhysicsCommon.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\engine\PhysicsWorld.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\engine\Timer.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\mathematics\mathematics_functions.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\mathematics\Matrix2x2.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\mathematics\Matrix3x3.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\mathematics\Quaternion.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\mathematics\Transform.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\mathematics\Vector2.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\mathematics\Vector3.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\memory\HeapAllocator.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\memory\MemoryManager.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\memory\PoolAllocator.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\memory\SingleFrameAllocator.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\systems\BroadPhaseSystem.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\systems\CollisionDetectionSystem.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\systems\ConstraintSolverSystem.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\systems\ContactSolverSystem.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\systems\DynamicsSystem.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\systems\SolveBallAndSocketJointSystem.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\systems\SolveFixedJointSystem.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\systems\SolveHingeJointSystem.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\systems\SolveSliderJointSystem.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\utils\DebugRenderer.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\utils\DefaultLogger.cpp" />
+    <ClCompile Include="..\external\ReactPhysics3D\src\utils\Profiler.cpp" />
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>16.0</VCProjectVersion>
+    <ProjectGuid>{8EC00FDC-C4BE-4821-8892-55B466FFB982}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>ReactPhysics3D</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <LinkIncremental>false</LinkIncremental>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);../external/ReactPhysics3D/include</IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);../external/ReactPhysics3D/include</IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <LinkIncremental>true</LinkIncremental>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);../external/ReactPhysics3D/include</IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <LinkIncremental>false</LinkIncremental>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);../external/ReactPhysics3D/include</IncludePath>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <DisableSpecificWarnings>4267;4244;4099;4996;4305;4018;4715;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <DisableSpecificWarnings>4267;4244;4099;4996;4305;4018;4715;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <DisableSpecificWarnings>4267;4244;4099;4996;4305;4018;4715;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <DisableSpecificWarnings>4267;4244;4099;4996;4305;4018;4715;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>
