@@ -19,7 +19,13 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\external\ReactPhysics3D\include\reactphysics3d\configuration.h" />
+    <ClInclude Include="..\external\ReactPhysics3D\include\reactphysics3d\decimal.h" />
     <ClInclude Include="..\external\ReactPhysics3D\include\reactphysics3d\reactphysics3d.h" />
+    <ClInclude Include="..\external\ReactPhysics3D\include\reactphysics3d\utils\DebugRenderer.h" />
+    <ClInclude Include="..\external\ReactPhysics3D\include\reactphysics3d\utils\DefaultLogger.h" />
+    <ClInclude Include="..\external\ReactPhysics3D\include\reactphysics3d\utils\Logger.h" />
+    <ClInclude Include="..\external\ReactPhysics3D\include\reactphysics3d\utils\Profiler.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\external\ReactPhysics3D\src\body\CollisionBody.cpp" />
