@@ -16,6 +16,9 @@ namespace Hash {
     template <>
     u64 HashValue(u64);
 
+    template <>
+    u64 HashValue(f32);
+
     template <typename T>
     u64 HashValue(T* x)
     {

@@ -5,6 +5,23 @@
 
 namespace Playground {
 
+constexpr Magnum::Math::ZeroInitT ZeroInit = Magnum::Math::ZeroInit;
+constexpr Magnum::Math::IdentityInitT IdentityInit = Magnum::Math::IdentityInit;
+
+struct Transform {
+    Vector3 translation = Vector3{ ZeroInit };
+    Quaternion rotation = Quaternion{ IdentityInit };
+    Vector3 scale = Vector3{ 1.f };
+
+    static Transform Translation(Vector3 translation);
+    Vector3 TransformVector(Vector3) const;
+    Vector3 InverseTransformVector(Vector3) const;
+
+    bool HasUniformScale() const;
+
+    Transform Combine(Transform const& other) const;
+};
+
 struct Aabb2D {
     Vector2 vec_min;
     Vector2 vec_max;
@@ -47,6 +64,7 @@ struct Aabb3D {
     Array<Vector3> GetVertices() const;
 
     bool operator == (Aabb3D const &) const;
+    Aabb3D operator + (Vector3 const&) const;
 };
 
 struct Obb3D {

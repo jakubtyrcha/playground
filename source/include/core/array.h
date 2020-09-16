@@ -7,6 +7,8 @@
 namespace Playground {
 template <typename T>
 struct Array {
+    using Type = T;
+
     i64 size_ = 0;
     i64 max_size_ = 0;
     T* data_ = nullptr;
@@ -198,6 +200,12 @@ struct Array {
         if(Size() <= index) 
         {
             Resize(index + 1);
+        }
+    }
+
+    void Fill(T const& v) {
+        for (i64 i = 0; i < size_; i++) {
+            data_[i] = v;
         }
     }
 
