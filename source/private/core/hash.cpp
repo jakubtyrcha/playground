@@ -13,6 +13,9 @@ namespace Hash {
     u64 HashValue(u32 x) { return x; }
     template <>
     u64 HashValue(u64 x) { return x; }
+
+    template <>
+    u64 HashValue(f32 x) { return *reinterpret_cast<const i32*>(&x); }
 }
 
 u64 HashMemory(const void* ptr, i64 size)

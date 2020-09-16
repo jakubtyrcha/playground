@@ -3,6 +3,31 @@
 
 namespace Playground {
 
+Transform Transform::Translation(Vector3 translation) {
+    Transform default_t;
+    default_t.translation = translation;
+    return default_t;
+}
+
+Vector3 Transform::TransformVector(Vector3 v) const {
+    return rotation.transformVector(v * scale) + translation;
+}
+
+Vector3 Transform::InverseTransformVector(Vector3 v) const {
+    return rotation.inverted().transformVector(v - translation) / scale;
+}
+
+bool Transform::HasUniformScale() const {
+	return scale.x() == scale.y() && scale.y() == scale.z();
+}
+
+Transform Transform::Combine(Transform const& other) const {
+    plgr_assert(HasUniformScale() && other.HasUniformScale());
+    return { .translation = translation + rotation.transformVector(other.translation * scale), .rotation = rotation * other.rotation, .scale = scale * other.scale };
+}
+
+//
+
 Vector2 Aabb2D::Min() const
 {
     return vec_min;
@@ -120,6 +145,10 @@ bool Aabb3D::operator==(Aabb3D const& rhs) const {
     return vec_min == rhs.vec_min && vec_max == rhs.vec_max;
 }
 
+Aabb3D Aabb3D::operator+(Vector3 const& v) const {
+    return From(Min() + v, Max() + v);
+}
+
 Aabb3D Aabb3D::Scaled(f32 f) const {
     Vector3 scaled_half_size = Span() * 0.5 * f;
     Vector3 center = Center();
@@ -204,13 +233,12 @@ Matrix4 InversePerspectiveFovLh(f32 aspect_ratio, f32 fov_y, f32 near_plane, f32
 {
     f32 yscale = tanf(fov_y * 0.5f);
     f32 xscale = yscale * aspect_ratio;
-    f32 ab = -1.f / near_plane;
 
     return {
         Vector4 { xscale, 0, 0, 0 },
         Vector4 { 0, yscale, 0, 0 },
-        Vector4 { 0, 0, 0, ab },
-        Vector4 { 0, 0, 1, -ab }
+        Vector4 { 0, 0, 0, (near_plane - far_plane) / (far_plane * near_plane) },
+        Vector4 { 0, 0, 1, 1.f / near_plane }
     };
 }
 
