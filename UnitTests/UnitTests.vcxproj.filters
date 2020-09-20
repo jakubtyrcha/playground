@@ -24,9 +24,6 @@
     <ClCompile Include="hashmap_tests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="algorithms_test.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="bitarray_tests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -46,6 +43,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="dynamicbvh_test.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="serialization_tests.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="algorithms_tests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

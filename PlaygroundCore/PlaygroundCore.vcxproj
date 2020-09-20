@@ -158,6 +158,7 @@
   <ItemGroup>
     <ClInclude Include="..\source\include\core\algorithms.h" />
     <ClInclude Include="..\source\include\core\array.h" />
+    <ClInclude Include="..\source\include\core\Array.Serialize.h" />
     <ClInclude Include="..\source\include\core\assertions.h" />
     <ClInclude Include="..\source\include\core\bitarray.h" />
     <ClInclude Include="..\source\include\core\box.h" />
