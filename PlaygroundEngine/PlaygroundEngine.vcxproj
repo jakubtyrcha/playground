@@ -27,6 +27,7 @@
     <ClInclude Include="..\source\include\engine\Entities.h" />
     <ClInclude Include="..\source\include\engine\files.h" />
     <ClInclude Include="..\source\include\engine\gfx.h" />
+    <ClInclude Include="..\source\include\engine\Gfx.Forward.h" />
     <ClInclude Include="..\source\include\engine\ImGuiBackend.h" />
     <ClInclude Include="..\source\include\engine\imgui_impl_win32.h" />
     <ClInclude Include="..\source\include\engine\Os.h" />

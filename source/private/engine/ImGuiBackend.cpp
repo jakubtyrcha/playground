@@ -2,7 +2,6 @@
 #include "ImGuiBackend.h"
 #include "ShaderSource.h"
 #include "Gfx.h"
-#define ImTextureID Playground::Gfx::DescriptorHandle
 #include <imgui/imgui.h>
 
 namespace Playground {

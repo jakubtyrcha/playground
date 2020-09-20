@@ -10,6 +10,8 @@
 #include "FreeList.h"
 #include <magnum/CorradeOptional.h>
 
+#include "Gfx.Forward.h"
+
 struct gfx_module
     : debug_assert::default_handler, // use the default handler
       debug_assert::set_level<-1> // level -1, i.e. all assertions, 0 would mean none, 1 would be level 1, 2 level 2 or lower,...
@@ -60,10 +62,6 @@ enum DescriptorHandleType {
     Rtv,
     Dsv,
     Srv
-};
-
-struct DescriptorHandle {
-    u64 handle;
 };
 
 enum class Lifetime {

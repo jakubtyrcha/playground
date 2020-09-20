@@ -8,6 +8,10 @@
 namespace Playground {
 
 namespace Gfx {
+    bool DescriptorHandle::operator == (DescriptorHandle other) const { return handle == other.handle; }
+    bool DescriptorHandle::operator != (DescriptorHandle other) const { return handle != other.handle; }
+    DescriptorHandle::operator uintptr_t() const { return As<uintptr_t>(handle); }
+
     bool SubresourceDesc::operator==(SubresourceDesc other) const
     {
         return resource == other.resource && subresource == other.subresource;

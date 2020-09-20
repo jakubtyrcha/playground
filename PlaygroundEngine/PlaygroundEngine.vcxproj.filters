@@ -60,6 +60,9 @@
     <ClInclude Include="..\source\include\engine\Components.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\source\include\engine\Gfx.Forward.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Pch.cpp">

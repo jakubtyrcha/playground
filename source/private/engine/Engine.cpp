@@ -4,7 +4,6 @@
 #include "Os.h"
 #include "Gfx.h"
 
-#define ImTextureID Playground::Gfx::DescriptorHandle
 #include <imgui/imgui.h>
 #include "imgui_impl_win32.h"
 
