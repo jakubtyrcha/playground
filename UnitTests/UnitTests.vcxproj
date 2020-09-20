@@ -146,7 +146,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="algorithms_test.cpp" />
+    <ClCompile Include="algorithms_tests.cpp" />
     <ClCompile Include="array_tests.cpp" />
     <ClCompile Include="bitarray_tests.cpp" />
     <ClCompile Include="components_test.cpp" />
@@ -155,6 +155,7 @@
     <ClCompile Include="entities_test.cpp" />
     <ClCompile Include="hashmap_tests.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="serialization_tests.cpp" />
     <ClCompile Include="soa_tests.cpp" />
     <ClCompile Include="tuple_tests.cpp" />
   </ItemGroup>

@@ -211,6 +211,7 @@ struct Array {
 
     void ResizeUninitialised(i64 size)
     {
+        // todo: intialise of has non-trivial destructor
         _Resize(size, false);
     }
 
