@@ -23,4 +23,16 @@ i64 LowerBound(const T* array, i64 size, T value)
 }
 
 f32 Frac(f32 x);
+
+template<typename T, typename F>
+void RemoveIf(T& container, F&& condition_functor) {
+    for (i64 index = 0; index < container.Size(); ) {
+        if (condition_functor(container.At(index))) {
+            container.RemoveAt(index);
+        }
+        else {
+            index++;
+        }
+    }
+}
 }

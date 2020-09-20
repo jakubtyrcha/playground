@@ -20,7 +20,7 @@ void load(Archive& ar, Array<T>& o)
 {
 	i64 size;
 	ar(size);
-	o.ResizeUninitialised(size);
+	o.Resize(size);
 	for (i32 i = 0; i < size; i++) {
 		ar(o.At(i));
 	}
